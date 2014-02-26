@@ -59,6 +59,36 @@ if(JPEGTURBO_FOUND)
    add_definitions(-DHAVE_TURBOJPEG)
 endif()
 
+# BEGIN: ispc
+set(TARGET_SSE2  ON CACHE BOOL "Generate code path for SSE2")
+set(TARGET_SSE41 ON CACHE BOOL "Generate code path for SSE41")
+set(TARGET_AVX   ON CACHE BOOL "Generate code path for AVX")
+set(TARGET_AVX2  ON CACHE BOOL "Generate code path for AVX2")
+set(TARGET_XEON_PHI OFF CACHE BOOL "Generate code path for Xeon Phi")
+
+if (TARGET_SSE2 STREQUAL "ON")
+   set(ISPC_TARGETS "sse2")
+endif()
+
+if (TARGET_SSE41 STREQUAL "ON")
+   set(ISPC_TARGETS ${ISPC_TARGETS} "sse4")
+endif()
+
+if (TARGET_AVX STREQUAL "ON")
+   set(ISPC_TARGETS ${ISPC_TARGETS} "avx")
+endif()
+
+if (TARGET_AVX2 STREQUAL "ON")
+   set(ISPC_TARGETS ${ISPC_TARGETS} "avx2")
+endif()
+
+set(ISPC_TARGETS "${ISPC_TARGETS}")
+string(REGEX REPLACE ";" "," ISPC_TARGETS "${ISPC_TARGETS}")
+
+include (ispc)
+include_directories_ispc(${PROJECT_SOURCE_DIR})
+# END: ispc
+
 add_module(Ray
    renderobject.cpp
    ray.cpp
