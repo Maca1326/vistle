@@ -216,10 +216,8 @@ Module::Module(const std::string &n, const std::string &shmname,
 
 void Module::initDone() {
 
-#if 0
    m_streambuf = new msgstreambuf<char>(this);
    m_origStreambuf = std::cerr.rdbuf(m_streambuf);
-#endif
 
    message::Started start(name());
    start.setDestId(Id::Broadcast);
