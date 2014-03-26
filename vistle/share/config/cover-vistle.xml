@@ -74,7 +74,7 @@
    </Input>
 
    <Plugin>
-      <CompositorIceT value="on" />
+      <CompositorIceT value="off" />
       <RRServer value="off" />
     <COVERScript value="off" />
     <Volume value="off" />
@@ -123,16 +123,19 @@
 
    <ChannelConfig>
     <Channel width="1" height="1" left="0" bottom="0" comment="MAIN" channel="0" stereoMode="NONE"  windowIndex="0"  name="0"  />
+    <Channel width="1" height="1" left="0" bottom="0" comment="MAIN2" channel="1" stereoMode="NONE"  windowIndex="1"  name="1"  />
    </ChannelConfig>
             
    <WindowConfig>
-    <Window arch="windows" width="1024" comment="FRONT" window="0" pipeIndex="0" height="768" left="10" bottom="10" name="0" decoration="true" />
     <Window width="1024" comment="FRONT" window="0" pipeIndex="0" height="768" left="0" bottom="0" name="0" decoration="true" />
+    <Window width="1024" comment="FRONT2" window="1" pipeIndex="0" height="768" left="1024" bottom="0" name="1" decoration="true" />
    </WindowConfig>
 
+   <NumScreens value="2" />
    <ScreenConfig>
    <!--Screen value="FRONT 400 300 0 0 0 0.0 0.0 0.0" name="0" screen="0" /-->
    <Screen width="2000" comment="FRONT" h="0.0" originX="0" originY="0" originZ="0" height="1500" p="0.0" r="0.0" name="0" screen="0" />
+   <Screen width="2000" comment="FRONT2" h="0.0" originX="2000" originY="0" originZ="0" height="1500" p="0.0" r="0.0" name="1" screen="1" />
    </ScreenConfig>
 
    <!--Background r="1.0" g="1.0" b="1.0"/-->
