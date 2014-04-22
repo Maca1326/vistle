@@ -89,7 +89,7 @@
 
     <ClipPlane value="on" />
 
-    <VncClient value="off" rfbHost="vistidy.hlrs.de" rfbPort="31590" />
+    <VncClient value="off" rfbHost="visent.hlrs.de" rfbPort="31590" />
     <!--
     <VncClient value="on" rfbHost="viscose.hlrs.de" >
     </VncClient>
@@ -131,7 +131,7 @@
     <Window width="1024" comment="FRONT2" window="1" pipeIndex="0" height="768" left="1024" bottom="0" name="1" decoration="true" />
    </WindowConfig>
 
-   <NumScreens value="2" />
+   <NumScreens value="1" />
    <ScreenConfig>
    <!--Screen value="FRONT 400 300 0 0 0 0.0 0.0 0.0" name="0" screen="0" /-->
    <Screen width="2000" comment="FRONT" h="0.0" originX="0" originY="0" originZ="0" height="1500" p="0.0" r="0.0" name="0" screen="0" />
