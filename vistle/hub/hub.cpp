@@ -43,17 +43,18 @@ Hub::Hub()
 , m_acceptor(m_ioService)
 , m_stateTracker(&m_portTracker)
 , m_uiManager(*this, m_stateTracker)
-, m_idCount(0)
+, m_uiCount(0)
 , m_managerConnected(false)
 , m_quitting(false)
+, m_isMaster(true)
+, m_slaveCount(0)
+, m_hubId(0)
 {
 
    assert(!hub_instance);
    hub_instance = this;
 
    message::DefaultSender::init(0, 0);
-
-   startServer();
 }
 
 Hub::~Hub() {
@@ -134,9 +135,9 @@ void Hub::handleAccept(shared_ptr<asio::ip::tcp::socket> sock, const boost::syst
    startAccept();
 }
 
-void Hub::addSocket(shared_ptr<asio::ip::tcp::socket> sock) {
+void Hub::addSocket(shared_ptr<asio::ip::tcp::socket> sock, message::Identify::Identity ident) {
 
-   m_sockets.insert(std::make_pair(sock, message::Identify::UNKNOWN));
+   m_sockets.insert(std::make_pair(sock, ident));
 }
 
 bool Hub::removeSocket(shared_ptr<asio::ip::tcp::socket> sock) {
@@ -211,6 +212,23 @@ bool Hub::dispatch() {
 
 bool Hub::sendMaster(const message::Message &msg) {
 
+   if (m_isMaster) {
+      return sendManager(msg);
+   }
+
+   int numSent = 0;
+   for (auto &sock: m_sockets) {
+      if (sock.second == message::Identify::HUB) {
+         ++numSent;
+         sendMessage(sock.first, msg);
+      }
+   }
+   assert(numSent == 1);
+   return numSent == 1;
+}
+
+bool Hub::sendManager(const message::Message &msg) {
+
    if (!m_managerConnected)
       return false;
 
@@ -227,8 +245,11 @@ bool Hub::sendMaster(const message::Message &msg) {
 
 bool Hub::sendSlaves(const message::Message &msg) {
 
+   if (!m_isMaster)
+      return false;
+
    for (auto &sock: m_sockets) {
-      if (sock.second == message::Identify::HUB)
+      if (sock.second == message::Identify::SLAVEHUB)
          sendMessage(sock.first, msg);
    }
    return true;
@@ -269,26 +290,76 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
    switch(msg.type()) {
 
       case Message::IDENTIFY: {
-
          auto &id = static_cast<const Identify &>(msg);
-         it->second = id.identity();
+         CERR << "ident msg: " << id.identity() << std::endl;
+         if (id.identity() != Identify::UNKNOWN) {
+            it->second = id.identity();
+         }
          switch(id.identity()) {
+            case Identify::UNKNOWN: {
+               if (m_isMaster) {
+                  sendMessage(it->first, Identify(Identify::HUB));
+               } else {
+                  sendMessage(it->first, Identify(Identify::SLAVEHUB));
+               }
+               break;
+            }
             case Identify::MANAGER: {
                assert(!m_managerConnected);
                m_managerConnected = true;
                for (auto &am: m_availableModules) {
-                  message::ModuleAvailable m(am.second.name, am.second.path);
-                  sendMaster(m);
+                  message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
+                  sendManager(m);
                }
-               processScript();
+               if (m_isMaster) {
+                  processScript();
+               } else {
+                  if (m_hubId > 0) {
+                     message::SetId set(m_hubId);
+                     sendMessage(it->first, set);
+                  }
+               }
                break;
             }
             case Identify::UI: {
-               ++m_idCount;
-               boost::shared_ptr<UiClient> c(new UiClient(m_uiManager, m_idCount, sock));
+               ++m_uiCount;
+               boost::shared_ptr<UiClient> c(new UiClient(m_uiManager, m_uiCount, sock));
                m_uiManager.addClient(c);
                break;
             }
+            case Identify::HUB: {
+               assert(!m_isMaster);
+               CERR << "master hub connected" << std::endl;
+               break;
+            }
+            case Identify::SLAVEHUB: {
+               assert(m_isMaster);
+               CERR << "slave hub connected" << std::endl;
+               ++m_slaveCount;
+               message::SetId set(m_slaveCount);
+               sendMessage(it->first, set);
+               for (auto &am: m_availableModules) {
+                  message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
+                  sendMessage(it->first, m);
+               }
+               break;
+            }
+         }
+         break;
+      }
+
+      case Message::SETID: {
+
+         assert(!m_isMaster);
+         auto &set = static_cast<const SetId &>(msg);
+         m_hubId = set.getId();
+         CERR << "got hub id " << m_hubId << std::endl;
+         if (m_managerConnected) {
+            sendManager(set);
+         }
+         for (auto &am: m_availableModules) {
+            message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
+            sendMaster(m);
          }
          break;
       }
@@ -296,7 +367,7 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
       case Message::EXEC: {
 
          auto &exec = static_cast<const Exec &>(msg);
-         if (senderType == message::Identify::MANAGER) {
+         if (exec.destId() == m_hubId) {
             std::string executable = exec.pathname();
             auto args = exec.args();
             std::vector<std::string> argv;
@@ -312,6 +383,8 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
             } else {
                std::cerr << "program " << executable << " failed to start" << std::endl;
             }
+         } else {
+            sendSlaves(exec);
          }
          break;
       }
@@ -337,9 +410,11 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
             sendUi(msg);
             sendSlaves(msg);
          } else if (senderType == message::Identify::HUB) {
+            sendManager(msg);
+         } else if (senderType == message::Identify::SLAVEHUB) {
             sendMaster(msg);
          } else {
-            CERR << "message from unknow sender: " << msg << std::endl;
+            CERR << "message from unknow sender " << senderType << ": " << msg << std::endl;
          }
          break;
       }
@@ -366,6 +441,7 @@ bool Hub::init(int argc, char *argv[]) {
    po::options_description desc("usage");
    desc.add_options()
       ("help,h", "show this message")
+      ("hub,c", po::value<std::string>(), "connect to hub")
       ("batch,b", "do not start user interface")
       ("gui,g", "start graphical user interface")
       ("tui,t", "start command line interface")
@@ -393,13 +469,35 @@ bool Hub::init(int argc, char *argv[]) {
       return false;
    }
 
+   startServer();
+
    std::string bindir = getbindir(argc, argv);
 #ifdef SCAN_MODULES_ON_HUB
    scanModules(bindir + "/../libexec/module", m_availableModules);
 #endif
 
-   // start UI
    std::string uiCmd = "vistle_gui";
+
+   std::string masterhost;
+   unsigned short masterport = 31093;
+   if (vm.count("hub") > 0) {
+      uiCmd.clear();
+      m_isMaster = false;
+      masterhost = vm["hub"].as<std::string>();
+      auto colon = masterhost.find(':');
+      if (colon != std::string::npos) {
+         std::stringstream s(masterhost.substr(colon+1));
+         s >> masterport;
+         masterhost = masterhost.substr(0, colon);
+      }
+
+      if (!connectToMaster(masterhost, masterport)) {
+         CERR << "failed to connect to master at " << masterhost << ":" << masterport << std::endl;
+         return false;
+      }
+   }
+
+   // start UI
    if (const char *pbs_env = getenv("PBS_ENVIRONMENT")) {
       if (std::string("PBS_INTERACTIVE") != pbs_env) {
          CERR << "apparently running in PBS batch mode - defaulting to no UI" << std::endl;
@@ -442,6 +540,34 @@ bool Hub::init(int argc, char *argv[]) {
    }
    m_processMap[pid] = 0;
 
+   return true;
+}
+
+bool Hub::connectToMaster(const std::string &host, unsigned short port) {
+
+   assert(!m_isMaster);
+
+   std::stringstream portstr;
+   portstr << port;
+   asio::ip::tcp::resolver resolver(m_ioService);
+   asio::ip::tcp::resolver::query query(host, portstr.str());
+   asio::ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+   boost::system::error_code ec;
+   m_masterSocket.reset(new boost::asio::ip::tcp::socket(m_ioService));
+   asio::connect(*m_masterSocket, endpoint_iterator, ec);
+   if (ec) {
+      CERR << "could not establish connection to " << host << ":" << port << std::endl;
+      return false;
+   }
+
+#if 0
+   message::Identify ident(message::Identify::SLAVEHUB);
+   sendMessage(m_masterSocket, ident);
+#endif
+   addSocket(m_masterSocket, message::Identify::HUB);
+   addClient(m_masterSocket);
+
+   CERR << "connected to master at " << host << ":" << port << std::endl;
    return true;
 }
 

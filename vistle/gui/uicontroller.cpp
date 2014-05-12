@@ -90,8 +90,8 @@ UiController::UiController(int argc, char *argv[], QObject *parent)
    connect(&m_observer, SIGNAL(parameterValueChanged_s(int, QString)),
            SLOT(parameterValueChanged(int, QString)));
 
-   connect(&m_observer, SIGNAL(moduleAvailable_s(QString)),
-           &m_mainWindow, SLOT(moduleAvailable(QString)));
+   connect(&m_observer, SIGNAL(moduleAvailable_s(int, QString)),
+           &m_mainWindow, SLOT(moduleAvailable(int, QString)));
 
    m_mainWindow.show();
 }

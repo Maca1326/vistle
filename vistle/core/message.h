@@ -116,6 +116,11 @@ class V_COREEXPORT Message {
    size_t size() const;
    //! broadacast to all ranks?
    bool broadcast() const;
+   
+   //! id of message destination
+   int destId() const;
+   //! set id of message destination
+   void setDestId(int id);
 
   protected:
    //! broadcast to all ranks?
@@ -131,6 +136,8 @@ class V_COREEXPORT Message {
    int m_senderId;
    //! sender rank
    int m_rank;
+   //! destination ID
+   int m_destId;
 };
 
 //! 
@@ -142,6 +149,7 @@ class V_COREEXPORT Identify: public Message {
          (UI)
          (MANAGER)
          (HUB)
+         (SLAVEHUB)
          );
 
    Identify(Identity id=UNKNOWN);
@@ -184,9 +192,10 @@ BOOST_STATIC_ASSERT(sizeof(Pong) <= Message::MESSAGE_SIZE);
 class V_COREEXPORT Spawn: public Message {
 
  public:
-   Spawn(const int spawnID,
+   Spawn(int hubId, const int spawnID,
          const std::string &name, int size=-1, int baserank=-1, int rankskip=-1);
 
+   int hubId() const;
    int spawnId() const;
    void setSpawnId(int id);
    const char *getName() const;
@@ -195,6 +204,8 @@ class V_COREEXPORT Spawn: public Message {
    int getRankSkip() const;
 
  private:
+   //! id of hub where to spawn module
+   int m_hub;
    //! ID of module to spawn
    int spawnID;
    //! number of ranks in communicator
@@ -687,7 +698,7 @@ BOOST_STATIC_ASSERT(sizeof(Trace) <= Message::MESSAGE_SIZE);
 class V_COREEXPORT ModuleAvailable: public Message {
 
  public:
-   ModuleAvailable(const std::string &name, const std::string &path = std::string());
+   ModuleAvailable(int hub, const std::string &name, const std::string &path = std::string());
    const char *name() const;
    const char *path() const;
    int hub() const;

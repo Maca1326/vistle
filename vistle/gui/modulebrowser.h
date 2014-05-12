@@ -37,12 +37,13 @@ class ModuleBrowser: public QWidget {
 public:
    static const char *mimeFormat();
    static int nameRole();
+   static int hubRole();
 
    ModuleBrowser(QWidget *parent=nullptr);
    ~ModuleBrowser();
 
 public slots:
-   void addModule(QString module);
+   void addModule(int hub, QString module);
    void setFilter(QString filter);
 
 private:

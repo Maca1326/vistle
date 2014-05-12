@@ -34,6 +34,7 @@ class V_CONTROLEXPORT Communicator {
    bool sendMessage(int receiver, const message::Message &message) const;
    void setQuitFlag();
 
+   int hubId() const;
    int getRank() const;
    int getSize() const;
 
@@ -47,6 +48,7 @@ class V_CONTROLEXPORT Communicator {
 
    ModuleManager *m_moduleManager;
 
+   int m_hubId;
    const int m_rank;
    const int m_size;
 

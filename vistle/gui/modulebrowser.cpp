@@ -20,8 +20,8 @@ QMimeData *ModuleListWidget::mimeData(const QList<QListWidgetItem *> dragList) c
 
    QByteArray encodedData;
    QDataStream stream(&encodedData, QIODevice::WriteOnly);
-   for(QListWidgetItem *item: dragList)
-   {
+   for(QListWidgetItem *item: dragList) {
+      stream << item->data(ModuleBrowser::hubRole()).toInt();
       stream << item->text();
    }
    md->setData(ModuleBrowser::mimeFormat(), encodedData);
@@ -57,6 +57,11 @@ int ModuleBrowser::nameRole() {
    return Qt::DisplayRole;
 }
 
+int ModuleBrowser::hubRole() {
+
+   return Qt::UserRole;
+}
+
 ModuleBrowser::ModuleBrowser(QWidget *parent)
    : QWidget(parent)
    , ui(new Ui::ModuleBrowser)
@@ -72,9 +77,11 @@ ModuleBrowser::~ModuleBrowser()
    delete ui;
 }
 
-void ModuleBrowser::addModule(QString module) {
+void ModuleBrowser::addModule(int hub, QString module) {
 
-    QListWidgetItem *item = new QListWidgetItem(module);
+    auto item = new QListWidgetItem(module);
+    item->setData(hubRole(), hub);
+    item->setData(Qt::ToolTipRole, hub);
     ui->moduleListWidget->addItem(item);
     ui->moduleListWidget->filterItem(item);
 }

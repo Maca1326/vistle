@@ -14,8 +14,11 @@ const int ModuleNameLength = 50;
 
 struct AvailableModule {
 
+   int hub;
    std::string name;
    std::string path;
+
+   AvailableModule(): hub(-1) {}
 };
 
 typedef std::map<std::string, AvailableModule> AvailableMap;

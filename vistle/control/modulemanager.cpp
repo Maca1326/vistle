@@ -255,6 +255,7 @@ bool ModuleManager::sendMessage(const int moduleId, const message::Message &mess
 bool ModuleManager::handle(const message::ModuleAvailable &avail) {
 
    AvailableModule m;
+   m.hub = Communicator::the().hubId();
    m.name = avail.name();
    m.path = avail.path();
    m_availableMap[avail.name()] = m;
@@ -356,14 +357,16 @@ bool ModuleManager::handle(const message::Spawn &spawn) {
    std::vector<std::string> argv;
    argv.push_back(Shm::the().name());
    argv.push_back(id);
-   sendHub(message::Exec(executable, argv, moduleID));
+   auto exec = message::Exec(executable, argv, moduleID);
+   exec.setDestId(spawn.hubId());
+   sendHub(exec);
 
    // inform newly started module about current parameter values of other modules
    for (auto &mit: runningMap) {
       const int id = mit.first;
       const std::string moduleName = getModuleName(mit.first);
 
-      message::Spawn spawn(id, moduleName);
+      message::Spawn spawn(mit.second.hub, id, moduleName);
       spawn.setRank(m_rank);
       sendMessage(moduleID, spawn);
 

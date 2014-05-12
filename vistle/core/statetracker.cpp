@@ -102,7 +102,7 @@ std::vector<char> StateTracker::getState() const {
       const int id = it.first;
       const Module &m = it.second;
 
-      Spawn spawn(id, m.name);
+      Spawn spawn(m.hub, id, m.name);
       appendMessage(state, spawn);
 
       if (m.initialized) {
@@ -368,10 +368,12 @@ bool StateTracker::handlePriv(const message::Trace &trace) {
 
 bool StateTracker::handlePriv(const message::Spawn &spawn) {
 
+   int hub = spawn.hubId();
    int moduleId = spawn.spawnId();
    assert(moduleId > 0);
 
    Module &mod = runningMap[moduleId];
+   mod.hub = hub;
    mod.name = spawn.getName();
 
    for (StateObserver *o: m_observers) {
@@ -658,7 +660,7 @@ bool StateTracker::handlePriv(const message::ModuleAvailable &avail) {
     m_availableModules.push_back(mod);
 
    for (StateObserver *o: m_observers) {
-      o->moduleAvailable(mod.name);
+      o->moduleAvailable(mod.hub, mod.name);
    }
 
     return true;

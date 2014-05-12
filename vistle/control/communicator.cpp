@@ -40,6 +40,7 @@ Communicator *Communicator::s_singleton = NULL;
 
 Communicator::Communicator(int argc, char *argv[], int r, const std::vector<std::string> &hosts)
 : m_moduleManager(new ModuleManager(argc, argv, r, hosts))
+, m_hubId(0)
 , m_rank(r)
 , m_size(hosts.size())
 , m_quitFlag(false)
@@ -71,6 +72,11 @@ Communicator &Communicator::the() {
    if (!s_singleton)
       exit(1);
    return *s_singleton;
+}
+
+int Communicator::hubId() const {
+
+   return m_hubId;
 }
 
 int Communicator::getRank() const {
@@ -297,8 +303,14 @@ bool Communicator::handleMessage(const message::Message &message) {
          sendHub(Identify(Identify::MANAGER));
          auto avail = moduleManager().availableModules();
          for(const auto &mod: avail) {
-            sendHub(message::ModuleAvailable(mod.name, mod.path));
+            sendHub(message::ModuleAvailable(m_hubId, mod.name, mod.path));
          }
+         break;
+      }
+
+      case Message::SETID: {
+         auto set = static_cast<const message::SetId &>(message);
+         m_hubId = set.getId();
          break;
       }
 

@@ -116,7 +116,7 @@ class V_CONTROLEXPORT ModuleManager {
       message::MessageQueue *recvQueue;
 
       Module(): sendQueue(nullptr), recvQueue(nullptr),
-         local(false), baseRank(0),
+         hub(-1), local(false), baseRank(0),
          ranksStarted(0), ranksFinished(0), reducing(false),
          objectPolicy(message::ObjectReceivePolicy::Single), schedulingPolicy(message::SchedulingPolicy::Single), reducePolicy(message::ReducePolicy::Never)
          {}
@@ -124,6 +124,7 @@ class V_CONTROLEXPORT ModuleManager {
          delete sendQueue;
          delete recvQueue;
       }
+      int hub;
       bool local;
       int baseRank;
       int ranksStarted, ranksFinished;

@@ -62,6 +62,7 @@ Message::Message(const Type t, const unsigned int s)
 , m_type(t)
 , m_senderId(DefaultSender::id())
 , m_rank(DefaultSender::rank())
+, m_destId(-1)
 {
 
    assert(m_size <= MESSAGE_SIZE);
@@ -87,6 +88,16 @@ int Message::senderId() const {
 void Message::setSenderId(int id) {
 
    m_senderId = id;
+}
+
+int Message::destId() const {
+
+   return m_destId;
+}
+
+void Message::setDestId(int id) {
+
+   m_destId = id;
 }
 
 int Message::rank() const {
@@ -149,9 +160,10 @@ int Pong::getDestination() const {
    return module;
 }
 
-Spawn::Spawn(const int s,
+Spawn::Spawn(int hub, const int s,
              const std::string & n, int mpiSize, int baseRank, int rankSkip)
    : Message(Message::SPAWN, sizeof(Spawn))
+   , m_hub(hub)
    , spawnID(s)
    , mpiSize(mpiSize)
    , baseRank(baseRank)
@@ -159,6 +171,11 @@ Spawn::Spawn(const int s,
 {
 
    COPY_STRING(name, n);
+}
+
+int Spawn::hubId() const {
+
+   return m_hub;
 }
 
 int Spawn::spawnId() const {
@@ -979,9 +996,9 @@ bool Trace::on() const {
    return m_on;
 }
 
-ModuleAvailable::ModuleAvailable(const std::string &name, const std::string &path)
+ModuleAvailable::ModuleAvailable(int hub, const std::string &name, const std::string &path)
 : Message(Message::MODULEAVAILABLE, sizeof(ModuleAvailable))
-, m_hub(0)
+, m_hub(hub)
 {
 
    COPY_STRING(m_name, name);
@@ -1048,6 +1065,11 @@ std::ostream &operator<<(std::ostream &s, const Message &m) {
       case Message::CREATEPORT: {
          auto mm = static_cast<const CreatePort &>(m);
          s << ", name: " << mm.getPort()->getName();
+         break;
+      }
+      case Message::MODULEAVAILABLE: {
+         auto mm = static_cast<const ModuleAvailable &>(m);
+         s << ", name: " << mm.name() << ", hub: " << mm.hub();
          break;
       }
       default:

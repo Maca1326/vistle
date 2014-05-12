@@ -31,10 +31,10 @@ VistleObserver::VistleObserver(QObject *parent) : QObject(parent)
 
 }
 
-void VistleObserver::moduleAvailable(const std::string &name) {
+void VistleObserver::moduleAvailable(int hub, const std::string &name) {
 
    QString qname = QString::fromStdString(name);
-   emit moduleAvailable_s(qname);
+   emit moduleAvailable_s(hub, qname);
 }
 
 void VistleObserver::newModule(int moduleId, const boost::uuids::uuid &spawnUuid, const std::string &moduleName) {

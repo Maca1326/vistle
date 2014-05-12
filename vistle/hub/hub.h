@@ -30,6 +30,7 @@ class Hub {
    bool handleMessage(boost::shared_ptr<boost::asio::ip::tcp::socket> sock, const message::Message &msg);
    bool handleUiMessage(const message::Message &msg);
 
+   bool sendManager(const message::Message &msg);
    bool sendMaster(const message::Message &msg);
    bool sendSlaves(const message::Message &msg);
    bool sendUi(const message::Message &msg);
@@ -38,11 +39,12 @@ class Hub {
    StateTracker &stateTracker();
 
 private:
+   bool connectToMaster(const std::string &host, unsigned short port);
    bool startUi(const std::string &uipath);
    bool startServer();
    bool startAccept();
    void handleAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> sock, const boost::system::error_code &error);
-   void addSocket(boost::shared_ptr<boost::asio::ip::tcp::socket> sock);
+   void addSocket(boost::shared_ptr<boost::asio::ip::tcp::socket> sock, message::Identify::Identity ident = message::Identify::UNKNOWN);
    bool removeSocket(boost::shared_ptr<boost::asio::ip::tcp::socket> sock);
    void addClient(boost::shared_ptr<boost::asio::ip::tcp::socket> sock);
 
@@ -56,7 +58,7 @@ private:
    PortTracker m_portTracker;
    StateTracker m_stateTracker;
    UiManager m_uiManager;
-   int m_idCount;
+   int m_uiCount;
 
    std::map<process_handle, int> m_processMap;
    bool m_managerConnected;
@@ -65,6 +67,11 @@ private:
    bool m_quitting;
 
    AvailableMap m_availableModules;
+
+   bool m_isMaster;
+   boost::shared_ptr<boost::asio::ip::tcp::socket> m_masterSocket;
+   int m_slaveCount;
+   int m_hubId;
 };
 
 }

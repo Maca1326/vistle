@@ -25,7 +25,7 @@ class V_COREEXPORT StateObserver {
    StateObserver(): m_modificationCount(0) {}
    virtual ~StateObserver() {}
 
-   virtual void moduleAvailable(const std::string &moduleName) = 0;
+   virtual void moduleAvailable(int hub, const std::string &moduleName) = 0;
 
    virtual void newModule(int moduleId, const boost::uuids::uuid &spawnUuid, const std::string &moduleName) = 0;
    virtual void deleteModule(int moduleId) = 0;
@@ -110,6 +110,7 @@ class V_COREEXPORT StateTracker {
    typedef std::map<std::string, Parameter *> ParameterMap;
    typedef std::map<int, std::string> ParameterOrder;
    struct Module {
+      int hub;
       bool initialized;
       bool killed;
       bool busy;
@@ -118,7 +119,7 @@ class V_COREEXPORT StateTracker {
       ParameterOrder paramOrder;
 
       int state() const;
-      Module(): initialized(false), killed(false), busy(false) {}
+      Module(): hub(0), initialized(false), killed(false), busy(false) {}
    };
    typedef std::map<int, Module> RunningMap;
    RunningMap runningMap;
