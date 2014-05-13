@@ -170,6 +170,7 @@ Spawn::Spawn(int hub, const int s,
    , rankSkip(rankSkip)
 {
 
+   setDestId(-1); // all Spawns should go through master for module id generation
    COPY_STRING(name, n);
 }
 
