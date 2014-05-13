@@ -373,6 +373,7 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
          if (m_managerConnected) {
             sendManager(set);
          }
+         scanModules(m_bindir + "/../libexec/module", m_hubId, m_availableModules);
          for (auto &am: m_availableModules) {
             message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
             sendMaster(m);
@@ -458,6 +459,8 @@ std::string hostname() {
 
 bool Hub::init(int argc, char *argv[]) {
 
+   m_bindir = getbindir(argc, argv);
+
    namespace po = boost::program_options;
    po::options_description desc("usage");
    desc.add_options()
@@ -492,11 +495,6 @@ bool Hub::init(int argc, char *argv[]) {
 
    startServer();
 
-   std::string bindir = getbindir(argc, argv);
-#ifdef SCAN_MODULES_ON_HUB
-   scanModules(bindir + "/../libexec/module", m_availableModules);
-#endif
-
    std::string uiCmd = "vistle_gui";
 
    std::string masterhost;
@@ -518,6 +516,13 @@ bool Hub::init(int argc, char *argv[]) {
       }
    }
 
+   if (m_isMaster) {
+#ifdef SCAN_MODULES_ON_HUB
+      scanModules(m_bindir + "/../libexec/module", m_hubId, m_availableModules);
+#endif
+   }
+
+
    // start UI
    if (const char *pbs_env = getenv("PBS_ENVIRONMENT")) {
       if (std::string("PBS_INTERACTIVE") != pbs_env) {
@@ -535,7 +540,7 @@ bool Hub::init(int argc, char *argv[]) {
    }
 
    if (!uiCmd.empty()) {
-      std::string uipath = bindir + "/" + uiCmd;
+      std::string uipath = m_bindir + "/" + uiCmd;
       startUi(uipath);
    }
 
@@ -548,7 +553,7 @@ bool Hub::init(int argc, char *argv[]) {
    std::string port = s.str();
 
    // start manager on cluster
-   std::string cmd = bindir + "/vistle_manager";
+   std::string cmd = m_bindir + "/vistle_manager";
    std::vector<std::string> args;
    args.push_back("spawn_vistle.sh");
    args.push_back(cmd);

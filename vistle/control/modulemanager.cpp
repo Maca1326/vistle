@@ -266,7 +266,8 @@ bool ModuleManager::handle(const message::ModuleAvailable &avail) {
    m.hub = Communicator::the().hubId();
    m.name = avail.name();
    m.path = avail.path();
-   m_availableMap[avail.name()] = m;
+   AvailableModule::Key key(m.hub, m.name);
+   m_availableMap[key] = m;
    sendHub(avail);
    return true;
 }
@@ -345,7 +346,8 @@ bool ModuleManager::handle(const message::Spawn &spawn) {
       onThisRank = false;
 
    std::string name = spawn.getName();
-   auto it = m_availableMap.find(name);
+   AvailableModule::Key key(spawn.hubId(), name);
+   auto it = m_availableMap.find(key);
    if (it == m_availableMap.end()) {
        CERR << "refusing to spawn " << name << ": not in list of available modules" << std::endl;
        return true;
