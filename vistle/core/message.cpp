@@ -62,7 +62,7 @@ Message::Message(const Type t, const unsigned int s)
 , m_type(t)
 , m_senderId(DefaultSender::id())
 , m_rank(DefaultSender::rank())
-, m_destId(-1)
+, m_destId(0)
 {
 
    assert(m_size <= MESSAGE_SIZE);

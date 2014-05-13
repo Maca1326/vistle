@@ -48,7 +48,7 @@ Hub::Hub()
 , m_quitting(false)
 , m_isMaster(true)
 , m_slaveCount(0)
-, m_hubId(0)
+, m_hubId(-1)
 {
 
    assert(!hub_instance);
@@ -314,7 +314,7 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
                if (m_isMaster) {
                   processScript();
                } else {
-                  if (m_hubId > 0) {
+                  if (m_hubId < -1) {
                      message::SetId set(m_hubId);
                      sendMessage(it->first, set);
                   }
@@ -336,7 +336,7 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
                assert(m_isMaster);
                CERR << "slave hub connected" << std::endl;
                ++m_slaveCount;
-               message::SetId set(m_slaveCount);
+               message::SetId set(-m_slaveCount-1);
                sendMessage(it->first, set);
                for (auto &am: m_availableModules) {
                   message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
@@ -407,6 +407,7 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
       default: {
          //CERR << "msg: " << msg << std::endl;
          if (msg.destId() == m_hubId) {
+            CERR << "to mgr: " << msg << std::endl;
             sendManager(msg);
          } else {
             if (senderType == message::Identify::MANAGER) {
