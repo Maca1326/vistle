@@ -77,6 +77,7 @@ class V_COREEXPORT StateTracker {
 
    std::vector<int> getRunningList() const;
    std::vector<int> getBusyList() const;
+   int getHub(int id) const;
    std::string getModuleName(int id) const;
    int getModuleState(int id) const;
 

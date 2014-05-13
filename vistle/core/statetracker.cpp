@@ -62,6 +62,16 @@ std::vector<int> StateTracker::getBusyList() const {
    return result;
 }
 
+int StateTracker::getHub(int id) const {
+
+   RunningMap::const_iterator it = runningMap.find(id);
+   if (it == runningMap.end())
+      return 0;
+
+   assert(it->second.hub < 0);
+   return it->second.hub;
+}
+
 std::string StateTracker::getModuleName(int id) const {
 
    RunningMap::const_iterator it = runningMap.find(id);

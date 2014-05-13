@@ -252,6 +252,8 @@ bool ModuleManager::sendMessage(const int moduleId, const message::Message &mess
       if (mod.local)
          mod.sendQueue->send(message);
    } else {
+      message::Buffer buf(message);
+      buf.msg.setDestId(moduleId);
       sendHub(message);
    }
 

@@ -287,6 +287,22 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
    if (senderType == message::Identify::MANAGER)
       m_stateTracker.handle(msg);
 
+   if (msg.destId() != 0) {
+      int destHub = msg.destId();
+      if (msg.destId() > 0) {
+         // to module
+         destHub = m_stateTracker.getHub(msg.destId());
+      }
+      if (destHub != m_hubId) {
+         if (m_isMaster) {
+            sendSlaves(msg);
+         } else {
+            sendMaster(msg);
+         }
+         return true;
+      }
+   }
+
    switch(msg.type()) {
 
       case Message::IDENTIFY: {
