@@ -73,7 +73,7 @@ bool ModuleManager::scanModules(const std::string &dir) {
 #ifdef SCAN_MODULES_ON_HUB
     return true;
 #else
-    return vistle::scanModules(dir, m_availableMap);
+    return vistle::scanModules(dir, Communicator::the().hubId(), m_availableMap);
 #endif
 }
 
@@ -263,7 +263,7 @@ bool ModuleManager::sendMessage(const int moduleId, const message::Message &mess
 bool ModuleManager::handle(const message::ModuleAvailable &avail) {
 
    AvailableModule m;
-   m.hub = Communicator::the().hubId();
+   m.hub = avail.hub();
    m.name = avail.name();
    m.path = avail.path();
    AvailableModule::Key key(m.hub, m.name);
