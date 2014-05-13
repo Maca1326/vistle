@@ -291,16 +291,24 @@ bool ModuleManager::handle(const message::Trace &trace) {
 bool ModuleManager::handle(const message::Spawn &spawn) {
 
    int moduleID = spawn.spawnId();
-   if (moduleID == 0) {
-      moduleID = newModuleID();
+   if (Communicator::the().hubId() == 0) {
+      if (moduleID == 0) {
+         moduleID = newModuleID();
+      } else {
+         if (m_moduleCounter < moduleID)
+            m_moduleCounter = moduleID;
+      }
    } else {
-      if (m_moduleCounter < moduleID)
-         m_moduleCounter = moduleID;
+      if (moduleID == 0) {
+         sendHub(spawn);
+         return true;
+      }
    }
    message::Spawn toUi = spawn;
    toUi.setSpawnId(moduleID);
    m_stateTracker.handle(toUi);
-   sendUi(toUi);
+   if (Communicator::the().hubId() == 0)
+      sendUi(toUi);
 
    if (toUi.hubId() != Communicator::the().hubId()) {
       toUi.setDestId(spawn.hubId());
