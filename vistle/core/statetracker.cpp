@@ -660,7 +660,7 @@ bool StateTracker::handlePriv(const message::ModuleAvailable &avail) {
     m_availableModules.push_back(mod);
 
    for (StateObserver *o: m_observers) {
-      o->moduleAvailable(mod.hub, mod.name);
+      o->moduleAvailable(mod.hub, mod.name, mod.path);
    }
 
     return true;

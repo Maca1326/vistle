@@ -38,12 +38,13 @@ public:
    static const char *mimeFormat();
    static int nameRole();
    static int hubRole();
+   static int pathRole();
 
    ModuleBrowser(QWidget *parent=nullptr);
    ~ModuleBrowser();
 
 public slots:
-   void addModule(int hub, QString module);
+   void addModule(int hub, QString module, QString path);
    void setFilter(QString filter);
 
 private:

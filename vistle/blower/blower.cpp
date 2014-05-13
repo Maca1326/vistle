@@ -46,8 +46,8 @@ class StatePrinter: public StateObserver {
       : m_out(out)
       {}
 
-   void moduleAvailable(int hub, const std::string &name) {
-       m_out << "   hub: " << hub << ", module: " << name << std::endl;
+   void moduleAvailable(int hub, const std::string &name, const std::string &path) {
+       m_out << "   hub: " << hub << ", module: " << name << " (" << path << ")" << std::endl;
    }
 
    void newModule(int moduleId, const boost::uuids::uuid &spawnUuid, const std::string &moduleName) {

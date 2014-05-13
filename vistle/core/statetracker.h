@@ -25,7 +25,7 @@ class V_COREEXPORT StateObserver {
    StateObserver(): m_modificationCount(0) {}
    virtual ~StateObserver() {}
 
-   virtual void moduleAvailable(int hub, const std::string &moduleName) = 0;
+   virtual void moduleAvailable(int hub, const std::string &moduleName, const std::string &path) = 0;
 
    virtual void newModule(int moduleId, const boost::uuids::uuid &spawnUuid, const std::string &moduleName) = 0;
    virtual void deleteModule(int moduleId) = 0;

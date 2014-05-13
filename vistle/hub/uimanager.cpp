@@ -99,7 +99,7 @@ void UiManager::addClient(boost::shared_ptr<UiClient> c) {
 
       auto avail = m_stateTracker.availableModules();
       for(const auto &mod: avail) {
-         sendMessage(c, message::ModuleAvailable(mod.hub, mod.name));
+         sendMessage(c, message::ModuleAvailable(mod.hub, mod.name, mod.path));
       }
    }
 }
