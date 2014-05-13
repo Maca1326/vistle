@@ -40,7 +40,7 @@ Communicator *Communicator::s_singleton = NULL;
 
 Communicator::Communicator(int argc, char *argv[], int r, const std::vector<std::string> &hosts)
 : m_moduleManager(new ModuleManager(argc, argv, r, hosts))
-, m_hubId(0)
+, m_hubId(-1)
 , m_rank(r)
 , m_size(hosts.size())
 , m_quitFlag(false)
