@@ -406,15 +406,19 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
 
       default: {
          //CERR << "msg: " << msg << std::endl;
-         if (senderType == message::Identify::MANAGER) {
-            sendUi(msg);
-            sendSlaves(msg);
-         } else if (senderType == message::Identify::HUB) {
+         if (msg.destId() == m_hubId) {
             sendManager(msg);
-         } else if (senderType == message::Identify::SLAVEHUB) {
-            sendMaster(msg);
          } else {
-            CERR << "message from unknow sender " << senderType << ": " << msg << std::endl;
+            if (senderType == message::Identify::MANAGER) {
+               sendUi(msg);
+               sendSlaves(msg);
+            } else if (senderType == message::Identify::HUB) {
+               sendManager(msg);
+            } else if (senderType == message::Identify::SLAVEHUB) {
+               sendMaster(msg);
+            } else {
+               CERR << "message from unknow sender " << senderType << ": " << msg << std::endl;
+            }
          }
          break;
       }

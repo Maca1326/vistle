@@ -302,6 +302,12 @@ bool ModuleManager::handle(const message::Spawn &spawn) {
    m_stateTracker.handle(toUi);
    sendUi(toUi);
 
+   if (toUi.hubId() != Communicator::the().hubId()) {
+      toUi.setDestId(spawn.hubId());
+      sendHub(toUi);
+      return true;
+   }
+
    int numSpwan = spawn.getMpiSize();
    if (numSpwan <= 0 || numSpwan > m_size)
       numSpwan = m_size;
