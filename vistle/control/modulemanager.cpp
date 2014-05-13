@@ -310,10 +310,13 @@ bool ModuleManager::handle(const message::Spawn &spawn) {
             m_moduleCounter = moduleID;
       }
    } else {
+#if 0
       if (moduleID == 0) {
          sendHub(spawn);
          return true;
       }
+#endif
+      return true;
    }
    message::Spawn toUi = spawn;
    toUi.setSpawnId(moduleID);
