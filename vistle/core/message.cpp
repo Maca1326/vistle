@@ -1072,6 +1072,16 @@ std::ostream &operator<<(std::ostream &s, const Message &m) {
          s << ", name: " << mm.name() << ", hub: " << mm.hub();
          break;
       }
+      case Message::SPAWN: {
+         auto mm = static_cast<const Spawn &>(m);
+         s << ", name: " << mm.getName() << ", id: " << mm.spawnId() << ", hub: " << mm.hubId();
+         break;
+      }
+      case Message::EXEC: {
+         auto mm = static_cast<const Exec &>(m);
+         s << ", path: " << mm.pathname() << ", hub: " << mm.destId();
+         break;
+      }
       default:
          break;
    }

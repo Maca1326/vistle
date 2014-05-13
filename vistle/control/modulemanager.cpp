@@ -299,6 +299,8 @@ bool ModuleManager::handle(const message::Trace &trace) {
 
 bool ModuleManager::handle(const message::Spawn &spawn) {
 
+   CERR << "Spawn: " << spawn << std::endl;
+
    int moduleID = spawn.spawnId();
    if (Communicator::the().hubId() == -1) {
       if (moduleID == 0) {
