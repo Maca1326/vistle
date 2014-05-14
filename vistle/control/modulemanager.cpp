@@ -53,8 +53,6 @@ ModuleManager::ModuleManager(int argc, char *argv[], int r, const std::vector<st
 , m_barrierActive(false)
 {
 
-   message::DefaultSender::init(0, m_rank);
-
    m_bindir = getbindir(argc, argv);
 }
 
@@ -299,34 +297,41 @@ bool ModuleManager::handle(const message::Trace &trace) {
 
 bool ModuleManager::handle(const message::Spawn &spawn) {
 
-   CERR << "Spawn: " << spawn << std::endl;
+   int senderHub = spawn.senderId();
+   if (senderHub > 0) {
+      senderHub = m_stateTracker.getHub(senderHub);
+   }
+
+   CERR << "Spawn: sender hub: " << senderHub << ", "  << spawn << std::endl;
 
    int moduleID = spawn.spawnId();
    if (Communicator::the().hubId() == -1) {
       if (moduleID == 0) {
          moduleID = newModuleID();
+         message::Spawn toUi = spawn;
+         toUi.setSenderId(Communicator::the().hubId());
+         toUi.setDestId(-1);
+         toUi.setSpawnId(moduleID);
+         sendUi(toUi);
       } else {
          if (m_moduleCounter < moduleID)
             m_moduleCounter = moduleID;
       }
    } else {
-#if 0
       if (moduleID == 0) {
          sendHub(spawn);
          return true;
       }
-#endif
-      return true;
    }
-   message::Spawn toUi = spawn;
-   toUi.setSpawnId(moduleID);
-   m_stateTracker.handle(toUi);
-   if (Communicator::the().hubId() == -1)
-      sendUi(toUi);
+   message::Spawn forExec = spawn;
+   forExec.setSpawnId(moduleID);
+   forExec.setDestId(spawn.hubId());
+   m_stateTracker.handle(forExec);
 
-   if (toUi.hubId() != Communicator::the().hubId()) {
-      toUi.setDestId(spawn.hubId());
-      sendHub(toUi);
+   if (forExec.hubId() != Communicator::the().hubId()) {
+      CERR << "spawn hub: " << forExec.hubId() << ", comm hub: " << Communicator::the().hubId() << std::endl;
+      if (senderHub <= 0)
+         sendHub(forExec);
       return true;
    }
 

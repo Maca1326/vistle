@@ -53,7 +53,7 @@ Communicator::Communicator(int argc, char *argv[], int r, const std::vector<std:
 
    CERR << "started" << std::endl;
 
-   message::DefaultSender::init(0, m_rank);
+   message::DefaultSender::init(m_hubId, m_rank);
 
    m_recvBufToAny.resize(message::Message::MESSAGE_SIZE);
 
@@ -311,6 +311,7 @@ bool Communicator::handleMessage(const message::Message &message) {
       case Message::SETID: {
          auto set = static_cast<const message::SetId &>(message);
          m_hubId = set.getId();
+         message::DefaultSender::init(m_hubId, m_rank);
          break;
       }
 
