@@ -318,7 +318,7 @@ bool Communicator::handleMessage(const message::Message &message) {
       case message::Message::PING: {
 
          const message::Ping &ping = static_cast<const message::Ping &>(message);
-         sendHub(ping);
+         //sendHub(ping);
          result = m_moduleManager->handle(ping);
          break;
       }
@@ -326,7 +326,7 @@ bool Communicator::handleMessage(const message::Message &message) {
       case message::Message::PONG: {
 
          const message::Pong &pong = static_cast<const message::Pong &>(message);
-         sendHub(pong);
+         //sendHub(pong);
          result = m_moduleManager->handle(pong);
          break;
       }
@@ -366,7 +366,7 @@ bool Communicator::handleMessage(const message::Message &message) {
       case message::Message::STARTED: {
 
          const message::Started &started = static_cast<const message::Started &>(message);
-         sendHub(started);
+         //sendHub(started);
          result = m_moduleManager->handle(started);
          break;
       }
@@ -374,7 +374,7 @@ bool Communicator::handleMessage(const message::Message &message) {
       case message::Message::KILL: {
 
          const message::Kill &kill = static_cast<const message::Kill &>(message);
-         sendHub(kill);
+         //sendHub(kill);
          result = m_moduleManager->handle(kill);
          break;
       }
@@ -397,7 +397,7 @@ bool Communicator::handleMessage(const message::Message &message) {
 
          const message::ModuleExit &moduleExit = static_cast<const message::ModuleExit &>(message);
          result = m_moduleManager->handle(moduleExit);
-         sendHub(moduleExit);
+         //sendHub(moduleExit);
          break;
       }
 
@@ -424,7 +424,7 @@ bool Communicator::handleMessage(const message::Message &message) {
       case message::Message::BUSY: {
 
          const message::Busy &busy = static_cast<const message::Busy &>(message);
-         sendHub(busy);
+         //sendHub(busy);
          result = m_moduleManager->handle(busy);
          break;
       }
@@ -432,7 +432,7 @@ bool Communicator::handleMessage(const message::Message &message) {
       case message::Message::IDLE: {
 
          const message::Idle &idle = static_cast<const message::Idle &>(message);
-         sendHub(idle);
+         ///sendHub(idle);
          result = m_moduleManager->handle(idle);
          break;
       }
@@ -453,7 +453,7 @@ bool Communicator::handleMessage(const message::Message &message) {
       case message::Message::SETPARAMETER: {
 
          const message::SetParameter &m = static_cast<const message::SetParameter &>(message);
-         sendHub(m);
+         //sendHub(m);
          result = m_moduleManager->handle(m);
          break;
       }
@@ -461,7 +461,7 @@ bool Communicator::handleMessage(const message::Message &message) {
       case message::Message::SETPARAMETERCHOICES: {
 
          const message::SetParameterChoices &m = static_cast<const message::SetParameterChoices &>(message);
-         sendHub(m);
+         //sendHub(m);
          result = m_moduleManager->handle(m);
          break;
       }
@@ -469,7 +469,7 @@ bool Communicator::handleMessage(const message::Message &message) {
       case message::Message::ADDPARAMETER: {
          
          const message::AddParameter &m = static_cast<const message::AddParameter &>(message);
-         sendHub(m);
+         //sendHub(m);
          result = m_moduleManager->handle(m);
          break;
       }
@@ -477,7 +477,7 @@ bool Communicator::handleMessage(const message::Message &message) {
       case message::Message::CREATEPORT: {
 
          const message::CreatePort &m = static_cast<const message::CreatePort &>(message);
-         sendHub(m);
+         //sendHub(m);
          result = m_moduleManager->handle(m);
          break;
       }
@@ -505,7 +505,13 @@ bool Communicator::handleMessage(const message::Message &message) {
       case message::Message::SENDTEXT: {
          const message::SendText &m = static_cast<const message::SendText &>(message);
          if (m_rank == 0) {
-            sendHub(m);
+            if (hubId() == -1) {
+               message::Buffer buf(m);
+               buf.msg.setDestId(-1);
+               sendHub(buf.msg);
+            } else {
+               sendHub(m);
+            }
          } else {
             result = forwardToMaster(m);
          }
@@ -534,6 +540,12 @@ bool Communicator::handleMessage(const message::Message &message) {
       case Message::MODULEAVAILABLE: {
          const ModuleAvailable &m = static_cast<const ModuleAvailable &>(message);
          result = m_moduleManager->handle(m);
+         break;
+      }
+
+      case Message::EXEC: {
+         //const ModuleAvailable &m = static_cast<const Exec &>(message);
+         //result = m_moduleManager->handle(m);
          break;
       }
 

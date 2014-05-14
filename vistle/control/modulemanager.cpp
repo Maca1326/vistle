@@ -207,6 +207,10 @@ bool ModuleManager::sendAll(const message::Message &message) const {
 
 bool ModuleManager::sendAllOthers(int excluded, const message::Message &message) const {
 
+   if (Communicator::the().hubId() == -1) {
+      sendHub(message);
+   }
+
    // handle messages to modules
    for(RunningMap::const_iterator next, it = runningMap.begin();
          it != runningMap.end();
@@ -260,13 +264,16 @@ bool ModuleManager::sendMessage(const int moduleId, const message::Message &mess
 
 bool ModuleManager::handle(const message::ModuleAvailable &avail) {
 
+   m_stateTracker.handle(avail);
+
    AvailableModule m;
    m.hub = avail.hub();
    m.name = avail.name();
    m.path = avail.path();
    AvailableModule::Key key(m.hub, m.name);
    m_availableMap[key] = m;
-   sendHub(avail);
+   if (Communicator::the().hubId() == -1)
+      sendHub(avail);
    return true;
 }
 
@@ -428,6 +435,8 @@ bool ModuleManager::handle(const message::Started &started) {
    // FIXME: not valid for cover
    //assert(m_stateTracker.getModuleName(moduleID) == started.getName());
 
+   if (Communicator::the().hubId() == -1)
+      sendHub(started);
    replayMessages();
    return true;
 }
@@ -673,11 +682,23 @@ bool ModuleManager::handle(const message::ExecutionProgress &prog) {
 
 bool ModuleManager::handle(const message::Busy &busy) {
 
+   //sendAllOthers(busy.senderId(), busy);
+   if (Communicator::the().hubId() == -1) {
+      message::Buffer buf(busy);
+      buf.msg.setDestId(-1);
+      sendHub(buf.msg);
+   }
    return m_stateTracker.handle(busy);
 }
 
 bool ModuleManager::handle(const message::Idle &idle) {
 
+   //sendAllOthers(idle.senderId(), idle);
+   if (Communicator::the().hubId() == -1) {
+      message::Buffer buf(idle);
+      buf.msg.setDestId(-1);
+      sendHub(buf.msg);
+   }
    return m_stateTracker.handle(idle);
 }
 
@@ -712,7 +733,7 @@ bool ModuleManager::handle(const message::SetParameter &setParam) {
       // message to owning module
       RunningMap::iterator i = runningMap.find(setParam.getModule());
       if (i != runningMap.end() && param)
-         i->second.sendQueue->send(setParam);
+         sendMessage(setParam.getModule(), setParam);
       else
          queueMessage(setParam);
    } else {
@@ -911,6 +932,9 @@ bool ModuleManager::handle(const message::BarrierReached &barrReached) {
 bool ModuleManager::handle(const message::CreatePort &createPort) {
 
    m_stateTracker.handle(createPort);
+   if (Communicator::the().hubId() == -1) {
+      sendUi(createPort);
+   }
    replayMessages();
    return true;
 }
@@ -1022,12 +1046,14 @@ void ModuleManager::queueMessage(const message::Message &msg) {
 
 void ModuleManager::replayMessages() {
 
-   std::vector<char> queue;
-   std::swap(m_messageQueue, queue);
-   //CERR << "replaying " << queue.size()/message::Message::MESSAGE_SIZE << " messages" << std::endl;
-   for (size_t i=0; i<queue.size(); i+=message::Message::MESSAGE_SIZE) {
-      const message::Message &m = *static_cast<const message::Message *>(static_cast<const void *>(&queue[i]));
-      Communicator::the().handleMessage(m);
+   if (Communicator::the().hubId() == -1) {
+      std::vector<char> queue;
+      std::swap(m_messageQueue, queue);
+      //CERR << "replaying " << queue.size()/message::Message::MESSAGE_SIZE << " messages" << std::endl;
+      for (size_t i=0; i<queue.size(); i+=message::Message::MESSAGE_SIZE) {
+         const message::Message &m = *static_cast<const message::Message *>(static_cast<const void *>(&queue[i]));
+         Communicator::the().handleMessage(m);
+      }
    }
 }
 

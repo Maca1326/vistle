@@ -54,7 +54,7 @@ Hub::Hub()
    assert(!hub_instance);
    hub_instance = this;
 
-   message::DefaultSender::init(0, 0);
+   message::DefaultSender::init(m_hubId, 0);
 }
 
 Hub::~Hub() {
@@ -213,6 +213,7 @@ bool Hub::dispatch() {
 bool Hub::sendMaster(const message::Message &msg) {
 
    if (m_isMaster) {
+      //sendUi(msg)
       return sendManager(msg);
    }
 
@@ -284,8 +285,13 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
       senderType = it->second;
    }
 
-   if (senderType == message::Identify::MANAGER)
-      m_stateTracker.handle(msg);
+   if (m_isMaster) {
+      if (senderType == message::Identify::MANAGER)
+         m_stateTracker.handle(msg);
+   } else {
+      if (senderType == message::Identify::HUB)
+         m_stateTracker.handle(msg);
+   }
 
    if (msg.destId() != 0) {
       int destHub = msg.destId();
@@ -293,11 +299,22 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
          // to module
          destHub = m_stateTracker.getHub(msg.destId());
       }
-      if (destHub != m_hubId) {
+      if (destHub == m_hubId) {
+         if (msg.destId() > 0) {
+            // to module
+            sendManager(msg);
+         }
+         if (m_isMaster)
+            sendUi(msg);
+         else if (msg.type() == message::Message::SPAWN) {
+            sendManager(msg);
+         }
+      } else {
          if (m_isMaster) {
             sendSlaves(msg);
          } else {
-            sendMaster(msg);
+            if (senderType != message::Identify::HUB)
+               sendMaster(msg);
          }
          return true;
       }
@@ -323,17 +340,18 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
             case Identify::MANAGER: {
                assert(!m_managerConnected);
                m_managerConnected = true;
-               for (auto &am: m_availableModules) {
-                  message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
-                  sendManager(m);
-               }
-               if (m_isMaster) {
-                  processScript();
-               } else {
+               if(!m_isMaster) {
                   if (m_hubId < -1) {
                      message::SetId set(m_hubId);
                      sendMessage(it->first, set);
                   }
+               }
+               for (auto &am: m_availableModules) {
+                  message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
+                  sendMessage(it->first, m);
+               }
+               if (m_isMaster) {
+                  processScript();
                }
                break;
             }
@@ -369,6 +387,7 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
          assert(!m_isMaster);
          auto &set = static_cast<const SetId &>(msg);
          m_hubId = set.getId();
+         message::DefaultSender::init(m_hubId, 0);
          CERR << "got hub id " << m_hubId << std::endl;
          if (m_managerConnected) {
             sendManager(set);
@@ -376,7 +395,9 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
          scanModules(m_bindir + "/../libexec/module", m_hubId, m_availableModules);
          for (auto &am: m_availableModules) {
             message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
-            sendMaster(m);
+            sendManager(m);
+            if (!m_isMaster)
+               sendMaster(m);
          }
          break;
       }
@@ -415,6 +436,12 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
             sendSlaves(quit);
             m_quitting = true;
             return true;
+         } else if (senderType == message::Identify::HUB) {
+            m_uiManager.requestQuit();
+            sendSlaves(quit);
+            sendMaster(quit);
+            m_quitting = true;
+            return true;
          } else {
             sendMaster(quit);
          }
@@ -424,15 +451,22 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
       default: {
          //CERR << "msg: " << msg << std::endl;
          if (msg.destId() == m_hubId) {
-            CERR << "to mgr: " << msg << std::endl;
-            sendManager(msg);
+            CERR << "not to mgr: " << msg << std::endl;
+            //sendManager(msg);
          } else {
             if (senderType == message::Identify::MANAGER) {
-               sendUi(msg);
-               sendSlaves(msg);
+               CERR << "from mgr: " << msg << std::endl;
+               if (m_isMaster) {
+                  sendUi(msg);
+                  sendSlaves(msg);
+               } else {
+                  sendMaster(msg);
+               }
             } else if (senderType == message::Identify::HUB) {
+               CERR << "from hub: " << msg << std::endl;
                sendManager(msg);
             } else if (senderType == message::Identify::SLAVEHUB) {
+               CERR << "from slave hub: " << msg << std::endl;
                sendMaster(msg);
             } else {
                CERR << "message from unknow sender " << senderType << ": " << msg << std::endl;
