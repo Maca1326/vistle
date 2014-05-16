@@ -48,6 +48,8 @@ private:
    bool removeSocket(boost::shared_ptr<boost::asio::ip::tcp::socket> sock);
    void addClient(boost::shared_ptr<boost::asio::ip::tcp::socket> sock);
 
+   int destHub(const message::Message &msg) const;
+
    unsigned short m_port;
    boost::asio::io_service m_ioService;
    boost::asio::ip::tcp::acceptor m_acceptor;
@@ -73,6 +75,8 @@ private:
    boost::shared_ptr<boost::asio::ip::tcp::socket> m_masterSocket;
    int m_slaveCount;
    int m_hubId;
+
+   int m_moduleCount;
 };
 
 }

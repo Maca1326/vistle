@@ -109,7 +109,7 @@ class V_CONTROLEXPORT ModuleManager {
    const int m_size;
    const std::vector<std::string> m_hosts;
 
-   AvailableMap m_availableMap;
+   AvailableMap m_availableModules;
 
    struct Module {
       message::MessageQueue *sendQueue;

@@ -48,6 +48,7 @@ class V_CONTROLEXPORT Communicator {
 
    ModuleManager *m_moduleManager;
 
+   bool isMaster() const;
    int m_hubId;
    const int m_rank;
    const int m_size;

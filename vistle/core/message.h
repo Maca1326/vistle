@@ -49,6 +49,7 @@ typedef std::array<char, 900> text_t;
 
 typedef boost::uuids::uuid uuid_t;
 
+
 class V_COREEXPORT Message {
    // this is POD
 
@@ -60,39 +61,40 @@ class V_COREEXPORT Message {
    DEFINE_ENUM_WITH_STRING_CONVERSIONS(Type,
       (INVALID)
       (IDENTIFY)
+      (SETID)
       (TRACE)
       (SPAWN)
       (EXEC)
-      (STARTED)
       (KILL)
       (QUIT)
+      (STARTED)
       (MODULEEXIT)
+      (BUSY)
+      (IDLE)
       (COMPUTE)
       (REDUCE)
-      (CREATEPORT)
+      (EXECUTIONPROGRESS)
       (ADDOBJECT)
       (OBJECTRECEIVED)
       (CONNECT)
       (DISCONNECT)
+      (CREATEPORT)
       (ADDPARAMETER)
       (SETPARAMETER)
       (SETPARAMETERCHOICES)
       (PING)
       (PONG)
-      (BUSY)
-      (IDLE)
       (BARRIER)
       (BARRIERREACHED)
-      (SETID)
       (RESETMODULEIDS)
       (REPLAYFINISHED)
       (SENDTEXT)
       (OBJECTRECEIVEPOLICY)
       (SCHEDULINGPOLICY)
       (REDUCEPOLICY)
-      (EXECUTIONPROGRESS)
       (MODULEAVAILABLE)
       (LOCKUI)
+      (NumMessageTypes) // keep last
    )
 
    Message(const Type type, const unsigned int size);
@@ -139,6 +141,7 @@ class V_COREEXPORT Message {
    //! destination ID
    int m_destId;
 };
+V_ENUM_OUTPUT_OP(Type, Message)
 
 //! 
 class V_COREEXPORT Identify: public Message {
@@ -159,6 +162,7 @@ class V_COREEXPORT Identify: public Message {
    Identity m_identity;
 };
 BOOST_STATIC_ASSERT(sizeof(Identify) <= Message::MESSAGE_SIZE);
+V_ENUM_OUTPUT_OP(Identity, Identify)
 
 //! debug: request a reply containing character 'c'
 class V_COREEXPORT Ping: public Message {
@@ -313,6 +317,7 @@ private:
    Reason m_reason; //!< reason why this message was generated
 };
 BOOST_STATIC_ASSERT(sizeof(Compute) <= Message::MESSAGE_SIZE);
+V_ENUM_OUTPUT_OP(Reason, Compute)
 
 //! trigger reduce() for a module
 class V_COREEXPORT Reduce: public Message {
@@ -613,6 +618,7 @@ private:
    bool m_truncated;
 };
 BOOST_STATIC_ASSERT(sizeof(SendText) <= Message::MESSAGE_SIZE);
+V_ENUM_OUTPUT_OP(TextType, SendText)
 
 class V_COREEXPORT ObjectReceivePolicy: public Message {
 
@@ -628,6 +634,7 @@ private:
    Policy m_policy;
 };
 BOOST_STATIC_ASSERT(sizeof(ObjectReceivePolicy) <= Message::MESSAGE_SIZE);
+V_ENUM_OUTPUT_OP(Policy, ObjectReceivePolicy)
 
 class V_COREEXPORT SchedulingPolicy: public Message {
 
@@ -643,6 +650,7 @@ private:
    Schedule m_policy;
 };
 BOOST_STATIC_ASSERT(sizeof(SchedulingPolicy) <= Message::MESSAGE_SIZE);
+V_ENUM_OUTPUT_OP(Schedule, SchedulingPolicy)
 
 class V_COREEXPORT ReducePolicy: public Message {
 
@@ -658,6 +666,7 @@ class V_COREEXPORT ReducePolicy: public Message {
    Reduce m_reduce;
 };
 BOOST_STATIC_ASSERT(sizeof(ReducePolicy) <= Message::MESSAGE_SIZE);
+V_ENUM_OUTPUT_OP(Reduce, ReducePolicy)
 
 class V_COREEXPORT ExecutionProgress: public Message {
 
@@ -677,6 +686,7 @@ class V_COREEXPORT ExecutionProgress: public Message {
    int m_step;
 };
 BOOST_STATIC_ASSERT(sizeof(ExecutionProgress) <= Message::MESSAGE_SIZE);
+V_ENUM_OUTPUT_OP(Progress, ExecutionProgress)
 
 //! enable/disable message tracing for a module
 class V_COREEXPORT Trace: public Message {
@@ -744,13 +754,51 @@ BOOST_STATIC_ASSERT(sizeof(Buffer) <= Message::MESSAGE_SIZE);
 
 V_COREEXPORT std::ostream &operator<<(std::ostream &s, const Message &msg);
 
-V_ENUM_OUTPUT_OP(Type, Message)
-V_ENUM_OUTPUT_OP(Reason, Compute)
-V_ENUM_OUTPUT_OP(TextType, SendText)
-V_ENUM_OUTPUT_OP(Policy, ObjectReceivePolicy)
-V_ENUM_OUTPUT_OP(Schedule, SchedulingPolicy)
-V_ENUM_OUTPUT_OP(Reduce, ReducePolicy)
-V_ENUM_OUTPUT_OP(Progress, ExecutionProgress)
+enum RoutingFlags {
+
+   Track = 1,
+   ForwardToMaster = 2,
+   ProcessOnMaster = 4,
+   Broadcast = 8,
+   NodeLocal = 16,
+
+   DestMasterHub = 32,
+   DestSlaveHub = 64,
+   DestHub = DestMasterHub|DestSlaveHub,
+   DestUiBit = 128,
+   DestUi = DestMasterHub|DestUiBit,
+   DestModule = 256,
+   DestMasterManager = 512,
+   DestSlaveManager = 0x400,
+   DestManager = DestSlaveManager|DestMasterManager,
+
+   ThroughMaster = 0x800,
+   Special = 0x1000,
+   RequiresLogic = 0x2000,
+   RequiresSubscription = 0x4000,
+};
+
+class Router {
+
+ public:
+   static Router &the();
+   static void init(Identify::Identity identity, int id);
+
+   bool toUi(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN);
+   bool toHub(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN);
+   bool toManager(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN);
+   bool toModule(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN);
+   bool toTracker(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN);
+   bool toHandler(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN);
+
+ private:
+   Router();
+   Identify::Identity m_identity;
+   int m_id;
+
+   static unsigned rt[Message::NumMessageTypes];
+   static void initRoutingTable();
+};
 
 } // namespace message
 } // namespace vistle

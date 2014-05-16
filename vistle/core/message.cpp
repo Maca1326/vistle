@@ -1089,5 +1089,148 @@ std::ostream &operator<<(std::ostream &s, const Message &m) {
    return s;
 }
 
+
+unsigned Router::rt[Message::NumMessageTypes];
+
+void Router::initRoutingTable() {
+
+   typedef Message M;
+   memset(&rt, '\0', sizeof(rt));
+
+   rt[M::INVALID]       = 0;
+   rt[M::IDENTIFY]      = Special;
+   rt[M::SETID]      = Special;
+   rt[M::REPLAYFINISHED] = Special;
+   rt[M::TRACE]         = Broadcast;
+   rt[M::SPAWN]         = Track|ProcessOnMaster;
+   rt[M::EXEC]          = DestHub;
+   rt[M::STARTED]       = Track|Broadcast;
+   rt[M::KILL]          = DestModule;
+   rt[M::QUIT]          = Broadcast|ThroughMaster;
+   rt[M::MODULEEXIT]    = Track|Broadcast;
+   rt[M::COMPUTE]       = DestModule|DestHub;
+   rt[M::REDUCE]        = DestModule;
+   rt[M::MODULEAVAILABLE]    = Track|DestManager|RequiresSubscription;
+   rt[M::CREATEPORT]    = Track|DestManager|RequiresSubscription;
+   rt[M::ADDPARAMETER]  = Track|DestManager|RequiresSubscription;
+   rt[M::CONNECT]       = Track|DestManager|RequiresSubscription;
+   rt[M::DISCONNECT]       = Track|DestManager|RequiresSubscription;
+   rt[M::SETPARAMETER]       = Track|DestManager|RequiresSubscription;
+   rt[M::SETPARAMETERCHOICES]       = Track|DestManager|RequiresSubscription;
+   rt[M::PING] = Broadcast;
+   rt[M::PONG] = Broadcast;
+   rt[M::BUSY] = DestUi;
+   rt[M::IDLE] = DestUi;
+   rt[M::LOCKUI] = DestUi;
+   rt[M::SENDTEXT] = DestUi;
+
+   rt[M::OBJECTRECEIVEPOLICY] = DestManager;
+   rt[M::SCHEDULINGPOLICY] = DestManager;
+   rt[M::REDUCEPOLICY] = DestManager;
+   rt[M::EXECUTIONPROGRESS] = DestManager;
+
+   rt[M::ADDOBJECT] = DestManager;
+
+   rt[M::BARRIER] = Broadcast;
+
+#if 0
+      (OBJECTRECEIVED)
+      (BARRIER)
+      (BARRIERREACHED)
+      (RESETMODULEIDS)
+
+      (EXECUTIONPROGRESS)
+#endif
+}
+
+Router &Router::the() {
+
+   static Router router;
+   return router;
+}
+
+Router::Router() {
+
+   m_identity = Identify::UNKNOWN;
+   m_id = 0;
+   initRoutingTable();
+}
+
+void Router::init(Identify::Identity identity, int id) {
+
+   the().m_identity = identity;
+   the().m_id = id;
+}
+
+bool Router::toUi(const Message &msg, Identify::Identity senderType) {
+
+   const int t = msg.type();
+   if (rt[t] & DestUi)
+      return true;
+
+   return false;
+}
+
+bool Router::toHub(const Message &msg, Identify::Identity senderType) {
+
+   const int t = msg.type();
+   if (rt[t] & DestHub)
+      return true;
+
+   return false;
+}
+
+bool Router::toManager(const Message &msg, Identify::Identity senderType) {
+
+   const int t = msg.type();
+   if (rt[t] & DestManager)
+      return true;
+
+   return false;
+}
+
+bool Router::toModule(const Message &msg, Identify::Identity senderType) {
+
+   const int t = msg.type();
+   if (rt[t] & DestModule)
+      return true;
+
+   return false;
+}
+
+bool Router::toTracker(const Message &msg, Identify::Identity senderType) {
+
+   const int t = msg.type();
+   if (rt[t] & Track) {
+      if (m_identity == Identify::HUB) {
+         return senderType == Identify::MANAGER;
+      }
+      if (m_identity == Identify::SLAVEHUB) {
+         return senderType == Identify::HUB;
+      }
+   }
+
+   return false;
+}
+
+bool Router::toHandler(const Message &msg, Identify::Identity senderType) {
+
+   const int t = msg.type();
+   if (m_identity == Identify::HUB) {
+      return rt[t] & DestMasterHub;
+   }
+   if (m_identity == Identify::SLAVEHUB) {
+      return rt[t] & DestSlaveHub;
+   }
+   if (m_identity == Identify::MANAGER) {
+      if (m_id == -1)
+         return rt[t] & DestMasterManager;
+      else
+         return rt[t] & DestSlaveManager;
+   }
+
+   return false;
+}
+
 } // namespace message
 } // namespace vistle

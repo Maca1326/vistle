@@ -71,14 +71,14 @@ bool ModuleManager::scanModules(const std::string &dir) {
 #ifdef SCAN_MODULES_ON_HUB
     return true;
 #else
-    return vistle::scanModules(dir, Communicator::the().hubId(), m_availableMap);
+    return vistle::scanModules(dir, Communicator::the().hubId(), m_availableModules);
 #endif
 }
 
 std::vector<AvailableModule> ModuleManager::availableModules() const {
 
     std::vector<AvailableModule> ret;
-    for (auto mod: m_availableMap) {
+    for (auto mod: m_availableModules) {
         ret.push_back(mod.second);
     }
     return ret;
@@ -271,9 +271,11 @@ bool ModuleManager::handle(const message::ModuleAvailable &avail) {
    m.name = avail.name();
    m.path = avail.path();
    AvailableModule::Key key(m.hub, m.name);
-   m_availableMap[key] = m;
+   m_availableModules[key] = m;
+#if 0
    if (Communicator::the().hubId() == -1)
       sendHub(avail);
+#endif
    return true;
 }
 
@@ -304,6 +306,55 @@ bool ModuleManager::handle(const message::Trace &trace) {
 
 bool ModuleManager::handle(const message::Spawn &spawn) {
 
+#if 1
+   int newId = spawn.spawnId();
+   if (!spawn.spawnId())
+      return true;
+   m_stateTracker.handle(spawn);
+   if (spawn.destId() != Communicator::the().hubId())
+      return true;
+
+   std::stringstream modID;
+   modID << newId;
+   const std::string idStr = modID.str();
+
+   Module &mod = runningMap[newId];
+   mod.local = true;
+   mod.baseRank = 0;
+
+   std::string smqName = message::MessageQueue::createName("smq", newId, m_rank);
+   std::string rmqName = message::MessageQueue::createName("rmq", newId, m_rank);
+
+   try {
+      mod.sendQueue = message::MessageQueue::create(smqName);
+      mod.recvQueue = message::MessageQueue::create(rmqName);
+   } catch (bi::interprocess_exception &ex) {
+
+      CERR << "spawn mq " << ex.what() << std::endl;
+      exit(-1);
+   }
+
+   // inform newly started module about current parameter values of other modules
+   for (auto &mit: runningMap) {
+      const int id = mit.first;
+      const std::string moduleName = getModuleName(id);
+
+      message::Spawn spawn(mit.second.hub, id, moduleName);
+      sendMessage(newId, spawn);
+
+      for (std::string paramname: m_stateTracker.getParameters(id)) {
+         const Parameter *param = m_stateTracker.getParameter(id, paramname);
+
+         message::AddParameter add(param, moduleName);
+         add.setSenderId(id);
+         sendMessage(newId, add);
+
+         message::SetParameter set(id, paramname, param);
+         set.setSenderId(id);
+         sendMessage(newId, set);
+      }
+   }
+#else
    int senderHub = spawn.senderId();
    if (senderHub > 0) {
       senderHub = m_stateTracker.getHub(senderHub);
@@ -364,8 +415,8 @@ bool ModuleManager::handle(const message::Spawn &spawn) {
 
    std::string name = spawn.getName();
    AvailableModule::Key key(spawn.hubId(), name);
-   auto it = m_availableMap.find(key);
-   if (it == m_availableMap.end()) {
+   auto it = m_availableModules.find(key);
+   if (it == m_availableModules.end()) {
        CERR << "refusing to spawn " << name << ": not in list of available modules" << std::endl;
        return true;
    }
@@ -425,6 +476,7 @@ bool ModuleManager::handle(const message::Spawn &spawn) {
          sendMessage(moduleID, set);
       }
    }
+#endif
 
    return true;
 }
