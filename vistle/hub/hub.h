@@ -33,6 +33,7 @@ class Hub {
    bool sendManager(const message::Message &msg);
    bool sendMaster(const message::Message &msg);
    bool sendSlaves(const message::Message &msg);
+   bool sendSlave(const message::Message &msg, int id);
    bool sendUi(const message::Message &msg);
 
    const StateTracker &stateTracker() const;
@@ -47,6 +48,7 @@ private:
    void addSocket(boost::shared_ptr<boost::asio::ip::tcp::socket> sock, message::Identify::Identity ident = message::Identify::UNKNOWN);
    bool removeSocket(boost::shared_ptr<boost::asio::ip::tcp::socket> sock);
    void addClient(boost::shared_ptr<boost::asio::ip::tcp::socket> sock);
+   void addSlave(int id, boost::shared_ptr<boost::asio::ip::tcp::socket> sock);
 
    int destHub(const message::Message &msg) const;
 
@@ -73,6 +75,7 @@ private:
 
    bool m_isMaster;
    boost::shared_ptr<boost::asio::ip::tcp::socket> m_masterSocket;
+   std::map<int, boost::shared_ptr<boost::asio::ip::tcp::socket>> m_slaveSockets;
    int m_slaveCount;
    int m_hubId;
 

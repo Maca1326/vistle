@@ -759,14 +759,12 @@ enum RoutingFlags {
    Track = 1,
    ForwardToMaster = 2,
    ProcessOnMaster = 4,
-   Broadcast = 8,
    NodeLocal = 16,
 
    DestMasterHub = 32,
    DestSlaveHub = 64,
    DestHub = DestMasterHub|DestSlaveHub,
-   DestUiBit = 128,
-   DestUi = DestMasterHub|DestUiBit,
+   DestUi = 128,
    DestModule = 256,
    DestMasterManager = 512,
    DestSlaveManager = 0x400,
@@ -778,6 +776,8 @@ enum RoutingFlags {
    RequiresSubscription = 0x4000,
 
    Handle = 0x8000,
+
+   Broadcast = DestHub | DestUi | DestManager | DestModule,
 };
 
 class Router {

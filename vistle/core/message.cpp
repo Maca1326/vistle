@@ -1102,11 +1102,11 @@ void Router::initRoutingTable() {
    rt[M::SETID]      = Special|Handle;
    rt[M::REPLAYFINISHED] = Special;
    rt[M::TRACE]         = Broadcast;
-   rt[M::SPAWN]         = Track|DestMasterHub;
+   rt[M::SPAWN]         = Track|Special|Handle;
    rt[M::EXEC]          = DestHub;
    rt[M::STARTED]       = Track|DestUi;
    rt[M::KILL]          = DestModule;
-   rt[M::QUIT]          = Broadcast|ThroughMaster;
+   rt[M::QUIT]          = Broadcast|ThroughMaster|Handle;
    rt[M::MODULEEXIT]    = Track|Broadcast|DestUi;
    rt[M::COMPUTE]       = DestModule|DestHub;
    rt[M::REDUCE]        = DestModule;
@@ -1174,8 +1174,22 @@ bool Router::toUi(const Message &msg, Identify::Identity senderType) {
 bool Router::toHub(const Message &msg, Identify::Identity senderType) {
 
    const int t = msg.type();
-   if (rt[t] & DestHub)
+   if (rt[t] & DestMasterHub) {
+      if (m_identity != Identify::HUB)
+         return true;
+   }
+
+   if (rt[t] & DestSlaveHub) {
       return true;
+   }
+
+   if (m_identity == Identify::SLAVEHUB) {
+      if (rt[t] & DestManager)
+         return true;
+   } else if (m_identity == Identify::HUB) {
+      if (rt[t] & DestManager)
+         return true;
+   }
 
    return false;
 }
@@ -1221,7 +1235,7 @@ bool Router::toHandler(const Message &msg, Identify::Identity senderType) {
 
    const int t = msg.type();
    if (rt[t] & Handle) {
-      return msg.destId() == 0;
+      return msg.destId() == 0 || msg.destId() == m_id;
    }
    if (m_identity == Identify::HUB) {
       return rt[t] & DestMasterHub;

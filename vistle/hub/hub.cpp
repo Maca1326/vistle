@@ -151,7 +151,8 @@ void Hub::handleAccept(shared_ptr<asio::ip::tcp::socket> sock, const boost::syst
 
 void Hub::addSocket(shared_ptr<asio::ip::tcp::socket> sock, message::Identify::Identity ident) {
 
-   m_sockets.insert(std::make_pair(sock, ident));
+   bool ok = m_sockets.insert(std::make_pair(sock, ident)).second;
+   assert(ok);
 }
 
 bool Hub::removeSocket(shared_ptr<asio::ip::tcp::socket> sock) {
@@ -163,6 +164,19 @@ void Hub::addClient(shared_ptr<asio::ip::tcp::socket> sock) {
 
    //CERR << "new client" << std::endl;
    m_clients.insert(sock);
+}
+
+void Hub::addSlave(int id, shared_ptr<asio::ip::tcp::socket> sock) {
+
+   const int slaveid = -id - 1;
+   m_slaveSockets[slaveid] = sock;
+
+   message::SetId set(slaveid);
+   sendMessage(sock, set);
+   for (auto &am: m_availableModules) {
+      message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
+      sendMessage(sock, m);
+   }
 }
 
 bool Hub::dispatch() {
@@ -224,9 +238,9 @@ bool Hub::dispatch() {
 
 bool Hub::sendMaster(const message::Message &msg) {
 
+   assert(!m_isMaster);
    if (m_isMaster) {
-      //sendUi(msg)
-      return sendManager(msg);
+      return false;
    }
 
    int numSent = 0;
@@ -258,6 +272,7 @@ bool Hub::sendManager(const message::Message &msg) {
 
 bool Hub::sendSlaves(const message::Message &msg) {
 
+   assert(m_isMaster);
    if (!m_isMaster)
       return false;
 
@@ -266,6 +281,19 @@ bool Hub::sendSlaves(const message::Message &msg) {
          sendMessage(sock.first, msg);
    }
    return true;
+}
+
+bool Hub::sendSlave(const message::Message &msg, int dest) {
+
+   assert(m_isMaster);
+   if (!m_isMaster)
+      return false;
+
+   auto it = m_slaveSockets.find(dest);
+   if (it == m_slaveSockets.end())
+      return false;
+
+   return sendMessage(it->second, msg);
 }
 
 bool Hub::sendUi(const message::Message &msg) {
@@ -321,13 +349,22 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
       sendUi(msg);
       ui = true;
    }
-   if (Router::the().toHub(msg, senderType)) {
-      if (m_isMaster) {
-         sendSlaves(msg);
-         slave = true;
-      } else {
-         sendMaster(msg);
-         master = true;
+   int dest = destHub(msg);
+   if (dest == 0) {
+      if (Router::the().toHub(msg, senderType)) {
+         if (m_isMaster) {
+            sendSlaves(msg);
+            slave = true;
+         } else {
+            sendMaster(msg);
+            master = true;
+         }
+      }
+   } else {
+      if (dest != m_hubId) {
+         if (m_isMaster) {
+            sendSlaves(msg);
+         }
       }
    }
 
@@ -351,7 +388,7 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
                sendSlaves(notify);
             }
 
-            if (spawn.destId() == m_hubId) {
+            if (spawn.hubId() == m_hubId) {
                std::string name = spawn.getName();
                AvailableModule::Key key(spawn.hubId(), name);
                auto it = m_availableModules.find(key);
@@ -425,12 +462,7 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
                   assert(m_isMaster);
                   CERR << "slave hub connected" << std::endl;
                   ++m_slaveCount;
-                  message::SetId set(-m_slaveCount-1);
-                  sendMessage(it->first, set);
-                  for (auto &am: m_availableModules) {
-                     message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
-                     sendMessage(it->first, m);
-                  }
+                  addSlave(m_slaveCount, it->first);
                   break;
                }
             }

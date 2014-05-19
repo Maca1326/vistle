@@ -129,7 +129,7 @@ BOOST_PYTHON_FUNCTION_OVERLOADS(spawnAsync_overloads, spawnAsync, 2, 5)
 
 static std::string spawnAsyncSimple(const char *module, int numSpawn=-1, int baseRank=-1, int rankSkip=-1) {
 
-   return spawnAsync(0, module, numSpawn, baseRank, rankSkip);
+   return spawnAsync(-1, module, numSpawn, baseRank, rankSkip);
 }
 BOOST_PYTHON_FUNCTION_OVERLOADS(spawnAsyncSimple_overloads, spawnAsyncSimple, 1, 4)
 
@@ -158,7 +158,7 @@ BOOST_PYTHON_FUNCTION_OVERLOADS(spawn_overloads, spawn, 2, 5)
 
 static int spawnSimple(const char *module) {
 
-   return spawn(0, module);
+   return spawn(-1, module);
 }
 
 static void kill(int id) {
