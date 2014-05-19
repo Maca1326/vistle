@@ -1,8 +1,6 @@
 /*
  * Visualization Testing Laboratory for Exascale Computing (VISTLE)
  */
-#include <boost/thread.hpp>
-
 #include <core/statetracker.h>
 #include <core/messagequeue.h>
 #include <core/tcpmessage.h>
@@ -17,15 +15,14 @@ UiManager::UiManager(Hub &hub, StateTracker &stateTracker)
 : m_hub(hub)
 , m_stateTracker(stateTracker)
 , m_requestQuit(false)
-, m_uiCount(0)
 , m_locked(false)
 {
 }
 
 void UiManager::sendMessage(const message::Message &msg) const {
 
-   for(auto ent: m_threads) {
-      sendMessage(ent.second, msg);
+   for(auto ent: m_clients) {
+      sendMessage(ent, msg);
    }
 }
 
@@ -34,11 +31,6 @@ void UiManager::sendMessage(boost::shared_ptr<UiClient> c, const message::Messag
    auto &ioService = c->socket().get_io_service();
    message::send(c->socket(), msg);
    ioService.poll();
-}
-
-bool UiManager::handleMessage(const message::Message &msg) const {
-
-   return m_hub.handleUiMessage(msg);
 }
 
 void UiManager::requestQuit() {
@@ -52,23 +44,17 @@ UiManager::~UiManager() {
    disconnect();
 }
 
-void UiManager::removeThread(boost::thread *thread) {
-
-   m_threads.erase(thread);
-}
-
 void UiManager::disconnect() {
 
    sendMessage(message::Quit());
 
-   for(const auto &v: m_threads) {
-      const auto &c = v.second;
+   for(const auto &c: m_clients) {
       c->cancel();
    }
 
    join();
-   if (!m_threads.empty()) {
-      std::cerr << "UiManager: waiting for " << m_threads.size() << " threads to quit" << std::endl;
+   if (!m_clients.empty()) {
+      std::cerr << "UiManager: waiting for " << m_clients.size() << " clients to quit" << std::endl;
       sleep(1);
       join();
    }
@@ -77,8 +63,7 @@ void UiManager::disconnect() {
 
 void UiManager::addClient(boost::shared_ptr<UiClient> c) {
 
-   boost::thread *t = new boost::thread(boost::ref(*c));
-   m_threads[t] = c;
+   m_clients.insert(c);
 
    if (m_requestQuit) {
 
@@ -106,19 +91,7 @@ void UiManager::addClient(boost::shared_ptr<UiClient> c) {
 
 void UiManager::join() {
 
-   for (ThreadMap::iterator it = m_threads.begin();
-         it != m_threads.end();
-       ) {
-      boost::thread *t = it->first;
-      auto c = it->second;
-      ThreadMap::iterator next = it;
-      ++next;
-      if (c->done()) {
-         t->join();
-         m_threads.erase(it);
-      }
-      it = next;
-   }
+   m_clients.clear();
 }
 
 void UiManager::lockUi(bool locked) {

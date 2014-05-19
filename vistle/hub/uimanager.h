@@ -18,7 +18,6 @@ class StateTracker;
 class Hub;
 
 class UiManager {
-   friend class UiThreadWrapper;
 
  public:
    ~UiManager();
@@ -43,9 +42,7 @@ class UiManager {
 
    bool m_requestQuit;
 
-   typedef std::map<boost::thread *, boost::shared_ptr<UiClient>> ThreadMap;
-   ThreadMap m_threads;
-   int m_uiCount;
+   std::set<boost::shared_ptr<UiClient>> m_clients;
    bool m_locked;
 };
 

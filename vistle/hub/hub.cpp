@@ -177,20 +177,18 @@ bool Hub::dispatch() {
       auto it = m_sockets.find(sock);
       if (it != m_sockets.end())
          senderType = it->second;
-      if (senderType != message::Identify::UI || 1) {
-         boost::asio::socket_base::bytes_readable command(true);
-         sock->io_control(command);
-         if (command.get() > 0) {
-            char buf[message::Message::MESSAGE_SIZE];
-            message::Message &msg = *reinterpret_cast<message::Message *>(buf);
-            bool received = false;
-            if (message::recv(*sock, msg, received) && received) {
-               if (received)
-                  wait = false;
-               if (!handleMessage(sock, msg)) {
-                  ret = false;
-                  break;
-               }
+      boost::asio::socket_base::bytes_readable command(true);
+      sock->io_control(command);
+      if (command.get() > 0) {
+         char buf[message::Message::MESSAGE_SIZE];
+         message::Message &msg = *reinterpret_cast<message::Message *>(buf);
+         bool received = false;
+         if (message::recv(*sock, msg, received) && received) {
+            if (received)
+               wait = false;
+            if (!handleMessage(sock, msg)) {
+               ret = false;
+               break;
             }
          }
       }

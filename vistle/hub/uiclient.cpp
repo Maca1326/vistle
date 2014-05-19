@@ -35,34 +35,6 @@ bool UiClient::done() const {
 }
 
 
-void UiClient::operator()() {
-
-   while (!m_done) {
-
-      bool received = false, sent = false;
-
-      socket().get_io_service().poll();
-      message::Buffer buf;
-      if (!message::recv(socket(), buf.msg, received))
-         break;
-
-      if (received) {
-         if (buf.msg.type() == message::Message::MODULEEXIT) {
-            std::cerr << "user interface " << id() << " quit (sender: " << buf.msg.senderId() << ")" << std::endl;
-            m_done = true;
-         } else {
-            while (!manager().handleMessage(buf.msg))
-               usleep(100000);
-         }
-      }
-
-      if (!received && !sent)
-         usleep(10000);
-   }
-
-   m_done = true;
-}
-
 void UiClient::cancel() {
 
    m_done = true;

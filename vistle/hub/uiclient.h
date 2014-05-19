@@ -17,7 +17,6 @@ class UiClient {
       ~UiClient();
 
       int id() const;
-      void operator()();
       void cancel();
       bool done() const;
       UiManager &manager() const;
