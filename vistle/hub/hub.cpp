@@ -37,6 +37,17 @@ using message::Router;
 
 #define CERR std::cerr << "Hub: "
 
+std::string hostname() {
+
+   // process with the smallest rank on each host allocates shm
+   const size_t HOSTNAMESIZE = 256;
+
+   char hostname[HOSTNAMESIZE];
+   gethostname(hostname, HOSTNAMESIZE-1);
+   hostname[HOSTNAMESIZE-1] = '\0';
+   return hostname;
+}
+
 Hub *hub_instance = nullptr;
 
 Hub::Hub()
@@ -51,6 +62,7 @@ Hub::Hub()
 , m_slaveCount(0)
 , m_hubId(0)
 , m_moduleCount(0)
+, m_traceMessages(-1)
 {
 
    assert(!hub_instance);
@@ -165,7 +177,7 @@ bool Hub::dispatch() {
       auto it = m_sockets.find(sock);
       if (it != m_sockets.end())
          senderType = it->second;
-      if (senderType != message::Identify::UI) {
+      if (senderType != message::Identify::UI || 1) {
          boost::asio::socket_base::bytes_readable command(true);
          sock->io_control(command);
          if (command.get() > 0) {
@@ -295,48 +307,35 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
       senderType = it->second;
    }
 
+   bool track=false, mgr=false, ui=false, master=false, slave=false, handle=false;
+
    if (Router::the().toTracker(msg, senderType)) {
       m_stateTracker.handle(msg);
+      track = true;
    }
 
 #if 1
    if (Router::the().toManager(msg, senderType)) {
       sendManager(msg);
+      mgr = true;
    }
    if (Router::the().toUi(msg, senderType)) {
       sendUi(msg);
+      ui = true;
    }
    if (Router::the().toHub(msg, senderType)) {
-      if (m_isMaster)
+      if (m_isMaster) {
          sendSlaves(msg);
-      else
-         sendMaster(msg);
-   }
-#else
-   if (destHub(msg) != 0) {
-      if (destHub(msg) == m_hubId) {
-         if (msg.destId() > 0) {
-            // to module
-            sendManager(msg);
-         }
-         if (m_isMaster)
-            sendUi(msg);
-         else if (msg.type() == message::Message::SPAWN) {
-            sendManager(msg);
-         }
+         slave = true;
       } else {
-         if (m_isMaster) {
-            sendSlaves(msg);
-         } else {
-            if (senderType != message::Identify::HUB)
-               sendMaster(msg);
-         }
-         return true;
+         sendMaster(msg);
+         master = true;
       }
    }
-#endif
 
    if (Router::the().toHandler(msg, senderType)) {
+
+      handle=true;
 
       switch(msg.type()) {
 
@@ -368,7 +367,7 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
                std::vector<std::string> argv;
                argv.push_back("spawn_vistle.sh");
                argv.push_back(executable);
-               argv.push_back(Shm::the().name());
+               argv.push_back(Shm::instanceName(hostname(), m_port));
                std::stringstream idstr;
                idstr << id;
                argv.push_back(idstr.str());
@@ -539,18 +538,39 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
       }
    }
 
+   if (m_traceMessages == -1 || msg.type() == m_traceMessages) {
+      if (track) std::cerr << "T"; else std::cerr << ".";
+      if (mgr) std::cerr << "M" ;else std::cerr << ".";
+      if (ui) std::cerr << "U"; else std::cerr << ".";
+      if (slave) { std::cerr << "S"; } else if (master) { std::cerr << "M"; } else std::cerr << ".";
+      std::cerr << " " << msg << std::endl;
+   }
+#else
+   if (destHub(msg) != 0) {
+      if (destHub(msg) == m_hubId) {
+         if (msg.destId() > 0) {
+            // to module
+            sendManager(msg);
+         }
+         if (m_isMaster)
+            sendUi(msg);
+         else if (msg.type() == message::Message::SPAWN) {
+            sendManager(msg);
+         }
+      } else {
+         if (m_isMaster) {
+            sendSlaves(msg);
+         } else {
+            if (senderType != message::Identify::HUB)
+               sendMaster(msg);
+         }
+         return true;
+      }
+   }
+#endif
+
+
    return true;
-}
-
-std::string hostname() {
-
-   // process with the smallest rank on each host allocates shm
-   const size_t HOSTNAMESIZE = 256;
-
-   char hostname[HOSTNAMESIZE];
-   gethostname(hostname, HOSTNAMESIZE-1);
-   hostname[HOSTNAMESIZE-1] = '\0';
-   return hostname;
 }
 
 bool Hub::init(int argc, char *argv[]) {

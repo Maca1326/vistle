@@ -77,6 +77,7 @@ private:
    int m_hubId;
 
    int m_moduleCount;
+   int m_traceMessages;
 };
 
 }

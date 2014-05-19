@@ -776,6 +776,8 @@ enum RoutingFlags {
    Special = 0x1000,
    RequiresLogic = 0x2000,
    RequiresSubscription = 0x4000,
+
+   Handle = 0x8000,
 };
 
 class Router {

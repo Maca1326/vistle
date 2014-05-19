@@ -1098,25 +1098,25 @@ void Router::initRoutingTable() {
    memset(&rt, '\0', sizeof(rt));
 
    rt[M::INVALID]       = 0;
-   rt[M::IDENTIFY]      = Special;
-   rt[M::SETID]      = Special;
+   rt[M::IDENTIFY]      = Special|Handle;
+   rt[M::SETID]      = Special|Handle;
    rt[M::REPLAYFINISHED] = Special;
    rt[M::TRACE]         = Broadcast;
-   rt[M::SPAWN]         = Track|ProcessOnMaster;
+   rt[M::SPAWN]         = Track|DestMasterHub;
    rt[M::EXEC]          = DestHub;
-   rt[M::STARTED]       = Track|Broadcast;
+   rt[M::STARTED]       = Track|DestUi;
    rt[M::KILL]          = DestModule;
    rt[M::QUIT]          = Broadcast|ThroughMaster;
-   rt[M::MODULEEXIT]    = Track|Broadcast;
+   rt[M::MODULEEXIT]    = Track|Broadcast|DestUi;
    rt[M::COMPUTE]       = DestModule|DestHub;
    rt[M::REDUCE]        = DestModule;
    rt[M::MODULEAVAILABLE]    = Track|DestManager|RequiresSubscription;
-   rt[M::CREATEPORT]    = Track|DestManager|RequiresSubscription;
-   rt[M::ADDPARAMETER]  = Track|DestManager|RequiresSubscription;
-   rt[M::CONNECT]       = Track|DestManager|RequiresSubscription;
-   rt[M::DISCONNECT]       = Track|DestManager|RequiresSubscription;
-   rt[M::SETPARAMETER]       = Track|DestManager|RequiresSubscription;
-   rt[M::SETPARAMETERCHOICES]       = Track|DestManager|RequiresSubscription;
+   rt[M::CREATEPORT]    = Track|DestManager|RequiresSubscription|DestUi;
+   rt[M::ADDPARAMETER]  = Track|DestManager|RequiresSubscription|DestUi;
+   rt[M::CONNECT]       = Track|DestManager|RequiresSubscription|DestUi;
+   rt[M::DISCONNECT]       = Track|DestManager|RequiresSubscription|DestUi;
+   rt[M::SETPARAMETER]       = Track|DestManager|RequiresSubscription|DestUi;
+   rt[M::SETPARAMETERCHOICES]       = Track|DestManager|RequiresSubscription|DestUi;
    rt[M::PING] = Broadcast;
    rt[M::PONG] = Broadcast;
    rt[M::BUSY] = DestUi;
@@ -1183,8 +1183,12 @@ bool Router::toHub(const Message &msg, Identify::Identity senderType) {
 bool Router::toManager(const Message &msg, Identify::Identity senderType) {
 
    const int t = msg.type();
-   if (rt[t] & DestManager)
-      return true;
+   if (senderType != Identify::MANAGER) {
+      if (rt[t] & DestManager)
+         return true;
+      if  (rt[t] & DestModule)
+         return true;
+   }
 
    return false;
 }
@@ -1216,6 +1220,9 @@ bool Router::toTracker(const Message &msg, Identify::Identity senderType) {
 bool Router::toHandler(const Message &msg, Identify::Identity senderType) {
 
    const int t = msg.type();
+   if (rt[t] & Handle) {
+      return msg.destId() == 0;
+   }
    if (m_identity == Identify::HUB) {
       return rt[t] & DestMasterHub;
    }
