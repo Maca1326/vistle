@@ -10,6 +10,7 @@
 
 #include <util/findself.h>
 #include <util/spawnprocess.h>
+#include <util/sleep.h>
 #include <core/object.h>
 #include <control/executor.h>
 #include <core/message.h>
@@ -184,7 +185,7 @@ bool Hub::dispatch() {
    m_ioService.poll();
 
    bool ret = true;
-   bool wait = true;
+   bool work = false;
    for (auto &sock: m_clients) {
 
       message::Identify::Identity senderType = message::Identify::UNKNOWN;
@@ -199,7 +200,7 @@ bool Hub::dispatch() {
          bool received = false;
          if (message::recv(*sock, msg, received) && received) {
             if (received)
-               wait = false;
+               work = true;
             if (!handleMessage(sock, msg)) {
                ret = false;
                break;
@@ -209,7 +210,7 @@ bool Hub::dispatch() {
    }
 
    if (auto pid = vistle::try_wait()) {
-      wait = false;
+      work = true;
       auto it = m_processMap.find(pid);
       if (it == m_processMap.end()) {
          CERR << "unknown process with PID " << pid << " exited" << std::endl;
@@ -230,8 +231,7 @@ bool Hub::dispatch() {
       }
    }
 
-   if (wait)
-      usleep(10000);
+   vistle::adaptive_wait(work);
 
    return ret;
 }
@@ -376,44 +376,45 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
 
          case Message::SPAWN: {
             auto &spawn = static_cast<const Spawn &>(msg);
-            int id = spawn.spawnId();
             if (m_isMaster) {
                assert(id == 0);
                ++m_moduleCount;
-               id = m_moduleCount;
                auto notify = spawn;
                notify.setSpawnId(m_moduleCount);
                sendManager(notify);
                sendUi(notify);
                sendSlaves(notify);
             }
+            break;
+         }
 
-            if (spawn.hubId() == m_hubId) {
-               std::string name = spawn.getName();
-               AvailableModule::Key key(spawn.hubId(), name);
-               auto it = m_availableModules.find(key);
-               if (it == m_availableModules.end()) {
-                  CERR << "refusing to spawn " << name << ": not in list of available modules" << std::endl;
-                  return true;
-               }
-               std::string path = it->second.path;
+         case Message::SPAWNPREPARED: {
 
-               std::string executable = path;
-               std::vector<std::string> argv;
-               argv.push_back("spawn_vistle.sh");
-               argv.push_back(executable);
-               argv.push_back(Shm::instanceName(hostname(), m_port));
-               std::stringstream idstr;
-               idstr << id;
-               argv.push_back(idstr.str());
+            auto &spawn = static_cast<const SpawnPrepared &>(msg);
+            assert(spawn.hubId() == m_hubId);
 
-               auto pid = spawn_process("spawn_vistle.sh", argv);
-               if (pid) {
-                  //std::cerr << "started " << executable << " with PID " << pid << std::endl;
-                  m_processMap[pid] = id;
-               } else {
-                  std::cerr << "program " << executable << " failed to start" << std::endl;
-               }
+            std::string name = spawn.getName();
+            AvailableModule::Key key(spawn.hubId(), name);
+            auto it = m_availableModules.find(key);
+            if (it == m_availableModules.end()) {
+               CERR << "refusing to spawn " << name << ": not in list of available modules" << std::endl;
+               return true;
+            }
+            std::string path = it->second.path;
+
+            std::string executable = path;
+            std::vector<std::string> argv;
+            argv.push_back("spawn_vistle.sh");
+            argv.push_back(executable);
+            argv.push_back(Shm::instanceName(hostname(), m_port));
+            argv.push_back(boost::lexical_cast<std::string>(spawn.spawnId()));
+
+            auto pid = spawn_process("spawn_vistle.sh", argv);
+            if (pid) {
+               //std::cerr << "started " << executable << " with PID " << pid << std::endl;
+               m_processMap[pid] = spawn.spawnId();
+            } else {
+               std::cerr << "program " << executable << " failed to start" << std::endl;
             }
             break;
          }

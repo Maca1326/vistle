@@ -1,5 +1,6 @@
 #include "sleep.h"
 #include <map>
+#include <iostream>
 
 #ifdef _WIN32
 #else
@@ -12,7 +13,7 @@ bool adaptive_wait(bool work, const void *client) {
 
    static std::map<const void *, long> idleMap;
    const long Sec = 1000000; // 1 s
-   const long MinDelay = 10000; // 10 ms
+   const long MinDelay = 1000; // 1 ms
    const long MaxDelay = Sec;
 
    auto it = idleMap.find(client);
@@ -26,7 +27,8 @@ bool adaptive_wait(bool work, const void *client) {
       return false;
    }
 
-   auto delay = idle;
+   
+   long delay = (float(idle)/Sec)*(float(idle)/Sec)*Sec;
    if (delay < MinDelay)
       delay = MinDelay;
    if (delay > MaxDelay)
@@ -34,10 +36,13 @@ bool adaptive_wait(bool work, const void *client) {
 
    idle += delay;
 
-   if (delay < Sec)
+   if (delay < Sec) {
+      //std::cerr << "usleep " << delay << std::endl;
       usleep(delay);
-   else
+   } else {
       sleep(delay/Sec);
+      //std::cerr << "sleep " << delay/Sec << std::endl;
+   }
 
    return true;
 }

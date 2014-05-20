@@ -8,14 +8,14 @@ namespace asio = boost::asio;
 namespace vistle {
 namespace message {
 
-bool recv(socket_t &sock, Message &msg, bool &received) {
+bool recv(socket_t &sock, Message &msg, bool &received, bool block) {
 
    uint32_t sz = 0;
 
    boost::asio::socket_base::bytes_readable command(true);
    sock.io_control(command);
    std::size_t bytes_readable = command.get();
-   if (bytes_readable < sizeof(sz)) {
+   if (bytes_readable < sizeof(sz) && !block) {
       received = false;
       return true;
    }

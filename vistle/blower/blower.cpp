@@ -7,6 +7,8 @@
 #include <boost/thread.hpp>
 #include <boost/thread/mutex.hpp>
 
+#include <util/sleep.h>
+
 using namespace vistle;
 
 class UiRunner {
@@ -29,7 +31,10 @@ class UiRunner {
             if (m_done)
                break;
          }
-         usleep(10000);
+      }
+      {
+         boost::unique_lock<boost::mutex> lock(m_mutex);
+         m_done = true;
       }
    }
 

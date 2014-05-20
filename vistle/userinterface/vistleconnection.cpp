@@ -67,7 +67,14 @@ bool VistleConnection::done() const {
 }
 
 void VistleConnection::cancel() {
+
+   if (m_quitOnExit) {
+      sendMessage(message::Quit());
+      m_quitOnExit = false;
+   }
+
    mutex_lock lock(m_mutex);
+   m_ui.stop();
    m_done = true;
 }
 
@@ -79,7 +86,6 @@ void VistleConnection::operator()() {
             break;
          }
       }
-      usleep(10000);
    }
    {
       mutex_lock lock(m_mutex);

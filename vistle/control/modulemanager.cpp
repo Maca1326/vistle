@@ -334,6 +334,8 @@ bool ModuleManager::handle(const message::Spawn &spawn) {
       exit(-1);
    }
 
+   sendHub(message::SpawnPrepared(spawn));
+
    // inform newly started module about current parameter values of other modules
    for (auto &mit: runningMap) {
       const int id = mit.first;

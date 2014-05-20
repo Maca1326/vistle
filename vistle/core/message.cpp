@@ -164,7 +164,7 @@ Spawn::Spawn(int hub, const int s,
              const std::string & n, int mpiSize, int baseRank, int rankSkip)
    : Message(Message::SPAWN, sizeof(Spawn))
    , m_hub(hub)
-   , spawnID(s)
+   , m_spawnId(s)
    , mpiSize(mpiSize)
    , baseRank(baseRank)
    , rankSkip(rankSkip)
@@ -180,12 +180,12 @@ int Spawn::hubId() const {
 
 int Spawn::spawnId() const {
 
-   return spawnID;
+   return m_spawnId;
 }
 
 void Spawn::setSpawnId(int id) {
 
-   spawnID = id;
+   m_spawnId = id;
 }
 
 const char * Spawn::getName() const {
@@ -206,6 +206,31 @@ int Spawn::getBaseRank() const {
 int Spawn::getRankSkip() const {
 
    return rankSkip;
+}
+
+SpawnPrepared::SpawnPrepared(const Spawn &spawn)
+   : Message(Message::SPAWNPREPARED, sizeof(SpawnPrepared))
+   , m_hub(spawn.hubId())
+   , m_spawnId(spawn.spawnId())
+{
+
+   setUuid(spawn.uuid());
+   COPY_STRING(name, std::string(spawn.getName()));
+}
+
+int SpawnPrepared::hubId() const {
+
+   return m_hub;
+}
+
+int SpawnPrepared::spawnId() const {
+
+   return m_spawnId;
+}
+
+const char * SpawnPrepared::getName() const {
+
+   return name.data();
 }
 
 Exec::Exec(const std::string &pathname, const std::vector<std::string> &args, int id)
@@ -1103,6 +1128,7 @@ void Router::initRoutingTable() {
    rt[M::REPLAYFINISHED] = Special;
    rt[M::TRACE]         = Broadcast;
    rt[M::SPAWN]         = Track|Special|Handle;
+   rt[M::SPAWNPREPARED] = DestLocalHub|Handle;
    rt[M::EXEC]          = DestHub;
    rt[M::STARTED]       = Track|DestUi;
    rt[M::KILL]          = DestModule;
@@ -1238,10 +1264,16 @@ bool Router::toHandler(const Message &msg, Identify::Identity senderType) {
       return msg.destId() == 0 || msg.destId() == m_id;
    }
    if (m_identity == Identify::HUB) {
-      return rt[t] & DestMasterHub;
+      if (rt[t] & DestMasterHub)
+         return true;
+   }
+   if (m_identity == Identify::SLAVEHUB || m_identity == Identify::HUB) {
+      if (rt[t] & DestLocalHub)
+         return true;
    }
    if (m_identity == Identify::SLAVEHUB) {
-      return rt[t] & DestSlaveHub;
+      if (rt[t] & DestSlaveHub)
+         return true;
    }
    if (m_identity == Identify::MANAGER) {
       if (m_id == -1)

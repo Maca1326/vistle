@@ -64,6 +64,7 @@ class V_COREEXPORT Message {
       (SETID)
       (TRACE)
       (SPAWN)
+      (SPAWNPREPARED)
       (EXEC)
       (KILL)
       (QUIT)
@@ -196,7 +197,7 @@ BOOST_STATIC_ASSERT(sizeof(Pong) <= Message::MESSAGE_SIZE);
 class V_COREEXPORT Spawn: public Message {
 
  public:
-   Spawn(int hubId, const int spawnID,
+   Spawn(int hubId, const int spawnId,
          const std::string &name, int size=-1, int baserank=-1, int rankskip=-1);
 
    int hubId() const;
@@ -211,7 +212,7 @@ class V_COREEXPORT Spawn: public Message {
    //! id of hub where to spawn module
    int m_hub;
    //! ID of module to spawn
-   int spawnID;
+   int m_spawnId;
    //! number of ranks in communicator
    int mpiSize;
    //! first rank on which to spawn process
@@ -222,6 +223,27 @@ class V_COREEXPORT Spawn: public Message {
    module_name_t name;
 };
 BOOST_STATIC_ASSERT(sizeof(Spawn) <= Message::MESSAGE_SIZE);
+
+//! notification of manager that spawning is possible (i.e. shmem has been set up)
+class V_COREEXPORT SpawnPrepared: public Message {
+
+ public:
+   SpawnPrepared(const Spawn &spawn);
+
+   int hubId() const;
+   int spawnId() const;
+   void setSpawnId(int id);
+   const char *getName() const;
+
+ private:
+   //! id of hub where to spawn module
+   int m_hub;
+   //! ID of module to spawn
+   int m_spawnId;
+   //! name of module to be started
+   module_name_t name;
+};
+BOOST_STATIC_ASSERT(sizeof(SpawnPrepared) <= Message::MESSAGE_SIZE);
 
 //! execute a command via Vistle hub
 class V_COREEXPORT Exec: public Message {
@@ -763,6 +785,7 @@ enum RoutingFlags {
 
    DestMasterHub = 32,
    DestSlaveHub = 64,
+   DestLocalHub = 0x10000,
    DestHub = DestMasterHub|DestSlaveHub,
    DestUi = 128,
    DestModule = 256,

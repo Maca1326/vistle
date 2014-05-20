@@ -146,9 +146,7 @@ void Executor::run() {
    if (!config(m_argc, m_argv))
       return;
 
-   while (m_comm->dispatch()) {
-      usleep(10000);
-   }
+   m_comm->run();
 }
 
 } // namespace vistle

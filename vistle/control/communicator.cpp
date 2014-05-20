@@ -18,6 +18,7 @@
 #include <core/object.h>
 #include <core/parameter.h>
 #include <util/findself.h>
+#include <util/sleep.h>
 
 #include "communicator.h"
 #include "modulemanager.h"
@@ -142,104 +143,113 @@ void Communicator::setQuitFlag() {
    m_quitFlag = true;
 }
 
-bool Communicator::dispatch() {
+void Communicator::run() {
+
+   bool work = false;
+   while (dispatch(&work)) {
+
+      vistle::adaptive_wait(work);
+   }
+}
+
+bool Communicator::dispatch(bool *work) {
 
    bool done = false;
 
    bool received = false;
-   do {
-      received = false;
+   received = false;
 
-      // check for new UIs and other network clients
-      if (m_rank == 0) {
+   // check for new UIs and other network clients
+   if (m_rank == 0) {
 
-         if (!done)
-            done = m_quitFlag;
+      if (!done)
+         done = m_quitFlag;
 
-         if (done) {
-            sendHub(message::Quit());
-         }
+      if (done) {
+         sendHub(message::Quit());
       }
+   }
 
-      // handle or broadcast messages received from slaves (m_rank > 0)
-      if (m_rank == 0) {
-         int flag;
-         MPI_Status status;
-         MPI_Test(&m_reqToRank0, &flag, &status);
-         if (flag && status.MPI_TAG == TagToRank0) {
-
-            assert(m_rank == 0);
-            received = true;
-            message::Message *message = (message::Message *) m_recvBufTo0.data();
-            if (message->broadcast()) {
-               if (!broadcastAndHandleMessage(*message))
-                  done = true;
-            }  else {
-               if (!handleMessage(*message))
-                  done = true;
-            }
-            MPI_Irecv(m_recvBufTo0.data(), m_recvBufTo0.size(), MPI_BYTE, MPI_ANY_SOURCE, TagToRank0, MPI_COMM_WORLD, &m_reqToRank0);
-         }
-      }
-
-      // test for message m_size from another MPI node
-      //    - receive actual message from broadcast (on any m_rank)
-      //    - receive actual message from slave m_rank (on m_rank 0) for broadcasting
-      //    - handle message
-      //    - post another MPI receive for m_size of next message
+   // handle or broadcast messages received from slaves (m_rank > 0)
+   if (m_rank == 0) {
       int flag;
       MPI_Status status;
-      MPI_Test(&m_reqAny, &flag, &status);
-      if (flag && status.MPI_TAG == TagToAny) {
+      MPI_Test(&m_reqToRank0, &flag, &status);
+      if (flag && status.MPI_TAG == TagToRank0) {
 
+         assert(m_rank == 0);
          received = true;
-         MPI_Bcast(m_recvBufToAny.data(), m_recvSize, MPI_BYTE,
-                   status.MPI_SOURCE, MPI_COMM_WORLD);
-
-         message::Message *message = (message::Message *) m_recvBufToAny.data();
-#if 0
-         printf("[%02d] message from [%02d] message type %d m_size %d\n",
-                m_rank, status.MPI_SOURCE, message->getType(), mpiMessageSize);
-#endif
-         if (!handleMessage(*message))
-            done = true;
-
-         MPI_Irecv(&m_recvSize, 1, MPI_INT, MPI_ANY_SOURCE, TagToAny, MPI_COMM_WORLD, &m_reqAny);
-      }
-
-      if (m_rank == 0) {
-         m_ioService.poll();
-         bool received = false;
-         std::vector<char> buf(message::Message::MESSAGE_SIZE);
-         message::Message *message = (message::Message *)buf.data();
-         if (!message::recv(m_hubSocket, *message, received)) {
-            done = true;
-         } else if (received) {
-            if(!broadcastAndHandleMessage(*message))
+         message::Message *message = (message::Message *) m_recvBufTo0.data();
+         if (message->broadcast()) {
+            if (!broadcastAndHandleMessage(*message))
+               done = true;
+         }  else {
+            if (!handleMessage(*message))
                done = true;
          }
+         MPI_Irecv(m_recvBufTo0.data(), m_recvBufTo0.size(), MPI_BYTE, MPI_ANY_SOURCE, TagToRank0, MPI_COMM_WORLD, &m_reqToRank0);
       }
+   }
 
-      // test for messages from modules
-      if (done) {
-         if (m_moduleManager) {
-            m_moduleManager->quit();
-            m_quitFlag = false;
-            done = false;
-         }
-      }
-      if (m_moduleManager->quitOk()) {
+   // test for message m_size from another MPI node
+   //    - receive actual message from broadcast (on any m_rank)
+   //    - receive actual message from slave m_rank (on m_rank 0) for broadcasting
+   //    - handle message
+   //    - post another MPI receive for m_size of next message
+   int flag;
+   MPI_Status status;
+   MPI_Test(&m_reqAny, &flag, &status);
+   if (flag && status.MPI_TAG == TagToAny) {
+
+      received = true;
+      MPI_Bcast(m_recvBufToAny.data(), m_recvSize, MPI_BYTE,
+            status.MPI_SOURCE, MPI_COMM_WORLD);
+
+      message::Message *message = (message::Message *) m_recvBufToAny.data();
+#if 0
+      printf("[%02d] message from [%02d] message type %d m_size %d\n",
+            m_rank, status.MPI_SOURCE, message->getType(), mpiMessageSize);
+#endif
+      if (!handleMessage(*message))
          done = true;
-      }
-      if (!done && m_moduleManager) {
-         done = !m_moduleManager->dispatch(received);
-      }
-      if (done) {
-         delete m_moduleManager;
-         m_moduleManager = nullptr;
-      }
 
-   } while (!done && received);
+      MPI_Irecv(&m_recvSize, 1, MPI_INT, MPI_ANY_SOURCE, TagToAny, MPI_COMM_WORLD, &m_reqAny);
+   }
+
+   if (m_rank == 0) {
+      m_ioService.poll();
+      message::Buffer buf;
+      bool gotMsg = false;
+      if (!message::recv(m_hubSocket, buf.msg, gotMsg)) {
+         done = true;
+      } else if (gotMsg) {
+         received = true;
+         if(!broadcastAndHandleMessage(buf.msg))
+            done = true;
+      }
+   }
+
+   // test for messages from modules
+   if (done) {
+      if (m_moduleManager) {
+         m_moduleManager->quit();
+         m_quitFlag = false;
+         done = false;
+      }
+   }
+   if (m_moduleManager->quitOk()) {
+      done = true;
+   }
+   if (!done && m_moduleManager) {
+      done = !m_moduleManager->dispatch(received);
+   }
+   if (done) {
+      delete m_moduleManager;
+      m_moduleManager = nullptr;
+   }
+
+   if (work)
+      *work = received;
 
    return !done;
 }

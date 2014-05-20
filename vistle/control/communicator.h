@@ -27,7 +27,8 @@ class V_CONTROLEXPORT Communicator {
 
    bool scanModules(const std::string &dir);
 
-   bool dispatch();
+   void run();
+   bool dispatch(bool *work);
    bool handleMessage(const message::Message &message);
    bool forwardToMaster(const message::Message &message);
    bool broadcastAndHandleMessage(const message::Message &message);

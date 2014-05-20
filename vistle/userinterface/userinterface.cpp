@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include <stdio.h>
 
 #include <sys/types.h>
@@ -49,6 +48,11 @@ UserInterface::UserInterface(const std::string &host, const unsigned short port,
    m_hostname = hostname;
 
    tryConnect();
+}
+
+void UserInterface::stop() {
+
+   m_ioService.stop();
 }
 
 int UserInterface::id() const {
@@ -105,21 +109,20 @@ StateTracker &UserInterface::state() {
 
 bool UserInterface::dispatch() {
 
-   char msgRecvBuf[message::Message::MESSAGE_SIZE];
-   vistle::message::Message *message = (vistle::message::Message *) msgRecvBuf;
+   message::Buffer buf;
 
    bool received = true;
    while (received) {
 
       received = false;
-      if (!message::recv(socket(), *message, received)) {
+      if (!message::recv(socket(), buf.msg, received, true /* blocking */)) {
          return false;
       }
       
       if (!received)
          break;
 
-      if (!handleMessage(message))
+      if (!handleMessage(&buf.msg))
          return false;
 
    }
