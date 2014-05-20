@@ -4,6 +4,7 @@
 #include <util/sysdep.h>
 #include <boost/foreach.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include <mpi.h>
 
@@ -40,6 +41,8 @@
 namespace bi = boost::interprocess;
 
 namespace vistle {
+
+using message::Id;
 
 ModuleManager::ModuleManager(int argc, char *argv[], int r, const std::vector<std::string> &hosts)
 : m_portManager(this)
@@ -208,7 +211,7 @@ bool ModuleManager::sendAll(const message::Message &message) const {
 bool ModuleManager::sendAllOthers(int excluded, const message::Message &message) const {
 
 #if 0
-   if (Communicator::the().hubId() == -1) {
+   if (Communicator::the().isMaster()) {
       sendHub(message);
    }
 
@@ -262,9 +265,11 @@ bool ModuleManager::sendMessage(const int moduleId, const message::Message &mess
    auto &mod = it->second;
 
    if (mod.hub == Communicator::the().hubId()) {
+      std::cerr << "local send to " << moduleId << ": " << message << std::endl;
       if (mod.local)
          mod.sendQueue->send(message);
    } else {
+      std::cerr << "remote send to " << moduleId << ": " << message << std::endl;
       message::Buffer buf(message);
       buf.msg.setDestId(moduleId);
       sendHub(message);
@@ -284,7 +289,7 @@ bool ModuleManager::handle(const message::ModuleAvailable &avail) {
    AvailableModule::Key key(m.hub, m.name);
    m_availableModules[key] = m;
 #if 0
-   if (Communicator::the().hubId() == -1)
+   if (Communicator::the().isMaster())
       sendHub(avail);
 #endif
    return true;
@@ -317,21 +322,21 @@ bool ModuleManager::handle(const message::Trace &trace) {
 
 bool ModuleManager::handle(const message::Spawn &spawn) {
 
-#if 1
-   int newId = spawn.spawnId();
-   if (!spawn.spawnId())
+   if (spawn.spawnId() == Id::Invalid) {
+      // ignore messages where master hub did not yet create an id
       return true;
+   }
    m_stateTracker.handle(spawn);
    if (spawn.destId() != Communicator::the().hubId())
       return true;
 
-   std::stringstream modID;
-   modID << newId;
-   const std::string idStr = modID.str();
+   int newId = spawn.spawnId();
+   const std::string idStr = boost::lexical_cast<std::string>(newId);
 
    Module &mod = runningMap[newId];
    mod.local = true;
    mod.baseRank = 0;
+   mod.hub = spawn.hubId();
 
    std::string smqName = message::MessageQueue::createName("smq", newId, m_rank);
    std::string rmqName = message::MessageQueue::createName("rmq", newId, m_rank);
@@ -352,7 +357,8 @@ bool ModuleManager::handle(const message::Spawn &spawn) {
       const int id = mit.first;
       const std::string moduleName = getModuleName(id);
 
-      message::Spawn spawn(mit.second.hub, id, moduleName);
+      message::Spawn spawn(mit.second.hub, moduleName);
+      spawn.setSpawnId(id);
       sendMessage(newId, spawn);
 
       for (std::string paramname: m_stateTracker.getParameters(id)) {
@@ -367,129 +373,6 @@ bool ModuleManager::handle(const message::Spawn &spawn) {
          sendMessage(newId, set);
       }
    }
-#else
-   int senderHub = spawn.senderId();
-   if (senderHub > 0) {
-      senderHub = m_stateTracker.getHub(senderHub);
-   }
-
-   CERR << "Spawn: sender hub: " << senderHub << ", "  << spawn << std::endl;
-
-   int moduleID = spawn.spawnId();
-   if (Communicator::the().hubId() == -1) {
-      if (moduleID == 0) {
-         moduleID = newModuleID();
-         message::Spawn toUi = spawn;
-         toUi.setSenderId(Communicator::the().hubId());
-         toUi.setDestId(-1);
-         toUi.setSpawnId(moduleID);
-         sendUi(toUi);
-      } else {
-         if (m_moduleCounter < moduleID)
-            m_moduleCounter = moduleID;
-      }
-   } else {
-      if (moduleID == 0) {
-         sendHub(spawn);
-         return true;
-      }
-   }
-   message::Spawn forExec = spawn;
-   forExec.setSpawnId(moduleID);
-   forExec.setDestId(spawn.hubId());
-   m_stateTracker.handle(forExec);
-
-   if (forExec.hubId() != Communicator::the().hubId()) {
-      CERR << "spawn hub: " << forExec.hubId() << ", comm hub: " << Communicator::the().hubId() << std::endl;
-      if (senderHub <= 0)
-         sendHub(forExec);
-      return true;
-   }
-
-   int numSpwan = spawn.getMpiSize();
-   if (numSpwan <= 0 || numSpwan > m_size)
-      numSpwan = m_size;
-   int rankSkip = spawn.getRankSkip();
-   if (rankSkip < 0)
-      rankSkip = 0;
-   int baseRank = spawn.getBaseRank();
-   if (baseRank < 0)
-      baseRank = 0;
-   if (baseRank + numSpwan*(rankSkip+1) > m_size)
-      numSpwan = (m_size-baseRank+rankSkip)/(rankSkip+1);
-
-   bool onThisRank = true;
-   if (m_rank < baseRank)
-      onThisRank = false;
-   if (m_rank >= baseRank+numSpwan*(rankSkip+1))
-      onThisRank = false;
-   if ((baseRank + m_rank) % (rankSkip+1) != 0)
-      onThisRank = false;
-
-   std::string name = spawn.getName();
-   AvailableModule::Key key(spawn.hubId(), name);
-   auto it = m_availableModules.find(key);
-   if (it == m_availableModules.end()) {
-       CERR << "refusing to spawn " << name << ": not in list of available modules" << std::endl;
-       return true;
-   }
-   std::string path = it->second.path;
-
-   std::stringstream modID;
-   modID << moduleID;
-   std::string id = modID.str();
-
-   Module &mod = runningMap[moduleID];
-   mod.local = onThisRank;
-   mod.baseRank = baseRank;
-
-   if (onThisRank) {
-      int localRank = (m_rank-baseRank) / (rankSkip+1);
-      std::string smqName = message::MessageQueue::createName("smq", moduleID, localRank);
-      std::string rmqName = message::MessageQueue::createName("rmq", moduleID, localRank);
-
-      try {
-         mod.sendQueue = message::MessageQueue::create(smqName);
-         mod.recvQueue = message::MessageQueue::create(rmqName);
-      } catch (bi::interprocess_exception &ex) {
-
-         CERR << "spawn mq " << ex.what() << std::endl;
-         exit(-1);
-      }
-   }
-
-   std::string executable = path;
-   std::vector<std::string> argv;
-   argv.push_back(Shm::the().name());
-   argv.push_back(id);
-   auto exec = message::Exec(executable, argv, moduleID);
-   exec.setDestId(spawn.hubId());
-   sendHub(exec);
-
-   // inform newly started module about current parameter values of other modules
-   for (auto &mit: runningMap) {
-      const int id = mit.first;
-      const std::string moduleName = getModuleName(mit.first);
-
-      message::Spawn spawn(mit.second.hub, id, moduleName);
-      spawn.setRank(m_rank);
-      sendMessage(moduleID, spawn);
-
-      for (std::string paramname: m_stateTracker.getParameters(id)) {
-         const Parameter *param = m_stateTracker.getParameter(id, paramname);
-
-         message::AddParameter add(param, moduleName);
-         add.setSenderId(id);
-         add.setRank(m_rank);
-         sendMessage(moduleID, add);
-
-         message::SetParameter set(id, paramname, param);
-         set.setSenderId(id);
-         set.setRank(m_rank);
-         sendMessage(moduleID, set);
-      }
-   }
-#endif
 
    return true;
 }
@@ -500,7 +383,7 @@ bool ModuleManager::handle(const message::Started &started) {
    // FIXME: not valid for cover
    //assert(m_stateTracker.getModuleName(moduleID) == started.getName());
 
-   if (Communicator::the().hubId() == -1)
+   if (Communicator::the().isMaster())
       sendHub(started);
    replayMessages();
    return true;
@@ -748,9 +631,9 @@ bool ModuleManager::handle(const message::ExecutionProgress &prog) {
 bool ModuleManager::handle(const message::Busy &busy) {
 
    //sendAllOthers(busy.senderId(), busy);
-   if (Communicator::the().hubId() == -1) {
+   if (Communicator::the().isMaster()) {
       message::Buffer buf(busy);
-      buf.msg.setDestId(-1);
+      buf.msg.setDestId(Id::MasterHub);
       sendHub(buf.msg);
    }
    return m_stateTracker.handle(busy);
@@ -759,9 +642,9 @@ bool ModuleManager::handle(const message::Busy &busy) {
 bool ModuleManager::handle(const message::Idle &idle) {
 
    //sendAllOthers(idle.senderId(), idle);
-   if (Communicator::the().hubId() == -1) {
+   if (Communicator::the().isMaster()) {
       message::Buffer buf(idle);
-      buf.msg.setDestId(-1);
+      buf.msg.setDestId(Id::MasterHub);
       sendHub(buf.msg);
    }
    return m_stateTracker.handle(idle);
@@ -810,7 +693,8 @@ bool ModuleManager::handle(const message::SetParameter &setParam) {
       }
 
       // let all modules know that a parameter was changed
-      sendAllOthers(setParam.senderId(), setParam);
+      if (Communicator::the().isMaster())
+         sendAllOthers(setParam.senderId(), setParam);
    }
 
    if (!setParam.isReply()) {
@@ -833,28 +717,30 @@ bool ModuleManager::handle(const message::SetParameter &setParam) {
          return conn;
       };
 
-      Port *port = m_portManager.getPort(setParam.getModule(), setParam.getName());
-      if (port && applied) {
-         ParameterSet conn = findAllConnectedPorts(port, ParameterSet());
+      if (Communicator::the().isMaster()) {
+         Port *port = m_portManager.getPort(setParam.getModule(), setParam.getName());
+         if (port && applied) {
+            ParameterSet conn = findAllConnectedPorts(port, ParameterSet());
 
-         for (ParameterSet::iterator it = conn.begin();
-               it != conn.end();
-               ++it) {
-            const Parameter *p = *it;
-            if (p->module()==setParam.getModule() && p->getName()==setParam.getName()) {
-               // don't update parameter which was set originally again
-               continue;
+            for (ParameterSet::iterator it = conn.begin();
+                  it != conn.end();
+                  ++it) {
+               const Parameter *p = *it;
+               if (p->module()==setParam.getModule() && p->getName()==setParam.getName()) {
+                  // don't update parameter which was set originally again
+                  continue;
+               }
+               message::SetParameter set(p->module(), p->getName(), applied);
+               set.setUuid(setParam.uuid());
+               sendMessage(p->module(), set);
             }
-            message::SetParameter set(p->module(), p->getName(), applied);
-            set.setUuid(setParam.uuid());
-            sendMessage(p->module(), set);
-         }
-      } else {
+         } else {
 #ifdef DEBUG
-         CERR << " SetParameter ["
-            << setParam.getModule() << ":" << setParam.getName()
-            << "]: port not found" << std::endl;
+            CERR << " SetParameter ["
+               << setParam.getModule() << ":" << setParam.getName()
+               << "]: port not found" << std::endl;
 #endif
+         }
       }
    }
    delete applied;
@@ -997,10 +883,11 @@ bool ModuleManager::handle(const message::BarrierReached &barrReached) {
 bool ModuleManager::handle(const message::CreatePort &createPort) {
 
    m_stateTracker.handle(createPort);
-   if (Communicator::the().hubId() == -1) {
-      sendUi(createPort);
-   }
    replayMessages();
+
+   // let all modules know that a port was created
+   sendAllOthers(createPort.senderId(), createPort);
+
    return true;
 }
 
@@ -1111,7 +998,7 @@ void ModuleManager::queueMessage(const message::Message &msg) {
 
 void ModuleManager::replayMessages() {
 
-   if (Communicator::the().hubId() == -1) {
+   if (Communicator::the().isMaster()) {
       std::vector<char> queue;
       std::swap(m_messageQueue, queue);
       //CERR << "replaying " << queue.size()/message::Message::MESSAGE_SIZE << " messages" << std::endl;

@@ -59,8 +59,8 @@ void DataFlowNetwork::addModule(int hub, QString modName, QPointF dropPos)
     module->setPositionValid();
     module->setStatus(Module::SPAWNING);
 
-    vistle::message::Spawn spawnMsg(hub, 0, modName.toUtf8().constData());
-    spawnMsg.setDestId(-1); // to master, for module id generation
+    vistle::message::Spawn spawnMsg(hub, modName.toUtf8().constData());
+    spawnMsg.setDestId(vistle::message::Id::MasterHub); // to master, for module id generation
     module->setSpawnUuid(spawnMsg.uuid());
     m_vistleConnection->sendMessage(spawnMsg);
 

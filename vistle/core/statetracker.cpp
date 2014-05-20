@@ -17,6 +17,8 @@ namespace bi = boost::interprocess;
 
 namespace vistle {
 
+using message::Id;
+
 int StateTracker::Module::state() const {
 
    int s = 0;
@@ -112,7 +114,8 @@ std::vector<char> StateTracker::getState() const {
       const int id = it.first;
       const Module &m = it.second;
 
-      Spawn spawn(m.hub, id, m.name);
+      Spawn spawn(m.hub, m.name);
+      spawn.setSpawnId(id);
       appendMessage(state, spawn);
 
       if (m.initialized) {
@@ -379,8 +382,10 @@ bool StateTracker::handlePriv(const message::Trace &trace) {
 bool StateTracker::handlePriv(const message::Spawn &spawn) {
 
    int moduleId = spawn.spawnId();
-   if (moduleId <= 0)
+   if (moduleId == Id::Invalid) {
+      // don't track when master hub has not yet provided a module id
       return true;
+   }
 
    int hub = spawn.hubId();
 

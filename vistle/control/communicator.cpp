@@ -31,6 +31,8 @@ namespace asio = boost::asio;
 
 namespace vistle {
 
+using message::Id;
+
 enum MpiTags {
    TagModulue,
    TagToRank0,
@@ -82,8 +84,8 @@ int Communicator::hubId() const {
 
 bool Communicator::isMaster() const {
 
-   assert(m_hubId < 0); // make sure that hub id has already been set
-   return m_hubId == -1;
+   assert(m_hubId <= Id::MasterHub); // make sure that hub id has already been set
+   return m_hubId == Id::MasterHub;
 }
 
 int Communicator::getRank() const {
@@ -521,9 +523,9 @@ bool Communicator::handleMessage(const message::Message &message) {
       case message::Message::SENDTEXT: {
          const message::SendText &m = static_cast<const message::SendText &>(message);
          if (m_rank == 0) {
-            if (hubId() == -1) {
+            if (isMaster()) {
                message::Buffer buf(m);
-               buf.msg.setDestId(-1);
+               buf.msg.setDestId(Id::MasterHub);
                sendHub(buf.msg);
             } else {
                sendHub(m);

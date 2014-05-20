@@ -23,6 +23,17 @@ class Port;
 
 namespace message {
 
+struct Id {
+
+   enum Reserved {
+      ModuleBase = 1, //< >= ModuleBase: modules
+      Default = 0,
+      Broadcast = -1,
+      Invalid = -2,
+      MasterHub = -3, //< < MasterHub: slave hubs
+   };
+};
+
 class V_COREEXPORT DefaultSender {
 
    public:
@@ -197,8 +208,7 @@ BOOST_STATIC_ASSERT(sizeof(Pong) <= Message::MESSAGE_SIZE);
 class V_COREEXPORT Spawn: public Message {
 
  public:
-   Spawn(int hubId, const int spawnId,
-         const std::string &name, int size=-1, int baserank=-1, int rankskip=-1);
+   Spawn(int hubId, const std::string &name, int size=-1, int baserank=-1, int rankskip=-1);
 
    int hubId() const;
    int spawnId() const;

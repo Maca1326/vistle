@@ -34,7 +34,7 @@ const double Module::portDistance = 3.;
  */
 Module::Module(QGraphicsItem *parent, QString name)
 : Base(parent)
-, m_id(0)
+, m_id(vistle::message::Id::Invalid)
 , m_Status(SPAWNING)
 , m_validPosition(false)
 , m_fontHeight(0.)
@@ -211,7 +211,7 @@ void Module::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
 
 void Module::updatePosition(QPointF newPos) const
 {
-   if (id() > 0 && isPositionValid()) {
+   if (id() != vistle::message::Id::Invalid && isPositionValid()) {
       // don't update until we have our module id
       const double x = newPos.x();
       const double y = newPos.y();

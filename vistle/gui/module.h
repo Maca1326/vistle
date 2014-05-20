@@ -40,7 +40,7 @@ public:
                   BUSY,
                   ERROR_STATUS };
 
-    Module(QGraphicsItem *parent = 0, QString name = 0);
+    Module(QGraphicsItem *parent = nullptr, QString name = QString());
     virtual ~Module();
     QRectF boundingRect() const;                        // re-implemented
     void paint(QPainter *painter,

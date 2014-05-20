@@ -27,7 +27,7 @@ static T min(T a, T b) { return a<b ? a : b; }
 DefaultSender DefaultSender::s_instance;
 
 DefaultSender::DefaultSender()
-: m_id(-1)
+: m_id(Id::Default)
 , m_rank(-1)
 {
 }
@@ -62,7 +62,7 @@ Message::Message(const Type t, const unsigned int s)
 , m_type(t)
 , m_senderId(DefaultSender::id())
 , m_rank(DefaultSender::rank())
-, m_destId(0)
+, m_destId(Id::Default)
 {
 
    assert(m_size <= MESSAGE_SIZE);
@@ -160,11 +160,11 @@ int Pong::getDestination() const {
    return module;
 }
 
-Spawn::Spawn(int hub, const int s,
+Spawn::Spawn(int hub,
              const std::string & n, int mpiSize, int baseRank, int rankSkip)
    : Message(Message::SPAWN, sizeof(Spawn))
    , m_hub(hub)
-   , m_spawnId(s)
+   , m_spawnId(Id::Invalid)
    , mpiSize(mpiSize)
    , baseRank(baseRank)
    , rankSkip(rankSkip)
@@ -1130,10 +1130,10 @@ void Router::initRoutingTable() {
    rt[M::SPAWN]         = Track|Special|Handle;
    rt[M::SPAWNPREPARED] = DestLocalHub|Handle;
    rt[M::EXEC]          = DestHub;
-   rt[M::STARTED]       = Track|DestUi;
+   rt[M::STARTED]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub;
    rt[M::KILL]          = DestModule;
    rt[M::QUIT]          = Broadcast|ThroughMaster|Handle;
-   rt[M::MODULEEXIT]    = Track|Broadcast|DestUi;
+   rt[M::MODULEEXIT]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub;
    rt[M::COMPUTE]       = DestModule|DestHub;
    rt[M::REDUCE]        = DestModule;
    rt[M::MODULEAVAILABLE]    = Track|DestHub|DestUi|RequiresSubscription;
@@ -1178,7 +1178,7 @@ Router &Router::the() {
 Router::Router() {
 
    m_identity = Identify::UNKNOWN;
-   m_id = 0;
+   m_id = Id::Invalid;
    initRoutingTable();
 }
 
@@ -1267,7 +1267,7 @@ bool Router::toHandler(const Message &msg, Identify::Identity senderType) {
 
    const int t = msg.type();
    if (rt[t] & Handle) {
-      return msg.destId() == 0 || msg.destId() == m_id;
+      return msg.destId() == Id::Broadcast || msg.destId() == m_id;
    }
    if (m_identity == Identify::HUB) {
       if (rt[t] & DestMasterHub)
@@ -1282,7 +1282,7 @@ bool Router::toHandler(const Message &msg, Identify::Identity senderType) {
          return true;
    }
    if (m_identity == Identify::MANAGER) {
-      if (m_id == -1)
+      if (m_id == Id::MasterHub)
          return rt[t] & DestMasterManager;
       else
          return rt[t] & DestSlaveManager;
