@@ -383,9 +383,11 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
                assert(spawn.spawnId() == 0);
                ++m_moduleCount;
                auto notify = spawn;
+               notify.setSenderId(m_hubId);
                notify.setSpawnId(m_moduleCount);
-               sendManager(notify);
                sendUi(notify);
+               notify.setDestId(spawn.hubId());
+               sendManager(notify);
                sendSlaves(notify);
             } else {
                assert(spawn.spawnId() > 0);
@@ -576,10 +578,10 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
    }
 
    if (m_traceMessages == -1 || msg.type() == m_traceMessages) {
-      if (track) std::cerr << "T"; else std::cerr << ".";
-      if (mgr) std::cerr << "M" ;else std::cerr << ".";
-      if (ui) std::cerr << "U"; else std::cerr << ".";
-      if (slave) { std::cerr << "S"; } else if (master) { std::cerr << "M"; } else std::cerr << ".";
+      if (track) std::cerr << "t"; else std::cerr << ".";
+      if (mgr) std::cerr << "m" ;else std::cerr << ".";
+      if (ui) std::cerr << "u"; else std::cerr << ".";
+      if (slave) { std::cerr << "s"; } else if (master) { std::cerr << "M"; } else std::cerr << ".";
       std::cerr << " " << msg << std::endl;
    }
 #else

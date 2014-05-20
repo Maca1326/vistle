@@ -1137,18 +1137,18 @@ void Router::initRoutingTable() {
    rt[M::COMPUTE]       = DestModule|DestHub;
    rt[M::REDUCE]        = DestModule;
    rt[M::MODULEAVAILABLE]    = Track|DestHub|DestUi|RequiresSubscription;
-   rt[M::CREATEPORT]    = Track|DestManager|RequiresSubscription|DestUi;
-   rt[M::ADDPARAMETER]  = Track|DestManager|RequiresSubscription|DestUi;
-   rt[M::CONNECT]       = Track|DestManager|RequiresSubscription|DestUi;
-   rt[M::DISCONNECT]       = Track|DestManager|RequiresSubscription|DestUi;
-   rt[M::SETPARAMETER]       = Track|DestManager|RequiresSubscription|DestUi;
-   rt[M::SETPARAMETERCHOICES]       = Track|DestManager|RequiresSubscription|DestUi;
+   rt[M::CREATEPORT]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub;
+   rt[M::ADDPARAMETER]  = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub;
+   rt[M::CONNECT]       = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub;
+   rt[M::DISCONNECT]       = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub;
+   rt[M::SETPARAMETER]       = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub;
+   rt[M::SETPARAMETERCHOICES]       = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub;
    rt[M::PING] = Broadcast;
    rt[M::PONG] = Broadcast;
-   rt[M::BUSY] = DestUi;
-   rt[M::IDLE] = DestUi;
+   rt[M::BUSY] = DestUi|DestMasterHub;
+   rt[M::IDLE] = DestUi|DestMasterHub;
    rt[M::LOCKUI] = DestUi;
-   rt[M::SENDTEXT] = DestUi;
+   rt[M::SENDTEXT] = DestUi|DestMasterHub;
 
    rt[M::OBJECTRECEIVEPOLICY] = DestManager;
    rt[M::SCHEDULINGPOLICY] = DestManager;

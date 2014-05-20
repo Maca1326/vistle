@@ -207,9 +207,20 @@ bool ModuleManager::sendAll(const message::Message &message) const {
 
 bool ModuleManager::sendAllOthers(int excluded, const message::Message &message) const {
 
+#if 0
    if (Communicator::the().hubId() == -1) {
       sendHub(message);
    }
+
+   int senderHub = message.senderId;
+   if (senderHub > 0)
+      senderHub = m_stateTracker.getHub(senderHub);
+   if (senderHub != Communicator::the().hubId())
+      sendHub(message);
+#else
+   if (message.senderId() != Communicator::the().hubId())
+      sendHub(message);
+#endif
 
    // handle messages to modules
    for(RunningMap::const_iterator next, it = runningMap.begin();
