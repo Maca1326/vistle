@@ -199,8 +199,7 @@ bool Hub::dispatch() {
          message::Message &msg = *reinterpret_cast<message::Message *>(buf);
          bool received = false;
          if (message::recv(*sock, msg, received) && received) {
-            if (received)
-               work = true;
+            work = true;
             if (!handleMessage(sock, msg)) {
                ret = false;
                break;
@@ -276,9 +275,13 @@ bool Hub::sendSlaves(const message::Message &msg) {
    if (!m_isMaster)
       return false;
 
-   for (auto &sock: m_sockets) {
-      if (sock.second == message::Identify::SLAVEHUB)
-         sendMessage(sock.first, msg);
+   int senderHub = msg.senderId();
+   if (senderHub > 0)
+      senderHub = m_stateTracker.getHub(senderHub);
+
+   for (auto &sock: m_slaveSockets) {
+      if (sock.first != senderHub)
+         sendMessage(sock.second, msg);
    }
    return true;
 }
@@ -377,13 +380,16 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
          case Message::SPAWN: {
             auto &spawn = static_cast<const Spawn &>(msg);
             if (m_isMaster) {
-               assert(id == 0);
+               assert(spawn.spawnId() == 0);
                ++m_moduleCount;
                auto notify = spawn;
                notify.setSpawnId(m_moduleCount);
                sendManager(notify);
                sendUi(notify);
                sendSlaves(notify);
+            } else {
+               assert(spawn.spawnId() > 0);
+               sendManager(spawn);
             }
             break;
          }
@@ -427,9 +433,9 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
             switch(id.identity()) {
                case Identify::UNKNOWN: {
                   if (m_isMaster) {
-                     sendMessage(it->first, Identify(Identify::HUB));
+                     sendMessage(sock, Identify(Identify::HUB));
                   } else {
-                     sendMessage(it->first, Identify(Identify::SLAVEHUB));
+                     sendMessage(sock, Identify(Identify::SLAVEHUB));
                   }
                   break;
                }
@@ -438,10 +444,10 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
                   m_managerConnected = true;
 
                   message::SetId set(m_hubId);
-                  sendMessage(it->first, set);
+                  sendMessage(sock, set);
                   for (auto &am: m_availableModules) {
                      message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
-                     sendMessage(it->first, m);
+                     sendMessage(sock, m);
                   }
                   if (m_isMaster) {
                      processScript();
@@ -463,7 +469,7 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
                   assert(m_isMaster);
                   CERR << "slave hub connected" << std::endl;
                   ++m_slaveCount;
-                  addSlave(m_slaveCount, it->first);
+                  addSlave(m_slaveCount, sock);
                   break;
                }
             }
@@ -485,8 +491,8 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
             for (auto &am: m_availableModules) {
                message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
                sendManager(m);
-               if (!m_isMaster)
-                  sendMaster(m);
+               m.setDestId(-1);
+               sendMaster(m);
             }
             break;
          }
@@ -664,10 +670,15 @@ bool Hub::init(int argc, char *argv[]) {
    } else {
       // this is the master hub
       m_hubId = -1;
+      message::DefaultSender::init(m_hubId, 0);
       Router::init(message::Identify::HUB, m_hubId);
 
 #ifdef SCAN_MODULES_ON_HUB
       scanModules(m_bindir + "/../libexec/module", m_hubId, m_availableModules);
+      for (auto &am: m_availableModules) {
+         message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
+         m_stateTracker.handle(m);
+      }
 #endif
    }
 

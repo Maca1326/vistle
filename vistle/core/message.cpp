@@ -1136,7 +1136,7 @@ void Router::initRoutingTable() {
    rt[M::MODULEEXIT]    = Track|Broadcast|DestUi;
    rt[M::COMPUTE]       = DestModule|DestHub;
    rt[M::REDUCE]        = DestModule;
-   rt[M::MODULEAVAILABLE]    = Track|DestManager|RequiresSubscription;
+   rt[M::MODULEAVAILABLE]    = Track|DestHub|DestUi|RequiresSubscription;
    rt[M::CREATEPORT]    = Track|DestManager|RequiresSubscription|DestUi;
    rt[M::ADDPARAMETER]  = Track|DestManager|RequiresSubscription|DestUi;
    rt[M::CONNECT]       = Track|DestManager|RequiresSubscription|DestUi;
@@ -1199,10 +1199,16 @@ bool Router::toUi(const Message &msg, Identify::Identity senderType) {
 
 bool Router::toHub(const Message &msg, Identify::Identity senderType) {
 
+   if (m_identity == Identify::SLAVEHUB 
+         && senderType == Identify::HUB) {
+      return false;
+   }
+
    const int t = msg.type();
    if (rt[t] & DestMasterHub) {
-      if (m_identity != Identify::HUB)
-         return true;
+      if (senderType != Identify::HUB)
+         if (m_identity != Identify::HUB)
+            return true;
    }
 
    if (rt[t] & DestSlaveHub) {

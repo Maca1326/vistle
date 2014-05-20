@@ -74,18 +74,18 @@ void UiManager::addClient(boost::shared_ptr<UiClient> c) {
 
       sendMessage(c, message::LockUi(m_locked));
 
-      std::vector<char> state = m_stateTracker.getState();
-
-      for (size_t i=0; i<state.size(); i+=message::Message::MESSAGE_SIZE) {
-         const message::Message *msg = (const message::Message *)&state[i];
-         sendMessage(c, *msg);
-      }
-      sendMessage(c, message::ReplayFinished());
-
       auto avail = m_stateTracker.availableModules();
       for(const auto &mod: avail) {
          sendMessage(c, message::ModuleAvailable(mod.hub, mod.name, mod.path));
       }
+
+      std::vector<char> state = m_stateTracker.getState();
+      for (size_t i=0; i<state.size(); i+=message::Message::MESSAGE_SIZE) {
+         const message::Message *msg = (const message::Message *)&state[i];
+         sendMessage(c, *msg);
+      }
+
+      sendMessage(c, message::ReplayFinished());
    }
 }
 

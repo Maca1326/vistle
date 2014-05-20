@@ -272,7 +272,7 @@ bool ModuleManager::handle(const message::ModuleAvailable &avail) {
    m.path = avail.path();
    AvailableModule::Key key(m.hub, m.name);
    m_availableModules[key] = m;
-#if 1
+#if 0
    if (Communicator::the().hubId() == -1)
       sendHub(avail);
 #endif
