@@ -378,9 +378,11 @@ bool StateTracker::handlePriv(const message::Trace &trace) {
 
 bool StateTracker::handlePriv(const message::Spawn &spawn) {
 
-   int hub = spawn.hubId();
    int moduleId = spawn.spawnId();
-   assert(moduleId > 0);
+   if (moduleId <= 0)
+      return true;
+
+   int hub = spawn.hubId();
 
    Module &mod = runningMap[moduleId];
    mod.hub = hub;

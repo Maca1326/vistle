@@ -276,12 +276,17 @@ bool Hub::sendSlaves(const message::Message &msg) {
       return false;
 
    int senderHub = msg.senderId();
-   if (senderHub > 0)
+   if (senderHub > 0) {
+      std::cerr << "mod id " << senderHub;
       senderHub = m_stateTracker.getHub(senderHub);
+      std::cerr << " -> hub id " << senderHub << std::endl;
+   }
 
    for (auto &sock: m_slaveSockets) {
-      if (sock.first != senderHub)
+      if (sock.first != senderHub) {
+         std::cerr << "to slave id: " << sock.first << std::endl;
          sendMessage(sock.second, msg);
+      }
    }
    return true;
 }
@@ -385,6 +390,7 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
                auto notify = spawn;
                notify.setSenderId(m_hubId);
                notify.setSpawnId(m_moduleCount);
+               m_stateTracker.handle(notify);
                sendUi(notify);
                notify.setDestId(spawn.hubId());
                sendManager(notify);
@@ -445,11 +451,13 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
                   assert(!m_managerConnected);
                   m_managerConnected = true;
 
-                  message::SetId set(m_hubId);
-                  sendMessage(sock, set);
-                  for (auto &am: m_availableModules) {
-                     message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
-                     sendMessage(sock, m);
+                  if (m_hubId < 0) {
+                     message::SetId set(m_hubId);
+                     sendMessage(sock, set);
+                     for (auto &am: m_availableModules) {
+                        message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
+                        sendMessage(sock, m);
+                     }
                   }
                   if (m_isMaster) {
                      processScript();
