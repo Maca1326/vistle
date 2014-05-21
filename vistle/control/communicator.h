@@ -60,7 +60,7 @@ class V_CONTROLEXPORT Communicator {
    std::vector<char> m_recvBufTo0, m_recvBufToAny;
    MPI_Request m_reqAny, m_reqToRank0;
 
-   int m_traceMessages;
+   message::Message::Type m_traceMessages;
 
    static Communicator *s_singleton;
 

@@ -28,9 +28,10 @@ struct Id {
    enum Reserved {
       ModuleBase = 1, //< >= ModuleBase: modules
       Default = 0,
-      Broadcast = -1,
-      Invalid = -2,
-      MasterHub = -3, //< < MasterHub: slave hubs
+      Broadcast = -1, //< master is broadcasting
+      ForBroadcast = -2, //< to master for broadcasting
+      Invalid = -3,
+      MasterHub = -4, //< < MasterHub: slave hubs
    };
 };
 
@@ -71,6 +72,7 @@ class V_COREEXPORT Message {
 
    DEFINE_ENUM_WITH_STRING_CONVERSIONS(Type,
       (INVALID)
+      (ANY) //< for Trace: enables tracing of all message types
       (IDENTIFY)
       (SETID)
       (TRACE)
@@ -724,14 +726,14 @@ V_ENUM_OUTPUT_OP(Progress, ExecutionProgress)
 class V_COREEXPORT Trace: public Message {
 
  public:
-   Trace(int module, int type, bool onoff);
+   Trace(int module, Message::Type type, bool onoff);
    int module() const;
-   int messageType() const;
+   Type messageType() const;
    bool on() const;
 
  private:
    int m_module;
-   int m_messageType;
+   Type m_messageType;
    bool m_on;
 };
 BOOST_STATIC_ASSERT(sizeof(Trace) <= Message::MESSAGE_SIZE);
@@ -803,14 +805,18 @@ enum RoutingFlags {
    DestSlaveManager = 0x400,
    DestManager = DestSlaveManager|DestMasterManager,
 
-   ThroughMaster = 0x800,
    Special = 0x1000,
    RequiresLogic = 0x2000,
    RequiresSubscription = 0x4000,
 
    Handle = 0x8000,
 
-   Broadcast = DestHub | DestUi | DestManager | DestModule,
+   ThroughMaster = 0x800,
+   OrderedLocal = 0x20000,
+   OrderedGlobal = 0x40000,
+   Ordered = OrderedLocal|OrderedGlobal,
+
+   Broadcast = 0x80000,
 };
 
 class Router {

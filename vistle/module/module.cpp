@@ -137,7 +137,7 @@ Module::Module(const std::string &n, const std::string &shmname,
 , m_syncMessageProcessing(false)
 , m_origStreambuf(nullptr)
 , m_streambuf(nullptr)
-, m_traceMessages(0)
+, m_traceMessages(message::Message::INVALID)
 , m_benchmark(false)
 {
 #ifdef _WIN32
@@ -873,7 +873,7 @@ void Module::sendMessage(const message::Message &message) const {
 
    // exclude SendText messages to avoid circular calls
    if (message.type() != message::Message::SENDTEXT
-         && (m_traceMessages == -1 ||  m_traceMessages == message.type())) {
+         && (m_traceMessages == message::Message::ANY || m_traceMessages == message.type())) {
       std::cerr << "SEND: " << message << std::endl;
    }
    sendMessageQueue->send(message);
@@ -883,7 +883,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
 
    using namespace vistle::message;
 
-   if (m_traceMessages == -1 || message->type() == m_traceMessages) {
+   if (m_traceMessages == message::Message::ANY || message->type() == m_traceMessages) {
       std::cerr << "RECV: " << *message << std::endl;
    }
 
@@ -920,7 +920,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          if (trace->on()) {
             m_traceMessages = trace->messageType();
          } else {
-            m_traceMessages = 0;
+            m_traceMessages = message::Message::INVALID;
          }
 
          std::cerr << "    module [" << name() << "] [" << id() << "] ["

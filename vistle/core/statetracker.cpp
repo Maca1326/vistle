@@ -9,7 +9,7 @@
 #include "statetracker.h"
 
 #define CERR \
-   std::cerr << "state tracker: "
+   std::cerr << m_name << ": "
 
 //#define DEBUG
 
@@ -31,8 +31,11 @@ int StateTracker::Module::state() const {
    return s;
 }
 
-StateTracker::StateTracker(PortTracker *portTracker)
+StateTracker::StateTracker(const std::string &name, PortTracker *portTracker)
 : m_portTracker(portTracker)
+, m_traceType(message::Message::INVALID)
+, m_traceId(Id::Invalid)
+, m_name(name)
 {
    assert(m_portTracker);
 }
@@ -68,9 +71,12 @@ int StateTracker::getHub(int id) const {
 
    RunningMap::const_iterator it = runningMap.find(id);
    if (it == runningMap.end())
-      return 0;
+      return Id::Invalid;
 
-   assert(it->second.hub < 0);
+   if (it->second.hub > Id::MasterHub) {
+      CERR << "getHub for " << id << " failed" << std::endl;
+   }
+   assert(it->second.hub <= Id::MasterHub);
    return it->second.hub;
 }
 
@@ -207,11 +213,24 @@ const std::vector<StateTracker::AvailableModule> &StateTracker::availableModules
     return m_availableModules;
 }
 
-bool StateTracker::handle(const message::Message &msg) {
+bool StateTracker::handle(const message::Message &msg, bool track) {
 
-   mutex_locker locker(getMutex());
    using namespace vistle::message;
 
+   if (m_traceId != Id::Invalid && m_traceType != Message::INVALID) {
+
+      if (msg.type() == m_traceType || m_traceType == Message::ANY) {
+
+         if (msg.senderId() == m_traceId || msg.destId() == m_traceId || m_traceId == Id::Broadcast) {
+            std::cout << m_name << ": " << msg << std::endl << std::flush;
+         }
+      }
+   }
+
+   if (!track)
+      return true;
+
+   mutex_locker locker(getMutex());
    switch (msg.type()) {
       case Message::IDENTIFY: {
          break;
@@ -365,6 +384,7 @@ bool StateTracker::handle(const message::Message &msg) {
 
 bool StateTracker::handlePriv(const message::Ping &ping) {
 
+   //CERR << "Ping [" << ping.senderId() << " " << ping.getCharacter() << "]" << std::endl;
    return true;
 }
 
@@ -376,6 +396,15 @@ bool StateTracker::handlePriv(const message::Pong &pong) {
 
 bool StateTracker::handlePriv(const message::Trace &trace) {
 
+   if (trace.on()) {
+      m_traceType = trace.messageType();
+      m_traceId = trace.module();
+      CERR << "tracing " << m_traceType << " from/to " << m_traceId << std::endl;
+   } else {
+      CERR << "disabling tracing of " << m_traceType << " from/to " << m_traceId << std::endl;
+      m_traceId = Id::Invalid;
+      m_traceType = message::Message::INVALID;
+   }
    return true;
 }
 

@@ -46,7 +46,7 @@ using message::Id;
 
 ModuleManager::ModuleManager(int argc, char *argv[], int r, const std::vector<std::string> &hosts)
 : m_portManager(this)
-, m_stateTracker(&m_portManager)
+, m_stateTracker("ModuleManager state", &m_portManager)
 , m_quitFlag(false)
 , m_rank(r)
 , m_size(hosts.size())
@@ -210,16 +210,20 @@ bool ModuleManager::sendAll(const message::Message &message) const {
 
 bool ModuleManager::sendAllOthers(int excluded, const message::Message &message) const {
 
-#if 0
+#if 1
+   message::Buffer buf(message);
    if (Communicator::the().isMaster()) {
-      sendHub(message);
+      buf.msg.setDestId(Id::Broadcast);
+      sendHub(buf.msg);
+   } else {
+      int senderHub = message.senderId();
+      if (senderHub >= Id::ModuleBase)
+         senderHub = m_stateTracker.getHub(senderHub);
+      if (senderHub == Communicator::the().hubId()) {
+         buf.msg.setDestId(Id::ForBroadcast);
+         sendHub(buf.msg);
+      }
    }
-
-   int senderHub = message.senderId;
-   if (senderHub > 0)
-      senderHub = m_stateTracker.getHub(senderHub);
-   if (senderHub != Communicator::the().hubId())
-      sendHub(message);
 #else
    if (message.senderId() != Communicator::the().hubId())
       sendHub(message);
@@ -383,8 +387,7 @@ bool ModuleManager::handle(const message::Started &started) {
    // FIXME: not valid for cover
    //assert(m_stateTracker.getModuleName(moduleID) == started.getName());
 
-   if (Communicator::the().isMaster())
-      sendHub(started);
+   sendAllOthers(started.senderId(), started);
    replayMessages();
    return true;
 }
@@ -693,8 +696,7 @@ bool ModuleManager::handle(const message::SetParameter &setParam) {
       }
 
       // let all modules know that a parameter was changed
-      if (Communicator::the().isMaster())
-         sendAllOthers(setParam.senderId(), setParam);
+      sendAllOthers(setParam.senderId(), setParam);
    }
 
    if (!setParam.isReply()) {

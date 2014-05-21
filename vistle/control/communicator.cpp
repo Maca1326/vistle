@@ -48,7 +48,7 @@ Communicator::Communicator(int argc, char *argv[], int r, const std::vector<std:
 , m_size(hosts.size())
 , m_quitFlag(false)
 , m_recvSize(0)
-, m_traceMessages(0)
+, m_traceMessages(message::Message::INVALID)
 , m_hubSocket(m_ioService)
 {
    assert(s_singleton == NULL);
@@ -309,7 +309,7 @@ bool Communicator::handleMessage(const message::Message &message) {
 
    using namespace vistle::message;
 
-   if (m_traceMessages == -1 || message.type() == m_traceMessages) {
+   if (m_traceMessages == Message::ANY || message.type() == m_traceMessages) {
       CERR << "Message: " << message << std::endl;
    }
 
@@ -357,7 +357,7 @@ bool Communicator::handleMessage(const message::Message &message) {
             if (trace.on())
                m_traceMessages = trace.messageType();
             else
-               m_traceMessages = 0;
+               m_traceMessages = Message::INVALID;
             result = true;
          }
 

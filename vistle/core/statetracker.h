@@ -66,7 +66,7 @@ class V_COREEXPORT StateTracker {
    friend class PortTracker;
 
  public:
-   StateTracker(PortTracker *portTracker);
+   StateTracker(const std::string &name, PortTracker *portTracker);
    ~StateTracker();
 
    typedef boost::recursive_mutex mutex;
@@ -84,7 +84,7 @@ class V_COREEXPORT StateTracker {
    std::vector<std::string> getParameters(int id) const;
    Parameter *getParameter(int id, const std::string &name) const;
 
-   bool handle(const message::Message &msg);
+   bool handle(const message::Message &msg, bool track=true);
 
    PortTracker *portTracker() const;
 
@@ -165,6 +165,10 @@ class V_COREEXPORT StateTracker {
    mutex m_replyMutex;
    boost::condition_variable_any m_replyCondition;
    std::map<message::uuid_t, boost::shared_ptr<message::Buffer>> m_outstandingReplies;
+
+   message::Message::Type m_traceType;
+   int m_traceId;
+   std::string m_name;
 };
 
 } // namespace vistle

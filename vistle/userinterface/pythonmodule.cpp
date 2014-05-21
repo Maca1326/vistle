@@ -87,7 +87,7 @@ static void ping(char c) {
    sendMessage(m);
 }
 
-static void trace(int id, int type, bool onoff = true) {
+static void trace(int id=message::Id::Broadcast, message::Message::Type type=message::Message::ANY, bool onoff = true) {
 
 #ifdef DEBUG
    auto cerrflags = std::cerr.flags();
@@ -97,7 +97,7 @@ static void trace(int id, int type, bool onoff = true) {
    message::Trace m(id, type, onoff);
    sendMessage(m);
 }
-BOOST_PYTHON_FUNCTION_OVERLOADS(trace_overloads, trace, 2, 3)
+BOOST_PYTHON_FUNCTION_OVERLOADS(trace_overloads, trace, 0, 3)
 
 static bool barrier() {
    message::Barrier m;

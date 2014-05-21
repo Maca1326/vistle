@@ -41,13 +41,17 @@ using message::Id;
 
 std::string hostname() {
 
-   // process with the smallest rank on each host allocates shm
-   const size_t HOSTNAMESIZE = 256;
+   static std::string hname;
 
-   char hostname[HOSTNAMESIZE];
-   gethostname(hostname, HOSTNAMESIZE-1);
-   hostname[HOSTNAMESIZE-1] = '\0';
-   return hostname;
+   if (hname.empty()) {
+      const size_t HOSTNAMESIZE = 256;
+
+      char hostname[HOSTNAMESIZE];
+      gethostname(hostname, HOSTNAMESIZE-1);
+      hostname[HOSTNAMESIZE-1] = '\0';
+      hname = hostname;
+   }
+   return hname;
 }
 
 Hub *hub_instance = nullptr;
@@ -55,14 +59,14 @@ Hub *hub_instance = nullptr;
 Hub::Hub()
 : m_port(31093)
 , m_acceptor(m_ioService)
-, m_stateTracker(&m_portTracker)
+, m_stateTracker("Hub state", &m_portTracker)
 , m_uiManager(*this, m_stateTracker)
 , m_uiCount(0)
 , m_managerConnected(false)
 , m_quitting(false)
 , m_isMaster(true)
 , m_slaveCount(0)
-, m_hubId(0)
+, m_hubId(Id::Invalid)
 , m_moduleCount(0)
 , m_traceMessages(-1)
 {
@@ -335,12 +339,10 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
       senderType = it->second;
    }
 
-   bool track=false, mgr=false, ui=false, master=false, slave=false, handle=false;
+   bool mgr=false, ui=false, master=false, slave=false, handle=false;
 
-   if (Router::the().toTracker(msg, senderType)) {
-      m_stateTracker.handle(msg);
-      track = true;
-   }
+   bool track = Router::the().toTracker(msg, senderType);
+   m_stateTracker.handle(msg, track);
 
    if (Router::the().toManager(msg, senderType)) {
       sendManager(msg);
@@ -365,6 +367,7 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
       if (dest != m_hubId) {
          if (m_isMaster) {
             sendSlaves(msg);
+            slave = true;
          }
       }
    }
@@ -444,12 +447,14 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
                   assert(!m_managerConnected);
                   m_managerConnected = true;
 
-                  message::SetId set(m_hubId);
-                  sendMessage(sock, set);
-                  if (m_hubId < Id::MasterHub) {
-                     for (auto &am: m_availableModules) {
-                        message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
-                        sendMessage(sock, m);
+                  if (m_hubId != Id::Invalid) {
+                     message::SetId set(m_hubId);
+                     sendMessage(sock, set);
+                     if (m_hubId < Id::MasterHub) {
+                        for (auto &am: m_availableModules) {
+                           message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
+                           sendMessage(sock, m);
+                        }
                      }
                   }
                   if (m_isMaster) {
