@@ -383,9 +383,9 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
                notify.setSenderId(m_hubId);
                notify.setSpawnId(Id::ModuleBase + m_moduleCount);
                ++m_moduleCount;
+               notify.setDestId(spawn.hubId());
                m_stateTracker.handle(notify);
                sendUi(notify);
-               notify.setDestId(spawn.hubId());
                sendManager(notify);
                sendSlaves(notify);
             } else {
@@ -444,9 +444,9 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
                   assert(!m_managerConnected);
                   m_managerConnected = true;
 
+                  message::SetId set(m_hubId);
+                  sendMessage(sock, set);
                   if (m_hubId < Id::MasterHub) {
-                     message::SetId set(m_hubId);
-                     sendMessage(sock, set);
                      for (auto &am: m_availableModules) {
                         message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
                         sendMessage(sock, m);

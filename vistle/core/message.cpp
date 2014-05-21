@@ -1064,6 +1064,7 @@ std::ostream &operator<<(std::ostream &s, const Message &m) {
       << ", type: " << m.type()
       << ", size: " << m.size()
       << ", sender: " << m.senderId()
+      << ", dest: " << m.destId()
       << ", rank: " << m.rank();
 
    switch (m.type()) {
@@ -1267,7 +1268,7 @@ bool Router::toHandler(const Message &msg, Identify::Identity senderType) {
 
    const int t = msg.type();
    if (rt[t] & Handle) {
-      return msg.destId() == Id::Broadcast || msg.destId() == m_id;
+      return msg.destId() == Id::Default || msg.destId() == Id::Broadcast || msg.destId() == m_id;
    }
    if (m_identity == Identify::HUB) {
       if (rt[t] & DestMasterHub)
