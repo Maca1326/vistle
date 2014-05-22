@@ -100,7 +100,7 @@ int Communicator::getSize() const {
 
 bool Communicator::connectHub(const std::string &host, unsigned short port) {
 
-   int ret = 1;
+   bool ret = true;
    if (getRank() == 0) {
 
       CERR << "connecting to hub on " << host << ":" << port << "..." << std::flush;
@@ -115,7 +115,7 @@ bool Communicator::connectHub(const std::string &host, unsigned short port) {
       if (ec) {
          std::cerr << std::endl;
          CERR << "could not establish connection to hub at " << host << ":" << port << std::endl;
-         ret = 0;
+         ret = false;
       } else {
          std::cerr << " ok." << std::endl;
       }
@@ -353,7 +353,7 @@ bool Communicator::handleMessage(const message::Message &message) {
       case message::Message::TRACE: {
          const Trace &trace = static_cast<const Trace &>(message);
          sendHub(trace);
-         if (trace.module() <= 0) {
+         if (trace.module() == Id::Broadcast || trace.module() == hubId()) {
             if (trace.on())
                m_traceMessages = trace.messageType();
             else
@@ -361,9 +361,7 @@ bool Communicator::handleMessage(const message::Message &message) {
             result = true;
          }
 
-         if (trace.module() > 0 || trace.module() == -1) {
-            result = m_moduleManager->handle(trace);
-         }
+         result = m_moduleManager->handle(trace);
          break;
       }
 

@@ -821,16 +821,15 @@ bool Module::parameterChanged(const int senderId, const std::string &name, const
 
 bool Module::dispatch() {
 
-   char msgRecvBuf[message::Message::MESSAGE_SIZE];
-   vistle::message::Message *message = (vistle::message::Message *) msgRecvBuf;
+
+   message::Buffer buf;
+   receiveMessageQueue->receive(buf.msg);
 
    bool again = true;
-   receiveMessageQueue->receive(*message);
-
    if (syncMessageProcessing()) {
       int sync = 0, allsync = 0;
 
-      switch (message->type()) {
+      switch (buf.msg.type()) {
          case vistle::message::Message::OBJECTRECEIVED:
          case vistle::message::Message::QUIT:
             sync = 1;
@@ -842,9 +841,7 @@ bool Module::dispatch() {
       MPI_Allreduce(&sync, &allsync, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
       do {
-         vistle::message::Message *message = (vistle::message::Message *) msgRecvBuf;
-
-         switch (message->type()) {
+         switch (buf.msg.type()) {
             case vistle::message::Message::OBJECTRECEIVED:
             case vistle::message::Message::QUIT:
                sync = 1;
@@ -853,16 +850,16 @@ bool Module::dispatch() {
                break;
          }
 
-         again &= handleMessage(message);
+         again &= handleMessage(&buf.msg);
 
          if (allsync && !sync) {
-            receiveMessageQueue->receive(*message);
+            receiveMessageQueue->receive(buf.msg);
          }
 
       } while(allsync && !sync);
    } else {
 
-      again &= handleMessage(message);
+      again &= handleMessage(&buf.msg);
    }
 
    return again;

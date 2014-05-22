@@ -316,9 +316,9 @@ bool ModuleManager::handle(const message::Pong &pong) {
 bool ModuleManager::handle(const message::Trace &trace) {
 
    m_stateTracker.handle(trace);
-   if (trace.module() > 0) {
+   if (trace.module() >= Id::ModuleBase) {
       sendMessage(trace.module(), trace);
-   } else {
+   } else if (trace.module() == Id::Broadcast) {
       sendAll(trace);
    }
    return true;
@@ -411,9 +411,11 @@ bool ModuleManager::handle(const message::Connect &connect) {
    m_stateTracker.handle(c);
    if (m_portManager.addConnection(modFrom, portFrom, modTo, portTo)) {
       // inform modules about connections
-      sendMessage(modFrom, c);
-      sendMessage(modTo, c);
-      sendUi(c);
+      if (Communicator::the().isMaster()) {
+         sendMessage(modFrom, c);
+         sendMessage(modTo, c);
+         sendUi(c);
+      }
    } else {
       queueMessage(c);
    }
@@ -439,9 +441,11 @@ bool ModuleManager::handle(const message::Disconnect &disconnect) {
    m_stateTracker.handle(d);
    if (m_portManager.removeConnection(modFrom, portFrom, modTo, portTo)) {
 
-      sendMessage(modFrom, d);
-      sendMessage(modTo, d);
-      sendUi(d);
+      if (Communicator::the().isMaster()) {
+         sendMessage(modFrom, d);
+         sendMessage(modTo, d);
+         sendUi(d);
+      }
    } else {
 
       if (!m_messageQueue.empty()) {
@@ -467,7 +471,7 @@ bool ModuleManager::handle(const message::ModuleExit &moduleExit) {
       RunningMap::iterator it = runningMap.find(mod);
       if (it == runningMap.end()) {
          CERR << " Module [" << mod << "] quit, but not found in running map" << std::endl;
-         return false;
+         return true;
       }
       Module &m = it->second;
       if (m.baseRank == m_rank) {

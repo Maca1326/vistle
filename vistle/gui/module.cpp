@@ -74,6 +74,7 @@ void Module::deleteModule()
 {
    setStatus(KILLED);
    vistle::message::Kill m(m_id);
+   m.setDestId(m_id);
    vistle::VistleConnection::the().sendMessage(m);
 }
 

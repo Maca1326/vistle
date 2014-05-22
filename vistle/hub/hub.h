@@ -50,7 +50,7 @@ private:
    void addClient(boost::shared_ptr<boost::asio::ip::tcp::socket> sock);
    void addSlave(int id, boost::shared_ptr<boost::asio::ip::tcp::socket> sock);
 
-   int destHub(const message::Message &msg) const;
+   int idToHub(int id) const;
 
    unsigned short m_port;
    boost::asio::io_service m_ioService;

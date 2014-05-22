@@ -166,6 +166,7 @@ static void kill(int id) {
    std::cerr << "Python: kill "<< id << std::endl;
 #endif
    message::Kill m(id);
+   m.setDestId(id);
    sendMessage(m);
 }
 

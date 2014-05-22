@@ -826,7 +826,8 @@ class Router {
    static void init(Identify::Identity identity, int id);
 
    bool toUi(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN);
-   bool toHub(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN);
+   bool toMasterHub(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN, int senderHub=Id::Invalid);
+   bool toSlaveHub(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN, int senderHub=Id::Invalid);
    bool toManager(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN);
    bool toModule(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN);
    bool toTracker(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN);

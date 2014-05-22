@@ -1131,17 +1131,17 @@ void Router::initRoutingTable() {
    rt[M::SPAWN]         = Track|Special|Handle|Ordered;
    rt[M::SPAWNPREPARED] = DestLocalHub|Handle;
    rt[M::EXEC]          = DestHub;
-   rt[M::STARTED]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub;
-   rt[M::KILL]          = DestModule;
+   rt[M::STARTED]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Broadcast;
+   rt[M::KILL]          = DestModule|Ordered;
    rt[M::QUIT]          = Broadcast|ThroughMaster|Handle;
-   rt[M::MODULEEXIT]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub;
+   rt[M::MODULEEXIT]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Broadcast;
    rt[M::COMPUTE]       = DestModule|DestHub|Ordered;
    rt[M::REDUCE]        = DestModule|OrderedLocal;
    rt[M::MODULEAVAILABLE]    = Track|DestHub|DestUi|RequiresSubscription;
-   rt[M::CREATEPORT]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered;
-   rt[M::ADDPARAMETER]  = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered;
-   rt[M::CONNECT]       = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered;
-   rt[M::DISCONNECT]       = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered;
+   rt[M::CREATEPORT]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|Broadcast;
+   rt[M::ADDPARAMETER]  = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|Broadcast;
+   rt[M::CONNECT] = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|Broadcast;
+   rt[M::DISCONNECT] = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|Broadcast;
    rt[M::SETPARAMETER]       = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered;
    rt[M::SETPARAMETERCHOICES]       = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered;
    rt[M::PING] = Broadcast;
@@ -1191,6 +1191,8 @@ void Router::init(Identify::Identity identity, int id) {
 
 bool Router::toUi(const Message &msg, Identify::Identity senderType) {
 
+   if (msg.destId() == Id::ForBroadcast)
+      return false;
    const int t = msg.type();
    if (rt[t] & DestUi)
       return true;
@@ -1200,18 +1202,15 @@ bool Router::toUi(const Message &msg, Identify::Identity senderType) {
    return false;
 }
 
-bool Router::toHub(const Message &msg, Identify::Identity senderType) {
+bool Router::toMasterHub(const Message &msg, Identify::Identity senderType, int senderHub) {
 
-   if (msg.destId() == Id::ForBroadcast && m_identity == Identify::SLAVEHUB) {
-      return true;
-   }
-   if (msg.destId() == Id::Broadcast && m_identity == Identify::HUB) {
-      return true;
-   }
-   if (m_identity == Identify::SLAVEHUB 
-         && senderType == Identify::HUB) {
+   if (m_identity != Identify::SLAVEHUB)
       return false;
-   }
+   if (senderType == Identify::HUB)
+      return false;
+
+   if (msg.destId() == Id::ForBroadcast)
+      return true;
 
    const int t = msg.type();
    if (rt[t] & DestMasterHub) {
@@ -1224,6 +1223,35 @@ bool Router::toHub(const Message &msg, Identify::Identity senderType) {
       return true;
    }
 
+   if (rt[t] & Broadcast) {
+      if (msg.senderId() == m_id)
+         return true;
+      std::cerr << "toMasterHub: sender id: " << msg.senderId() << ", hub: " << senderHub << std::endl;
+      if (senderHub == m_id)
+         return true;
+   }
+
+   return false;
+}
+
+bool Router::toSlaveHub(const Message &msg, Identify::Identity senderType, int senderHub) {
+
+   if (msg.destId() == Id::ForBroadcast)
+      return false;
+
+   if (m_identity != Identify::HUB)
+      return false;
+
+   if (msg.destId() == Id::Broadcast) {
+      return true;
+   }
+
+   const int t = msg.type();
+   if (rt[t] & DestSlaveHub) {
+      return true;
+   }
+
+#if 0
    if (m_identity == Identify::SLAVEHUB) {
       if (rt[t] & DestManager)
          return true;
@@ -1231,19 +1259,10 @@ bool Router::toHub(const Message &msg, Identify::Identity senderType) {
       if (rt[t] & DestManager)
          return true;
    }
+#endif
 
-   if (rt[t] & Broadcast) {
-      if (m_identity == Identify::HUB) {
-         return true;
-      }
-      if (m_identity == Identify::SLAVEHUB) {
-         if (msg.senderId() == m_id)
-            return true;
-         if (msg.senderId() >= Id::ModuleBase) {
-            //FIXME should find sender hub
-         }
-      }
-   }
+   if (rt[t] & Broadcast)
+      return true;
 
    return false;
 }
@@ -1265,6 +1284,9 @@ bool Router::toManager(const Message &msg, Identify::Identity senderType) {
 
 bool Router::toModule(const Message &msg, Identify::Identity senderType) {
 
+   if (msg.destId() == Id::ForBroadcast)
+      return false;
+
    const int t = msg.type();
    if (rt[t] & DestModule)
       return true;
@@ -1275,6 +1297,9 @@ bool Router::toModule(const Message &msg, Identify::Identity senderType) {
 }
 
 bool Router::toTracker(const Message &msg, Identify::Identity senderType) {
+
+   if (msg.destId() == Id::ForBroadcast)
+      return false;
 
    const int t = msg.type();
    if (rt[t] & Track) {

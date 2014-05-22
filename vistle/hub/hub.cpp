@@ -320,12 +320,12 @@ bool Hub::handleUiMessage(const message::Message &msg) {
    return sendMaster(msg);
 }
 
-int Hub::destHub(const message::Message &msg) const {
+int Hub::idToHub(int id) const {
 
-   if (msg.destId() >= Id::ModuleBase)
-      return m_stateTracker.getHub(msg.destId());
+   if (id >= Id::ModuleBase)
+      return m_stateTracker.getHub(id);
 
-   return msg.destId();
+   return id;
 }
 
 bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::Message &msg) {
@@ -352,17 +352,18 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
       sendUi(msg);
       ui = true;
    }
-   int dest = destHub(msg);
-   if (dest == Id::Default) {
-      if (Router::the().toHub(msg, senderType)) {
-         if (m_isMaster) {
-            sendSlaves(msg);
-            slave = true;
-         } else {
-            sendMaster(msg);
-            master = true;
-         }
+   const int dest = idToHub(msg.destId());
+   const int sender = idToHub(msg.senderId());
+   if (dest > Id::MasterHub) {
+      if (Router::the().toMasterHub(msg, senderType, sender)) {
+         sendMaster(msg);
+         master = true;
       }
+      if (Router::the().toSlaveHub(msg, senderType, sender)) {
+         sendSlaves(msg);
+         slave = true;
+      }
+      assert(!(slave && master));
    } else {
       if (dest != m_hubId) {
          if (m_isMaster) {
