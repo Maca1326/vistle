@@ -75,6 +75,7 @@ Hub::Hub()
    hub_instance = this;
 
    message::DefaultSender::init(m_hubId, 0);
+   m_uiManager.lockUi(true);
 }
 
 Hub::~Hub() {
@@ -205,7 +206,7 @@ bool Hub::dispatch() {
          bool received = false;
          if (message::recv(*sock, msg, received) && received) {
             work = true;
-            if (!handleMessage(sock, msg)) {
+            if (!handleMessage(msg, sock)) {
                ret = false;
                break;
             }
@@ -315,11 +316,6 @@ bool Hub::sendUi(const message::Message &msg) {
    return true;
 }
 
-bool Hub::handleUiMessage(const message::Message &msg) {
-
-   return sendMaster(msg);
-}
-
 int Hub::idToHub(int id) const {
 
    if (id >= Id::ModuleBase)
@@ -328,7 +324,7 @@ int Hub::idToHub(int id) const {
    return id;
 }
 
-bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::Message &msg) {
+bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::socket> sock) {
 
    using namespace vistle::message;
 
@@ -337,6 +333,74 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
    if (sock) {
       assert(it != m_sockets.end());
       senderType = it->second;
+   }
+
+   if (msg.type() == message::Message::IDENTIFY) {
+
+      auto &id = static_cast<const Identify &>(msg);
+      CERR << "ident msg: " << id.identity() << std::endl;
+      if (id.identity() != Identify::UNKNOWN) {
+         it->second = id.identity();
+      }
+      switch(id.identity()) {
+         case Identify::UNKNOWN: {
+            if (m_isMaster) {
+               sendMessage(sock, Identify(Identify::HUB));
+            } else {
+               sendMessage(sock, Identify(Identify::SLAVEHUB));
+            }
+            break;
+         }
+         case Identify::MANAGER: {
+            assert(!m_managerConnected);
+            m_managerConnected = true;
+
+            if (m_hubId != Id::Invalid) {
+               message::SetId set(m_hubId);
+               sendMessage(sock, set);
+               if (m_hubId < Id::MasterHub) {
+                  for (auto &am: m_availableModules) {
+                     message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
+                     sendMessage(sock, m);
+                  }
+               }
+            }
+            if (m_isMaster) {
+               processScript();
+            }
+            m_uiManager.lockUi(false);
+            for (message::Buffer &m: m_uiQueue) {
+               handleMessage(m.msg);
+            }
+            m_uiQueue.clear();
+            break;
+         }
+         case Identify::UI: {
+            ++m_uiCount;
+            boost::shared_ptr<UiClient> c(new UiClient(m_uiManager, m_uiCount, sock));
+            m_uiManager.addClient(c);
+            break;
+         }
+         case Identify::HUB: {
+            assert(!m_isMaster);
+            CERR << "master hub connected" << std::endl;
+            break;
+         }
+         case Identify::SLAVEHUB: {
+            assert(m_isMaster);
+            CERR << "slave hub connected" << std::endl;
+            ++m_slaveCount;
+            addSlave(m_slaveCount, sock);
+            break;
+         }
+      }
+      return true;
+   }
+
+   if (senderType == Identify::UI && m_uiManager.isLocked()) {
+
+      m_uiQueue.emplace_back(msg);
+      return true;
    }
 
    bool mgr=false, ui=false, master=false, slave=false, handle=false;
@@ -429,62 +493,6 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
             }
             break;
          }
-         case Message::IDENTIFY: {
-            auto &id = static_cast<const Identify &>(msg);
-            CERR << "ident msg: " << id.identity() << std::endl;
-            if (id.identity() != Identify::UNKNOWN) {
-               it->second = id.identity();
-            }
-            switch(id.identity()) {
-               case Identify::UNKNOWN: {
-                  if (m_isMaster) {
-                     sendMessage(sock, Identify(Identify::HUB));
-                  } else {
-                     sendMessage(sock, Identify(Identify::SLAVEHUB));
-                  }
-                  break;
-               }
-               case Identify::MANAGER: {
-                  assert(!m_managerConnected);
-                  m_managerConnected = true;
-
-                  if (m_hubId != Id::Invalid) {
-                     message::SetId set(m_hubId);
-                     sendMessage(sock, set);
-                     if (m_hubId < Id::MasterHub) {
-                        for (auto &am: m_availableModules) {
-                           message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
-                           sendMessage(sock, m);
-                        }
-                     }
-                  }
-                  if (m_isMaster) {
-                     processScript();
-                  }
-                  break;
-               }
-               case Identify::UI: {
-                  ++m_uiCount;
-                  boost::shared_ptr<UiClient> c(new UiClient(m_uiManager, m_uiCount, sock));
-                  m_uiManager.addClient(c);
-                  break;
-               }
-               case Identify::HUB: {
-                  assert(!m_isMaster);
-                  CERR << "master hub connected" << std::endl;
-                  break;
-               }
-               case Identify::SLAVEHUB: {
-                  assert(m_isMaster);
-                  CERR << "slave hub connected" << std::endl;
-                  ++m_slaveCount;
-                  addSlave(m_slaveCount, sock);
-                  break;
-               }
-            }
-            break;
-         }
-
          case Message::SETID: {
 
             assert(!m_isMaster);
@@ -708,15 +716,14 @@ bool Hub::startUi(const std::string &uipath) {
 
 bool Hub::processScript() {
 
+   assert(m_uiManager.isLocked());
 #ifdef HAVE_PYTHON
-   m_uiManager.lockUi(true);
    if (!m_scriptPath.empty()) {
       PythonInterpreter inter(m_scriptPath);
       while(inter.check()) {
          dispatch();
       }
    }
-   m_uiManager.lockUi(false);
    return true;
 #else
    return false;

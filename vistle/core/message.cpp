@@ -1075,13 +1075,13 @@ void Router::initRoutingTable() {
    rt[M::SETID]      = Special;
    rt[M::REPLAYFINISHED] = Special;
    rt[M::TRACE]         = Broadcast|Track;
-   rt[M::SPAWN]         = Track|Special|HandleOnMaster|Ordered;
-   rt[M::SPAWNPREPARED] = DestLocalHub|HandleOnMaster;
+   rt[M::SPAWN]         = Track|HandleOnMaster|Ordered;
+   rt[M::SPAWNPREPARED] = DestLocalHub|HandleOnHub;
    rt[M::STARTED]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Broadcast;
    rt[M::KILL]          = DestModule|Ordered;
    rt[M::QUIT]          = Broadcast|ThroughMaster|HandleOnMaster;
    rt[M::MODULEEXIT]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Broadcast;
-   rt[M::COMPUTE]       = DestModule|DestHub|Ordered;
+   rt[M::COMPUTE]       = DestModule|DestHub|Ordered|HandleOnDest;
    rt[M::REDUCE]        = DestModule|OrderedLocal;
    rt[M::MODULEAVAILABLE]    = Track|DestHub|DestUi|RequiresSubscription;
    rt[M::CREATEPORT]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|Broadcast;
@@ -1100,18 +1100,22 @@ void Router::initRoutingTable() {
    rt[M::OBJECTRECEIVEPOLICY] = DestManager;
    rt[M::SCHEDULINGPOLICY] = DestManager;
    rt[M::REDUCEPOLICY] = DestManager;
-   rt[M::EXECUTIONPROGRESS] = DestManager;
+   rt[M::EXECUTIONPROGRESS] = DestManager|HandleOnRank0;
 
-   rt[M::ADDOBJECT] = DestManager;
+   rt[M::ADDOBJECT] = DestManager|HandleOnNode;
 
-   rt[M::BARRIER] = Broadcast;
+   rt[M::BARRIER] = Broadcast|HandleOnMaster;
+   rt[M::BARRIERREACHED] = Broadcast|HandleOnMaster;
+   rt[M::OBJECTRECEIVED] = HandleOnRank0;
 
-#if 0
-      (OBJECTRECEIVED)
-      (BARRIER)
-      (BARRIERREACHED)
-      (RESETMODULEIDS)
-#endif
+   rt[M::RESETMODULEIDS] = HandleOnMaster;
+
+   for (int i=M::ANY+1; i<M::NumMessageTypes; ++i) {
+      if (rt[i] == 0) {
+         std::cerr << "message routing table not initialized for " << (Message::Type)i << std::endl;
+      }
+      assert(rt[i] != 0);
+   }
 }
 
 Router &Router::the() {

@@ -27,8 +27,8 @@ class Hub {
    bool sendMessage(boost::shared_ptr<socket> sock, const message::Message &msg);
    unsigned short port() const;
 
-   bool handleMessage(boost::shared_ptr<boost::asio::ip::tcp::socket> sock, const message::Message &msg);
-   bool handleUiMessage(const message::Message &msg);
+   bool handleMessage(const message::Message &msg,
+         boost::shared_ptr<boost::asio::ip::tcp::socket> sock = boost::shared_ptr<boost::asio::ip::tcp::socket>());
 
    bool sendManager(const message::Message &msg);
    bool sendMaster(const message::Message &msg);
@@ -80,6 +80,7 @@ private:
 
    int m_moduleCount;
    int m_traceMessages;
+   std::vector<message::Buffer> m_uiQueue;
 };
 
 }

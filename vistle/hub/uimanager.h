@@ -20,18 +20,16 @@ class Hub;
 class UiManager {
 
  public:
+   UiManager(Hub &hub, StateTracker &stateTracker);
    ~UiManager();
 
    void requestQuit();
-   boost::mutex &interpreterMutex();
-   bool handleMessage(const message::Message &msg) const;
    void sendMessage(const message::Message &msg) const;
-   UiManager(Hub &hub, StateTracker &stateTracker);
    void addClient(boost::shared_ptr<UiClient> c);
    void lockUi(bool lock);
+   bool isLocked() const;
 
  private:
-   void removeThread(boost::thread *thread);
    void sendMessage(boost::shared_ptr<UiClient> c, const message::Message &msg) const;
 
    void join();

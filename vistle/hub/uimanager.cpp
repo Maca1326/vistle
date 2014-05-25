@@ -19,6 +19,11 @@ UiManager::UiManager(Hub &hub, StateTracker &stateTracker)
 {
 }
 
+UiManager::~UiManager() {
+
+   disconnect();
+}
+
 void UiManager::sendMessage(const message::Message &msg) const {
 
    for(auto ent: m_clients) {
@@ -37,11 +42,6 @@ void UiManager::requestQuit() {
 
    m_requestQuit = true;
    sendMessage(message::Quit());
-}
-
-UiManager::~UiManager() {
-
-   disconnect();
 }
 
 void UiManager::disconnect() {
@@ -100,6 +100,11 @@ void UiManager::lockUi(bool locked) {
       sendMessage(message::LockUi(locked));
       m_locked = locked;
    }
+}
+
+bool UiManager::isLocked() const {
+
+   return m_locked;
 }
 
 } // namespace vistle

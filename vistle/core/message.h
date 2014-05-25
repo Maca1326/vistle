@@ -802,6 +802,7 @@ enum RoutingFlags {
    HandleOnRank0 = 0x200000,
    HandleOnHub = 0x400000,
    HandleOnMaster = 0x800000,
+   HandleOnDest = 0x1000000,
 };
 
 class Router {
