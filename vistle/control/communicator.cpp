@@ -556,12 +556,6 @@ bool Communicator::handleMessage(const message::Message &message) {
          break;
       }
 
-      case Message::EXEC: {
-         //const ModuleAvailable &m = static_cast<const Exec &>(message);
-         //result = m_moduleManager->handle(m);
-         break;
-      }
-
       default:
 
          CERR << "unhandled message from (id "

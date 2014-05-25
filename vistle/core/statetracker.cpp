@@ -246,9 +246,6 @@ bool StateTracker::handle(const message::Message &msg, bool track) {
          handlePriv(spawn);
          break;
       }
-      case Message::EXEC: {
-         break;
-      }
       case Message::STARTED: {
          const Started &started = static_cast<const Started &>(msg);
          handlePriv(started);

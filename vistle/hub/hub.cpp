@@ -506,31 +506,6 @@ bool Hub::handleMessage(shared_ptr<asio::ip::tcp::socket> sock, const message::M
             break;
          }
 
-         case Message::EXEC: {
-
-            auto &exec = static_cast<const Exec &>(msg);
-            if (exec.destId() == m_hubId) {
-               std::string executable = exec.pathname();
-               auto args = exec.args();
-               std::vector<std::string> argv;
-               argv.push_back("spawn_vistle.sh");
-               argv.push_back(executable);
-               for (auto &a: args) {
-                  argv.push_back(a);
-               }
-               auto pid = spawn_process("spawn_vistle.sh", argv);
-               if (pid) {
-                  //std::cerr << "started " << executable << " with PID " << pid << std::endl;
-                  m_processMap[pid] = exec.moduleId();
-               } else {
-                  std::cerr << "program " << executable << " failed to start" << std::endl;
-               }
-            } else {
-               sendSlaves(exec);
-            }
-            break;
-         }
-
          case Message::QUIT: {
 
             //std::cerr << "hub: broadcasting message: " << msg << std::endl;

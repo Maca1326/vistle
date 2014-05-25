@@ -282,7 +282,254 @@ bool ModuleManager::sendMessage(const int moduleId, const message::Message &mess
    return true;
 }
 
-bool ModuleManager::handle(const message::ModuleAvailable &avail) {
+bool ModuleManager::handle(const message::Message &message) {
+
+   using namespace vistle::message;
+
+   bool result = true;
+   switch (message.type()) {
+      case Message::IDENTIFY: {
+
+         const Identify &id = static_cast<const message::Identify &>(message);
+         //result = handlePriv(id);
+         break;
+      }
+
+      case Message::SETID: {
+         auto set = static_cast<const message::SetId &>(message);
+         //result = handlePriv(set);
+         break;
+      }
+
+      case message::Message::PING: {
+
+         const message::Ping &ping = static_cast<const message::Ping &>(message);
+         result = handlePriv(ping);
+         break;
+      }
+
+      case message::Message::PONG: {
+
+         const message::Pong &pong = static_cast<const message::Pong &>(message);
+         //sendHub(pong);
+         result = handlePriv(pong);
+         break;
+      }
+
+      case message::Message::TRACE: {
+         const Trace &trace = static_cast<const Trace &>(message);
+         result = handlePriv(trace);
+         break;
+      }
+
+      case message::Message::QUIT: {
+
+         const message::Quit &quit = static_cast<const message::Quit &>(message);
+         //result = handlePriv(quit);
+         result = false;
+         break;
+      }
+
+      case message::Message::SPAWN: {
+
+         const message::Spawn &spawn = static_cast<const message::Spawn &>(message);
+         result = handlePriv(spawn);
+         break;
+      }
+
+      case message::Message::STARTED: {
+
+         const message::Started &started = static_cast<const message::Started &>(message);
+         result = handlePriv(started);
+         break;
+      }
+
+      case message::Message::KILL: {
+
+         const message::Kill &kill = static_cast<const message::Kill &>(message);
+         result = handlePriv(kill);
+         break;
+      }
+
+      case message::Message::CONNECT: {
+
+         const message::Connect &connect = static_cast<const message::Connect &>(message);
+         result = handlePriv(connect);
+         break;
+      }
+
+      case message::Message::DISCONNECT: {
+
+         const message::Disconnect &disc = static_cast<const message::Disconnect &>(message);
+         result = handlePriv(disc);
+         break;
+      }
+
+      case message::Message::MODULEEXIT: {
+
+         const message::ModuleExit &moduleExit = static_cast<const message::ModuleExit &>(message);
+         result = handlePriv(moduleExit);
+         //sendHub(moduleExit);
+         break;
+      }
+
+      case message::Message::COMPUTE: {
+
+         const message::Compute &comp = static_cast<const message::Compute &>(message);
+         result = handlePriv(comp);
+         break;
+      }
+
+      case message::Message::REDUCE: {
+         const message::Reduce &red = static_cast<const message::Reduce &>(message);
+         result = handlePriv(red);
+         break;
+      }
+
+      case message::Message::EXECUTIONPROGRESS: {
+
+         const message::ExecutionProgress &prog = static_cast<const message::ExecutionProgress &>(message);
+         result = handlePriv(prog);
+         break;
+      }
+
+      case message::Message::BUSY: {
+
+         const message::Busy &busy = static_cast<const message::Busy &>(message);
+         //sendHub(busy);
+         result = handlePriv(busy);
+         break;
+      }
+
+      case message::Message::IDLE: {
+
+         const message::Idle &idle = static_cast<const message::Idle &>(message);
+         ///sendHub(idle);
+         result = handlePriv(idle);
+         break;
+      }
+
+      case message::Message::ADDOBJECT: {
+
+         const message::AddObject &m = static_cast<const message::AddObject &>(message);
+         result = handlePriv(m);
+         break;
+      }
+
+      case message::Message::OBJECTRECEIVED: {
+         const message::ObjectReceived &m = static_cast<const message::ObjectReceived &>(message);
+         result = handlePriv(m);
+         break;
+      }
+
+      case message::Message::SETPARAMETER: {
+
+         const message::SetParameter &m = static_cast<const message::SetParameter &>(message);
+         //sendHub(m);
+         result = handlePriv(m);
+         break;
+      }
+
+      case message::Message::SETPARAMETERCHOICES: {
+
+         const message::SetParameterChoices &m = static_cast<const message::SetParameterChoices &>(message);
+         //sendHub(m);
+         result = handlePriv(m);
+         break;
+      }
+
+      case message::Message::ADDPARAMETER: {
+         
+         const message::AddParameter &m = static_cast<const message::AddParameter &>(message);
+         //sendHub(m);
+         result = handlePriv(m);
+         break;
+      }
+
+      case message::Message::CREATEPORT: {
+
+         const message::CreatePort &m = static_cast<const message::CreatePort &>(message);
+         //sendHub(m);
+         result = handlePriv(m);
+         break;
+      }
+
+      case message::Message::BARRIER: {
+
+         const message::Barrier &m = static_cast<const message::Barrier &>(message);
+         result = handlePriv(m);
+         break;
+      }
+
+      case message::Message::BARRIERREACHED: {
+
+         const message::BarrierReached &m = static_cast<const message::BarrierReached &>(message);
+         result = handlePriv(m);
+         break;
+      }
+
+      case message::Message::RESETMODULEIDS: {
+         const message::ResetModuleIds &m = static_cast<const message::ResetModuleIds &>(message);
+         result = handlePriv(m);
+         break;
+      }
+
+      case message::Message::SENDTEXT: {
+         const message::SendText &m = static_cast<const message::SendText &>(message);
+         if (m_rank == 0) {
+            if (Communicator::the().isMaster()) {
+               message::Buffer buf(m);
+               buf.msg.setDestId(Id::MasterHub);
+               sendHub(buf.msg);
+            } else {
+               sendHub(m);
+            }
+         } else {
+            result = Communicator::the().forwardToMaster(m);
+         }
+         //result = m_moduleManager->handle(m);
+         break;
+      }
+
+      case Message::OBJECTRECEIVEPOLICY: {
+         const ObjectReceivePolicy &m = static_cast<const ObjectReceivePolicy &>(message);
+         result = handlePriv(m);
+         break;
+      }
+
+      case Message::SCHEDULINGPOLICY: {
+         const SchedulingPolicy &m = static_cast<const SchedulingPolicy &>(message);
+         result = handlePriv(m);
+         break;
+      }
+
+      case Message::REDUCEPOLICY: {
+         const ReducePolicy &m = static_cast<const ReducePolicy &>(message);
+         result = handlePriv(m);
+         break;
+      }
+
+      case Message::MODULEAVAILABLE: {
+         const ModuleAvailable &m = static_cast<const ModuleAvailable &>(message);
+         result = handlePriv(m);
+         break;
+      }
+
+      default:
+
+         CERR << "unhandled message from (id "
+            << message.senderId() << " m_rank " << message.rank() << ") "
+            << "type " << message.type()
+            << std::endl;
+
+         break;
+
+   }
+
+   return result;
+}
+
+bool ModuleManager::handlePriv(const message::ModuleAvailable &avail) {
 
    m_stateTracker.handle(avail);
 
@@ -299,21 +546,21 @@ bool ModuleManager::handle(const message::ModuleAvailable &avail) {
    return true;
 }
 
-bool ModuleManager::handle(const message::Ping &ping) {
+bool ModuleManager::handlePriv(const message::Ping &ping) {
 
    m_stateTracker.handle(ping);
    sendAll(ping);
    return true;
 }
 
-bool ModuleManager::handle(const message::Pong &pong) {
+bool ModuleManager::handlePriv(const message::Pong &pong) {
 
    m_stateTracker.handle(pong);
    //CERR << "Pong [" << pong.senderId() << " " << pong.getCharacter() << "]" << std::endl;
    return true;
 }
 
-bool ModuleManager::handle(const message::Trace &trace) {
+bool ModuleManager::handlePriv(const message::Trace &trace) {
 
    m_stateTracker.handle(trace);
    if (trace.module() >= Id::ModuleBase) {
@@ -324,7 +571,7 @@ bool ModuleManager::handle(const message::Trace &trace) {
    return true;
 }
 
-bool ModuleManager::handle(const message::Spawn &spawn) {
+bool ModuleManager::handlePriv(const message::Spawn &spawn) {
 
    if (spawn.spawnId() == Id::Invalid) {
       // ignore messages where master hub did not yet create an id
@@ -381,7 +628,7 @@ bool ModuleManager::handle(const message::Spawn &spawn) {
    return true;
 }
 
-bool ModuleManager::handle(const message::Started &started) {
+bool ModuleManager::handlePriv(const message::Started &started) {
 
    m_stateTracker.handle(started);
    // FIXME: not valid for cover
@@ -405,7 +652,7 @@ bool ModuleManager::handle(const message::Started &started) {
    return true;
 }
 
-bool ModuleManager::handle(const message::Connect &connect) {
+bool ModuleManager::handlePriv(const message::Connect &connect) {
 
    int modFrom = connect.getModuleA();
    int modTo = connect.getModuleB();
@@ -435,7 +682,7 @@ bool ModuleManager::handle(const message::Connect &connect) {
    return true;
 }
 
-bool ModuleManager::handle(const message::Disconnect &disconnect) {
+bool ModuleManager::handlePriv(const message::Disconnect &disconnect) {
 
    int modFrom = disconnect.getModuleA();
    int modTo = disconnect.getModuleB();
@@ -471,7 +718,7 @@ bool ModuleManager::handle(const message::Disconnect &disconnect) {
    return true;
 }
 
-bool ModuleManager::handle(const message::ModuleExit &moduleExit) {
+bool ModuleManager::handlePriv(const message::ModuleExit &moduleExit) {
 
    sendAllOthers(moduleExit.senderId(), moduleExit);
 
@@ -523,7 +770,7 @@ bool ModuleManager::handle(const message::ModuleExit &moduleExit) {
    return true;
 }
 
-bool ModuleManager::handle(const message::Compute &compute) {
+bool ModuleManager::handlePriv(const message::Compute &compute) {
 
    m_stateTracker.handle(compute);
    message::Compute toSend = compute;
@@ -557,14 +804,14 @@ bool ModuleManager::handle(const message::Compute &compute) {
    return true;
 }
 
-bool ModuleManager::handle(const message::Reduce &reduce) {
+bool ModuleManager::handlePriv(const message::Reduce &reduce) {
 
    m_stateTracker.handle(reduce);
    sendMessage(reduce.module(), reduce);
    return true;
 }
 
-bool ModuleManager::handle(const message::ExecutionProgress &prog) {
+bool ModuleManager::handlePriv(const message::ExecutionProgress &prog) {
 
    m_stateTracker.handle(prog);
    RunningMap::iterator i = runningMap.find(prog.senderId());
@@ -648,7 +895,7 @@ bool ModuleManager::handle(const message::ExecutionProgress &prog) {
    return result;
 }
 
-bool ModuleManager::handle(const message::Busy &busy) {
+bool ModuleManager::handlePriv(const message::Busy &busy) {
 
    //sendAllOthers(busy.senderId(), busy);
    if (Communicator::the().isMaster()) {
@@ -659,7 +906,7 @@ bool ModuleManager::handle(const message::Busy &busy) {
    return m_stateTracker.handle(busy);
 }
 
-bool ModuleManager::handle(const message::Idle &idle) {
+bool ModuleManager::handlePriv(const message::Idle &idle) {
 
    //sendAllOthers(idle.senderId(), idle);
    if (Communicator::the().isMaster()) {
@@ -670,7 +917,7 @@ bool ModuleManager::handle(const message::Idle &idle) {
    return m_stateTracker.handle(idle);
 }
 
-bool ModuleManager::handle(const message::AddParameter &addParam) {
+bool ModuleManager::handlePriv(const message::AddParameter &addParam) {
 
    m_stateTracker.handle(addParam);
 #ifdef DEBUG
@@ -684,7 +931,7 @@ bool ModuleManager::handle(const message::AddParameter &addParam) {
    return true;
 }
 
-bool ModuleManager::handle(const message::SetParameter &setParam) {
+bool ModuleManager::handlePriv(const message::SetParameter &setParam) {
 
    m_stateTracker.handle(setParam);
 #ifdef DEBUG
@@ -767,21 +1014,21 @@ bool ModuleManager::handle(const message::SetParameter &setParam) {
    return true;
 }
 
-bool ModuleManager::handle(const message::SetParameterChoices &setChoices) {
+bool ModuleManager::handlePriv(const message::SetParameterChoices &setChoices) {
 
    m_stateTracker.handle(setChoices);
    sendAllOthers(setChoices.senderId(), setChoices);
    return true;
 }
 
-bool ModuleManager::handle(const message::Kill &kill) {
+bool ModuleManager::handlePriv(const message::Kill &kill) {
 
    m_stateTracker.handle(kill);
    sendMessage(kill.getModule(), kill);
    return true;
 }
 
-bool ModuleManager::handle(const message::AddObject &addObj) {
+bool ModuleManager::handlePriv(const message::AddObject &addObj) {
 
    m_stateTracker.handle(addObj);
    Object::const_ptr obj = addObj.takeObject();
@@ -858,14 +1105,14 @@ bool ModuleManager::handle(const message::AddObject &addObj) {
    return true;
 }
 
-bool ModuleManager::handle(const message::ObjectReceived &objRecv) {
+bool ModuleManager::handlePriv(const message::ObjectReceived &objRecv) {
 
    m_stateTracker.handle(objRecv);
    sendMessage(objRecv.senderId(), objRecv);
    return true;
 }
 
-bool ModuleManager::handle(const message::Barrier &barrier) {
+bool ModuleManager::handlePriv(const message::Barrier &barrier) {
 
    m_barrierActive = true;
    m_stateTracker.handle(barrier);
@@ -880,7 +1127,7 @@ bool ModuleManager::handle(const message::Barrier &barrier) {
    return true;
 }
 
-bool ModuleManager::handle(const message::BarrierReached &barrReached) {
+bool ModuleManager::handlePriv(const message::BarrierReached &barrReached) {
 
    assert(m_barrierActive);
 #ifdef DEBUG
@@ -899,7 +1146,7 @@ bool ModuleManager::handle(const message::BarrierReached &barrReached) {
    return true;
 }
 
-bool ModuleManager::handle(const message::CreatePort &createPort) {
+bool ModuleManager::handlePriv(const message::CreatePort &createPort) {
 
    m_stateTracker.handle(createPort);
    replayMessages();
@@ -910,7 +1157,7 @@ bool ModuleManager::handle(const message::CreatePort &createPort) {
    return true;
 }
 
-bool ModuleManager::handle(const vistle::message::ResetModuleIds &reset)
+bool ModuleManager::handlePriv(const vistle::message::ResetModuleIds &reset)
 {
    m_stateTracker.handle(reset);
    if (!runningMap.empty()) {
@@ -923,7 +1170,7 @@ bool ModuleManager::handle(const vistle::message::ResetModuleIds &reset)
    return true;
 }
 
-bool ModuleManager::handle(const message::ObjectReceivePolicy &receivePolicy)
+bool ModuleManager::handlePriv(const message::ObjectReceivePolicy &receivePolicy)
 {
    const int id = receivePolicy.senderId();
    RunningMap::iterator it = runningMap.find(id);
@@ -936,7 +1183,7 @@ bool ModuleManager::handle(const message::ObjectReceivePolicy &receivePolicy)
    return true;
 }
 
-bool ModuleManager::handle(const message::SchedulingPolicy &schedulingPolicy)
+bool ModuleManager::handlePriv(const message::SchedulingPolicy &schedulingPolicy)
 {
    const int id = schedulingPolicy.senderId();
    RunningMap::iterator it = runningMap.find(id);
@@ -949,7 +1196,7 @@ bool ModuleManager::handle(const message::SchedulingPolicy &schedulingPolicy)
    return true;
 }
 
-bool ModuleManager::handle(const message::ReducePolicy &reducePolicy)
+bool ModuleManager::handlePriv(const message::ReducePolicy &reducePolicy)
 {
    const int id = reducePolicy.senderId();
    RunningMap::iterator it = runningMap.find(id);

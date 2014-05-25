@@ -233,54 +233,6 @@ const char * SpawnPrepared::getName() const {
    return name.data();
 }
 
-Exec::Exec(const std::string &pathname, const std::vector<std::string> &args, int id)
-: Message(Message::EXEC, sizeof(Exec))
-, m_moduleId(id)
-, nargs(args.size())
-{
-   memset(path_and_args.data(), '\0', path_and_args.size());
-   char *p = path_and_args.data();
-   char *end = p + path_and_args.size();
-   COPY_STRING(path_and_args, pathname);
-   p += pathname.length()+1;
-   for (const auto &a: args) {
-      if (p + a.length() < end) {
-         memcpy(p, a.data(), a.length());
-         p += a.length()+1;
-      } else {
-         break;
-      }
-   }
-}
-
-std::string Exec::pathname() const {
-
-   auto end = std::find(path_and_args.data(), path_and_args.data()+path_and_args.size(), '\0');
-   return std::string(path_and_args.data(), end-path_and_args.data());
-}
-
-std::vector<std::string> Exec::args() const {
-
-   std::vector<std::string> ret;
-
-   auto start = std::find(path_and_args.data(), path_and_args.data()+path_and_args.size(), '\0');
-   if (start < path_and_args.data()+path_and_args.size()) {
-      ++start;
-      while (start < path_and_args.data() + path_and_args.size()) {
-         auto end = std::find(start, path_and_args.data()+path_and_args.size(), '\0');
-         if (ret.size() < nargs)
-            ret.push_back(std::string(start, end-start));
-         start = end+1;
-      }
-   }
-   return ret;
-}
-
-int Exec::moduleId() const {
-
-   return m_moduleId;
-}
-
 Started::Started(const std::string &n)
 : Message(Message::STARTED, sizeof(Started))
 {
@@ -1103,11 +1055,6 @@ std::ostream &operator<<(std::ostream &s, const Message &m) {
          s << ", name: " << mm.getName() << ", id: " << mm.spawnId() << ", hub: " << mm.hubId();
          break;
       }
-      case Message::EXEC: {
-         auto mm = static_cast<const Exec &>(m);
-         s << ", path: " << mm.pathname() << ", hub: " << mm.destId();
-         break;
-      }
       default:
          break;
    }
@@ -1124,16 +1071,15 @@ void Router::initRoutingTable() {
    memset(&rt, '\0', sizeof(rt));
 
    rt[M::INVALID]       = 0;
-   rt[M::IDENTIFY]      = Special|Handle;
-   rt[M::SETID]      = Special|Handle;
+   rt[M::IDENTIFY]      = Special;
+   rt[M::SETID]      = Special;
    rt[M::REPLAYFINISHED] = Special;
    rt[M::TRACE]         = Broadcast|Track;
-   rt[M::SPAWN]         = Track|Special|Handle|Ordered;
-   rt[M::SPAWNPREPARED] = DestLocalHub|Handle;
-   rt[M::EXEC]          = DestHub;
+   rt[M::SPAWN]         = Track|Special|HandleOnMaster|Ordered;
+   rt[M::SPAWNPREPARED] = DestLocalHub|HandleOnMaster;
    rt[M::STARTED]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Broadcast;
    rt[M::KILL]          = DestModule|Ordered;
-   rt[M::QUIT]          = Broadcast|ThroughMaster|Handle;
+   rt[M::QUIT]          = Broadcast|ThroughMaster|HandleOnMaster;
    rt[M::MODULEEXIT]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Broadcast;
    rt[M::COMPUTE]       = DestModule|DestHub|Ordered;
    rt[M::REDUCE]        = DestModule|OrderedLocal;
@@ -1165,8 +1111,6 @@ void Router::initRoutingTable() {
       (BARRIER)
       (BARRIERREACHED)
       (RESETMODULEIDS)
-
-      (EXECUTIONPROGRESS)
 #endif
 }
 
@@ -1320,14 +1264,16 @@ bool Router::toHandler(const Message &msg, Identify::Identity senderType) {
    if (msg.destId() == Id::Default || msg.destId() == Id::Broadcast || msg.destId() == m_id) {
       return true;
    }
-   if (rt[t] & Handle) {
-      return true;
-   }
    if (m_identity == Identify::HUB) {
+      if (rt[t] & HandleOnMaster) {
+         return true;
+      }
       if (rt[t] & DestMasterHub)
          return true;
    }
    if (m_identity == Identify::SLAVEHUB || m_identity == Identify::HUB) {
+      if (rt[t] & HandleOnHub)
+         return true;
       if (rt[t] & DestLocalHub)
          return true;
    }

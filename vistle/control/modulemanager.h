@@ -65,6 +65,8 @@ class V_CONTROLEXPORT ModuleManager {
 
    PortManager &portManager() const;
 
+   bool handle(const message::Message &msg);
+
  private:
    void queueMessage(const message::Message &msg);
    void replayMessages();
@@ -74,34 +76,33 @@ class V_CONTROLEXPORT ModuleManager {
    StateTracker m_stateTracker;
    bool m_quitFlag;
 
-   // only used by Communicator
-   bool handle(const message::Ping &ping);
-   bool handle(const message::Pong &pong);
-   bool handle(const message::Trace &trace);
-   bool handle(const message::Spawn &spawn);
-   bool handle(const message::Started &started);
-   bool handle(const message::Connect &connect);
-   bool handle(const message::Disconnect &disc);
-   bool handle(const message::ModuleExit &moduleExit);
-   bool handle(const message::Compute &compute);
-   bool handle(const message::Reduce &reduce);
-   bool handle(const message::ExecutionProgress &prog);
-   bool handle(const message::Busy &busy);
-   bool handle(const message::Idle &idle);
-   bool handle(const message::CreatePort &createPort);
-   bool handle(const message::AddParameter &addParam);
-   bool handle(const message::SetParameter &setParam);
-   bool handle(const message::SetParameterChoices &setChoices);
-   bool handle(const message::Kill &kill);
-   bool handle(const message::AddObject &addObj);
-   bool handle(const message::ObjectReceived &objRecv);
-   bool handle(const message::Barrier &barrier);
-   bool handle(const message::BarrierReached &barrierReached);
-   bool handle(const message::ResetModuleIds &reset);
-   bool handle(const message::ObjectReceivePolicy &receivePolicy);
-   bool handle(const message::SchedulingPolicy &schedulingPolicy);
-   bool handle(const message::ReducePolicy &reducePolicy);
-   bool handle(const message::ModuleAvailable &avail);
+   bool handlePriv(const message::Ping &ping);
+   bool handlePriv(const message::Pong &pong);
+   bool handlePriv(const message::Trace &trace);
+   bool handlePriv(const message::Spawn &spawn);
+   bool handlePriv(const message::Started &started);
+   bool handlePriv(const message::Connect &connect);
+   bool handlePriv(const message::Disconnect &disc);
+   bool handlePriv(const message::ModuleExit &moduleExit);
+   bool handlePriv(const message::Compute &compute);
+   bool handlePriv(const message::Reduce &reduce);
+   bool handlePriv(const message::ExecutionProgress &prog);
+   bool handlePriv(const message::Busy &busy);
+   bool handlePriv(const message::Idle &idle);
+   bool handlePriv(const message::CreatePort &createPort);
+   bool handlePriv(const message::AddParameter &addParam);
+   bool handlePriv(const message::SetParameter &setParam);
+   bool handlePriv(const message::SetParameterChoices &setChoices);
+   bool handlePriv(const message::Kill &kill);
+   bool handlePriv(const message::AddObject &addObj);
+   bool handlePriv(const message::ObjectReceived &objRecv);
+   bool handlePriv(const message::Barrier &barrier);
+   bool handlePriv(const message::BarrierReached &barrierReached);
+   bool handlePriv(const message::ResetModuleIds &reset);
+   bool handlePriv(const message::ObjectReceivePolicy &receivePolicy);
+   bool handlePriv(const message::SchedulingPolicy &schedulingPolicy);
+   bool handlePriv(const message::ReducePolicy &reducePolicy);
+   bool handlePriv(const message::ModuleAvailable &avail);
 
    std::string m_bindir;
 

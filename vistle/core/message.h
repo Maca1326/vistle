@@ -78,7 +78,6 @@ class V_COREEXPORT Message {
       (TRACE)
       (SPAWN)
       (SPAWNPREPARED)
-      (EXEC)
       (KILL)
       (QUIT)
       (STARTED)
@@ -256,22 +255,6 @@ class V_COREEXPORT SpawnPrepared: public Message {
    module_name_t name;
 };
 BOOST_STATIC_ASSERT(sizeof(SpawnPrepared) <= Message::MESSAGE_SIZE);
-
-//! execute a command via Vistle hub
-class V_COREEXPORT Exec: public Message {
-
- public:
-   Exec(const std::string &pathname, const std::vector<std::string> &args, int moduleId=0);
-   std::string pathname() const;
-   std::vector<std::string> args() const;
-   int moduleId() const;
-
- private:
-   int m_moduleId;
-   int nargs;
-   text_t path_and_args;
-};
-BOOST_STATIC_ASSERT(sizeof(Exec) <= Message::MESSAGE_SIZE);
 
 //! acknowledge that a module has been spawned
 class V_COREEXPORT Started: public Message {
@@ -791,9 +774,8 @@ V_COREEXPORT std::ostream &operator<<(std::ostream &s, const Message &msg);
 enum RoutingFlags {
 
    Track = 1,
-   ForwardToMaster = 2,
-   ProcessOnMaster = 4,
-   NodeLocal = 16,
+   NodeLocal = 8,
+   ClusterLocal = 16,
 
    DestMasterHub = 32,
    DestSlaveHub = 64,
@@ -809,14 +791,17 @@ enum RoutingFlags {
    RequiresLogic = 0x2000,
    RequiresSubscription = 0x4000,
 
-   Handle = 0x8000,
-
    ThroughMaster = 0x800,
    OrderedLocal = 0x20000,
    OrderedGlobal = 0x40000,
    Ordered = OrderedLocal|OrderedGlobal,
 
    Broadcast = 0x80000,
+
+   HandleOnNode = 0x100000,
+   HandleOnRank0 = 0x200000,
+   HandleOnHub = 0x400000,
+   HandleOnMaster = 0x800000,
 };
 
 class Router {
