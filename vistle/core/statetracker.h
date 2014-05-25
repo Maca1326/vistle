@@ -154,7 +154,6 @@ class V_COREEXPORT StateTracker {
    bool handlePriv(const message::ObjectReceived &objRecv);
    bool handlePriv(const message::Barrier &barrier);
    bool handlePriv(const message::BarrierReached &barrierReached);
-   bool handlePriv(const message::ResetModuleIds &reset);
    bool handlePriv(const message::ReplayFinished &reset);
    bool handlePriv(const message::SendText &info);
    bool handlePriv(const message::Quit &quit);

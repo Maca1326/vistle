@@ -50,13 +50,9 @@ ModuleManager::ModuleManager(int argc, char *argv[], int r, const std::vector<st
 , m_quitFlag(false)
 , m_rank(r)
 , m_size(hosts.size())
-, m_hosts(hosts)
-, m_moduleCounter(0)
 , m_executionCounter(1)
 , m_barrierActive(false)
 {
-
-   m_bindir = getbindir(argc, argv);
 }
 
 int ModuleManager::getRank() const {
@@ -87,12 +83,6 @@ std::vector<AvailableModule> ModuleManager::availableModules() const {
     return ret;
 }
 
-int ModuleManager::newModuleID() {
-   ++m_moduleCounter;
-
-   return m_moduleCounter;
-}
-
 int ModuleManager::currentExecutionCount() {
 
    return m_executionCounter;
@@ -101,11 +91,6 @@ int ModuleManager::currentExecutionCount() {
 int ModuleManager::newExecutionCount() {
 
    return m_executionCounter++;
-}
-
-void ModuleManager::resetModuleCounter() {
-
-   m_moduleCounter = 0;
 }
 
 bool ModuleManager::checkBarrier(const message::uuid_t &uuid) const {
@@ -134,16 +119,6 @@ void ModuleManager::barrierReached(const message::uuid_t &uuid) {
    m.setUuid(uuid);
    sendHub(m);
    m_stateTracker.handle(m);
-}
-
-std::vector<int> ModuleManager::getRunningList() const {
-
-   return m_stateTracker.getRunningList();
-}
-
-std::vector<int> ModuleManager::getBusyList() const {
-
-   return m_stateTracker.getBusyList();
 }
 
 std::string ModuleManager::getModuleName(int id) const {
@@ -286,6 +261,8 @@ bool ModuleManager::handle(const message::Message &message) {
 
    using namespace vistle::message;
 
+   m_stateTracker.handle(message);
+
    bool result = true;
    switch (message.type()) {
       case Message::IDENTIFY: {
@@ -298,21 +275,6 @@ bool ModuleManager::handle(const message::Message &message) {
       case Message::SETID: {
          auto set = static_cast<const message::SetId &>(message);
          //result = handlePriv(set);
-         break;
-      }
-
-      case message::Message::PING: {
-
-         const message::Ping &ping = static_cast<const message::Ping &>(message);
-         result = handlePriv(ping);
-         break;
-      }
-
-      case message::Message::PONG: {
-
-         const message::Pong &pong = static_cast<const message::Pong &>(message);
-         //sendHub(pong);
-         result = handlePriv(pong);
          break;
       }
 
@@ -468,12 +430,6 @@ bool ModuleManager::handle(const message::Message &message) {
          break;
       }
 
-      case message::Message::RESETMODULEIDS: {
-         const message::ResetModuleIds &m = static_cast<const message::ResetModuleIds &>(message);
-         result = handlePriv(m);
-         break;
-      }
-
       case message::Message::SENDTEXT: {
          const message::SendText &m = static_cast<const message::SendText &>(message);
          if (m_rank == 0) {
@@ -543,20 +499,6 @@ bool ModuleManager::handlePriv(const message::ModuleAvailable &avail) {
    if (Communicator::the().isMaster())
       sendHub(avail);
 #endif
-   return true;
-}
-
-bool ModuleManager::handlePriv(const message::Ping &ping) {
-
-   m_stateTracker.handle(ping);
-   sendAll(ping);
-   return true;
-}
-
-bool ModuleManager::handlePriv(const message::Pong &pong) {
-
-   m_stateTracker.handle(pong);
-   //CERR << "Pong [" << pong.senderId() << " " << pong.getCharacter() << "]" << std::endl;
    return true;
 }
 
@@ -1157,19 +1099,6 @@ bool ModuleManager::handlePriv(const message::AddPort &createPort) {
    return true;
 }
 
-bool ModuleManager::handlePriv(const vistle::message::ResetModuleIds &reset)
-{
-   m_stateTracker.handle(reset);
-   if (!runningMap.empty()) {
-      CERR << "ResetModuleIds: " << numRunning() << " modules still running" << std::endl;
-      return true;
-   }
-
-   resetModuleCounter();
-   sendUi(message::ReplayFinished());
-   return true;
-}
-
 bool ModuleManager::handlePriv(const message::ObjectReceivePolicy &receivePolicy)
 {
    const int id = receivePolicy.senderId();
@@ -1233,11 +1162,6 @@ bool ModuleManager::quitOk() const {
 
 ModuleManager::~ModuleManager() {
 
-}
-
-std::vector<char> ModuleManager::getState() const {
-
-   return m_stateTracker.getState();
 }
 
 PortManager &ModuleManager::portManager() const {

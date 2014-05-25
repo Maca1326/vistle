@@ -4,8 +4,6 @@
 #include <vector>
 #include <map>
 
-#include <boost/interprocess/ipc/message_queue.hpp>
-
 #include <util/directory.h>
 
 #include <core/statetracker.h>
@@ -48,20 +46,14 @@ class V_CONTROLEXPORT ModuleManager {
    int getRank() const;
    int getSize() const;
 
-   void resetModuleCounter();
-   int newModuleID();
    int currentExecutionCount();
    int newExecutionCount();
 
    std::vector<AvailableModule> availableModules() const;
 
-   std::vector<int> getRunningList() const;
-   std::vector<int> getBusyList() const;
    std::string getModuleName(int id) const;
    std::vector<std::string> getParameters(int id) const;
    Parameter *getParameter(int id, const std::string &name) const;
-
-   std::vector<char> getState() const;
 
    PortManager &portManager() const;
 
@@ -76,8 +68,6 @@ class V_CONTROLEXPORT ModuleManager {
    StateTracker m_stateTracker;
    bool m_quitFlag;
 
-   bool handlePriv(const message::Ping &ping);
-   bool handlePriv(const message::Pong &pong);
    bool handlePriv(const message::Trace &trace);
    bool handlePriv(const message::Spawn &spawn);
    bool handlePriv(const message::Started &started);
@@ -98,17 +88,13 @@ class V_CONTROLEXPORT ModuleManager {
    bool handlePriv(const message::ObjectReceived &objRecv);
    bool handlePriv(const message::Barrier &barrier);
    bool handlePriv(const message::BarrierReached &barrierReached);
-   bool handlePriv(const message::ResetModuleIds &reset);
    bool handlePriv(const message::ObjectReceivePolicy &receivePolicy);
    bool handlePriv(const message::SchedulingPolicy &schedulingPolicy);
    bool handlePriv(const message::ReducePolicy &reducePolicy);
    bool handlePriv(const message::ModuleAvailable &avail);
 
-   std::string m_bindir;
-
    const int m_rank;
    const int m_size;
-   const std::vector<std::string> m_hosts;
 
    AvailableMap m_availableModules;
 
@@ -138,7 +124,6 @@ class V_CONTROLEXPORT ModuleManager {
    RunningMap runningMap;
    int numRunning() const;
 
-   int m_moduleCounter; //< used for module ids
    int m_executionCounter; //< incremented each time the pipeline is executed
 
    // barrier related stuff

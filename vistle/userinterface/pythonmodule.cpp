@@ -59,11 +59,6 @@ static void sendMessage(const vistle::message::Message &m) {
 #endif
 }
 
-static void resetModuleCounter() {
-
-   sendMessage(message::ResetModuleIds());
-}
-
 static void source(const std::string &filename) {
 
    PythonInterface::the().exec_file(filename);
@@ -381,8 +376,6 @@ BOOST_PYTHON_MODULE(_vistle)
 
     // make values of vistle::message::Message::Type enum known to Python as Message.xxx
     vistle::message::Message::enumForPython_Type("Message");
-
-    def("_resetModuleCounter", resetModuleCounter);
 
     def("source", source, "execute commands from file `arg1`");
     def("spawn", spawn, spawn_overloads(args("hub", "modulename", "numspawn", "baserank", "rankskip"), "spawn new module `arg1`\n" "return its ID"));

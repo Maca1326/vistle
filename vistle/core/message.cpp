@@ -840,11 +840,6 @@ int SetId::getId() const {
    return m_id;
 }
 
-ResetModuleIds::ResetModuleIds()
-: Message(Message::RESETMODULEIDS, sizeof(ResetModuleIds))
-{
-}
-
 ReplayFinished::ReplayFinished()
    : Message(Message::REPLAYFINISHED, sizeof(ReplayFinished))
 {
@@ -1107,8 +1102,6 @@ void Router::initRoutingTable() {
    rt[M::BARRIER] = Broadcast|HandleOnMaster;
    rt[M::BARRIERREACHED] = Broadcast|HandleOnMaster;
    rt[M::OBJECTRECEIVED] = HandleOnRank0;
-
-   rt[M::RESETMODULEIDS] = HandleOnMaster;
 
    for (int i=M::ANY+1; i<M::NumMessageTypes; ++i) {
       if (rt[i] == 0) {

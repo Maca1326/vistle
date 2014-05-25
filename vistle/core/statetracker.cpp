@@ -346,11 +346,6 @@ bool StateTracker::handle(const message::Message &msg, bool track) {
          (void)setid;
          break;
       }
-      case Message::RESETMODULEIDS: {
-         const ResetModuleIds &reset = static_cast<const ResetModuleIds &>(msg);
-         handlePriv(reset);
-         break;
-      }
       case Message::REPLAYFINISHED: {
          const ReplayFinished &fin = static_cast<const ReplayFinished &>(msg);
          handlePriv(fin);
@@ -683,11 +678,6 @@ bool StateTracker::handlePriv(const message::AddPort &createPort) {
       }
    }
 
-   return true;
-}
-
-bool StateTracker::handlePriv(const vistle::message::ResetModuleIds &reset)
-{
    return true;
 }
 

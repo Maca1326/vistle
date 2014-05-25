@@ -99,7 +99,6 @@ class V_COREEXPORT Message {
       (PONG)
       (BARRIER)
       (BARRIERREACHED)
-      (RESETMODULEIDS)
       (SENDTEXT)
       (OBJECTRECEIVEPOLICY)
       (SCHEDULINGPOLICY)
@@ -585,13 +584,6 @@ class V_COREEXPORT SetId: public Message {
    const int m_id;
 };
 BOOST_STATIC_ASSERT(sizeof(SetId) <= Message::MESSAGE_SIZE);
-
-class V_COREEXPORT ResetModuleIds: public Message {
-
- public:
-   ResetModuleIds();
-};
-BOOST_STATIC_ASSERT(sizeof(ResetModuleIds) <= Message::MESSAGE_SIZE);
 
 class V_COREEXPORT ReplayFinished: public Message {
 

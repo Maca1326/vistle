@@ -509,12 +509,6 @@ bool Communicator::handleMessage(const message::Message &message) {
          break;
       }
 
-      case message::Message::RESETMODULEIDS: {
-         const message::ResetModuleIds &m = static_cast<const message::ResetModuleIds &>(message);
-         result = m_moduleManager->handle(m);
-         break;
-      }
-
       case message::Message::SENDTEXT: {
          const message::SendText &m = static_cast<const message::SendText &>(message);
          if (m_rank == 0) {
