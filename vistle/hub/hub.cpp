@@ -618,8 +618,7 @@ bool Hub::init(int argc, char *argv[]) {
       masterhost = vm["hub"].as<std::string>();
       auto colon = masterhost.find(':');
       if (colon != std::string::npos) {
-         std::stringstream s(masterhost.substr(colon+1));
-         s >> masterport;
+         masterport = boost::lexical_cast<unsigned short>(masterhost.substr(colon+1));
          masterhost = masterhost.substr(0, colon);
       }
 
@@ -667,9 +666,7 @@ bool Hub::init(int argc, char *argv[]) {
       m_scriptPath = vm["filename"].as<std::string>();
    }
 
-   std::stringstream s;
-   s << this->port();
-   std::string port = s.str();
+   std::string port = boost::lexical_cast<std::string>(this->port());
 
    // start manager on cluster
    std::string cmd = m_bindir + "/vistle_manager";
@@ -692,10 +689,8 @@ bool Hub::connectToMaster(const std::string &host, unsigned short port) {
 
    assert(!m_isMaster);
 
-   std::stringstream portstr;
-   portstr << port;
    asio::ip::tcp::resolver resolver(m_ioService);
-   asio::ip::tcp::resolver::query query(host, portstr.str());
+   asio::ip::tcp::resolver::query query(host, boost::lexical_cast<std::string>(port));
    asio::ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
    boost::system::error_code ec;
    m_masterSocket.reset(new boost::asio::ip::tcp::socket(m_ioService));
@@ -718,9 +713,7 @@ bool Hub::connectToMaster(const std::string &host, unsigned short port) {
 
 bool Hub::startUi(const std::string &uipath) {
 
-   std::stringstream s;
-   s << this->port();
-   std::string port = s.str();
+   std::string port = boost::lexical_cast<std::string>(this->port());
 
    std::vector<std::string> args;
    args.push_back(uipath);

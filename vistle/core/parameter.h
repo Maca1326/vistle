@@ -163,7 +163,7 @@ class ParameterBase: public Parameter {
       m_maximum = value;
    }
 
-   operator std::string() const { std::stringstream str; str << m_value; return str.str(); }
+   operator std::string() const { return boost::lexical_cast<std::string>(m_value); }
  private:
    T m_value;
    T m_defaultValue;

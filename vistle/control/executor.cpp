@@ -68,9 +68,7 @@ Executor::Executor(int argc, char *argv[])
       exit(1);
    }
 
-   std::stringstream pstr(argv[2]);
-   unsigned short port = 0;
-   pstr >> port;
+   unsigned short port = boost::lexical_cast<unsigned short>(argv[2]);
    m_name = Shm::instanceName(argv[1], port);
 
    if (!m_rank) {

@@ -9,7 +9,6 @@
 #include <sys/types.h>
 
 #include <cstdlib>
-#include <sstream>
 #include <iostream>
 #include <iomanip>
 
@@ -104,11 +103,8 @@ bool Communicator::connectHub(const std::string &host, unsigned short port) {
    if (getRank() == 0) {
 
       CERR << "connecting to hub on " << host << ":" << port << "..." << std::flush;
-      std::stringstream portstr;
-      portstr << port;
-
       asio::ip::tcp::resolver resolver(m_ioService);
-      asio::ip::tcp::resolver::query query(host, portstr.str());
+      asio::ip::tcp::resolver::query query(host, boost::lexical_cast<std::string>(port));
       asio::ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
       boost::system::error_code ec;
       asio::connect(m_hubSocket, endpoint_iterator, ec);

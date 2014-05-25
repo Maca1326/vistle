@@ -965,8 +965,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          size_t idx = 0;
          if (p != std::string::npos) {
             basename = name.substr(0, p-1);
-            std::stringstream idxstr(name.substr(p+1));
-            idxstr >> idx;
+            idx = boost::lexical_cast<size_t>(name.substr(p+1));
          }
          Port *existing = NULL;
          Port *parent = NULL;

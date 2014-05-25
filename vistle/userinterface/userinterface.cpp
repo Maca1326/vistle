@@ -79,11 +79,8 @@ bool UserInterface::tryConnect() {
 
    assert(m_isConnected == false);
 
-   std::stringstream portstr;
-   portstr << m_remotePort;
-
    asio::ip::tcp::resolver resolver(m_ioService);
-   asio::ip::tcp::resolver::query query(m_remoteHost, portstr.str());
+   asio::ip::tcp::resolver::query query(m_remoteHost, boost::lexical_cast<std::string>(m_remotePort));
    asio::ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
    boost::system::error_code ec;
    asio::connect(socket(), endpoint_iterator, ec);
