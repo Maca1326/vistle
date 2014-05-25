@@ -26,7 +26,7 @@ Port * PortManager::getPort(const int moduleID,
       if (parent && (parent->flags() & Port::MULTI)) {
          size_t idx=boost::lexical_cast<size_t>(name.substr(p+1));
          Port *port = parent->child(idx);
-         m_moduleManager->sendMessage(moduleID, message::CreatePort(port));
+         m_moduleManager->sendMessage(moduleID, message::AddPort(port));
          return port;
       }
    }

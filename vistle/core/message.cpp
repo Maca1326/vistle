@@ -351,15 +351,15 @@ Idle::Idle()
 : Message(Message::IDLE, sizeof(Idle)) {
 }
 
-CreatePort::CreatePort(const Port *port)
-: Message(Message::CREATEPORT, sizeof(CreatePort))
+AddPort::AddPort(const Port *port)
+: Message(Message::ADDPORT, sizeof(AddPort))
 , m_porttype(port->getType())
 , m_flags(port->flags())
 {
    COPY_STRING(m_name, port->getName());
 }
 
-Port *CreatePort::getPort() const {
+Port *AddPort::getPort() const {
 
    return new Port(senderId(), m_name.data(), static_cast<Port::Type>(m_porttype), m_flags);
 }
@@ -1040,8 +1040,8 @@ std::ostream &operator<<(std::ostream &s, const Message &m) {
          s << ", dest: " << mm.getModule() << ", name: " << mm.getName();
          break;
       }
-      case Message::CREATEPORT: {
-         auto mm = static_cast<const CreatePort &>(m);
+      case Message::ADDPORT: {
+         auto mm = static_cast<const AddPort &>(m);
          s << ", name: " << mm.getPort()->getName();
          break;
       }
@@ -1084,7 +1084,7 @@ void Router::initRoutingTable() {
    rt[M::COMPUTE]       = DestModule|DestHub|Ordered|HandleOnDest;
    rt[M::REDUCE]        = DestModule|OrderedLocal;
    rt[M::MODULEAVAILABLE]    = Track|DestHub|DestUi|RequiresSubscription;
-   rt[M::CREATEPORT]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|Broadcast;
+   rt[M::ADDPORT]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|Broadcast;
    rt[M::ADDPARAMETER]  = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|Broadcast;
    rt[M::CONNECT] = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|Broadcast;
    rt[M::DISCONNECT] = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|Broadcast;

@@ -487,9 +487,9 @@ bool Communicator::handleMessage(const message::Message &message) {
          break;
       }
 
-      case message::Message::CREATEPORT: {
+      case message::Message::ADDPORT: {
 
-         const message::CreatePort &m = static_cast<const message::CreatePort &>(message);
+         const message::AddPort &m = static_cast<const message::AddPort &>(message);
          //sendHub(m);
          result = m_moduleManager->handle(m);
          break;

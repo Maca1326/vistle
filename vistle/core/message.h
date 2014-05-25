@@ -71,8 +71,8 @@ class V_COREEXPORT Message {
    static const size_t MESSAGE_SIZE = 1024; // fixed message size is imposed by boost::interprocess::message_queue
 
    DEFINE_ENUM_WITH_STRING_CONVERSIONS(Type,
-      (INVALID)
-      (ANY) //< for Trace: enables tracing of all message types
+      (INVALID) // keep 1st
+      (ANY) //< for Trace: enables tracing of all message types -- keep 2nd
       (IDENTIFY)
       (SETID)
       (TRACE)
@@ -84,14 +84,14 @@ class V_COREEXPORT Message {
       (MODULEEXIT)
       (BUSY)
       (IDLE)
+      (EXECUTIONPROGRESS)
       (COMPUTE)
       (REDUCE)
-      (EXECUTIONPROGRESS)
       (ADDOBJECT)
       (OBJECTRECEIVED)
+      (ADDPORT)
       (CONNECT)
       (DISCONNECT)
-      (CREATEPORT)
       (ADDPARAMETER)
       (SETPARAMETER)
       (SETPARAMETERCHOICES)
@@ -100,13 +100,13 @@ class V_COREEXPORT Message {
       (BARRIER)
       (BARRIERREACHED)
       (RESETMODULEIDS)
-      (REPLAYFINISHED)
       (SENDTEXT)
       (OBJECTRECEIVEPOLICY)
       (SCHEDULINGPOLICY)
       (REDUCEPOLICY)
       (MODULEAVAILABLE)
       (LOCKUI)
+      (REPLAYFINISHED)
       (NumMessageTypes) // keep last
    )
 
@@ -370,17 +370,17 @@ class V_COREEXPORT Idle: public Message {
 };
 BOOST_STATIC_ASSERT(sizeof(Idle) <= Message::MESSAGE_SIZE);
 
-class V_COREEXPORT CreatePort: public Message {
+class V_COREEXPORT AddPort: public Message {
 
  public:
-   CreatePort(const Port *port);
+   AddPort(const Port *port);
    Port *getPort() const;
  private:
    port_name_t m_name;
    int m_porttype;
    int m_flags;
 };
-BOOST_STATIC_ASSERT(sizeof(CreatePort) <= Message::MESSAGE_SIZE);
+BOOST_STATIC_ASSERT(sizeof(AddPort) <= Message::MESSAGE_SIZE);
 
 //! add an object to the input queue of an input port
 class V_COREEXPORT AddObject: public Message {

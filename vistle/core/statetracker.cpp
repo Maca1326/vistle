@@ -174,13 +174,13 @@ std::vector<char> StateTracker::getState() const {
 
       if (portTracker()) {
          for (auto &portname: portTracker()->getInputPortNames(id)) {
-            CreatePort cp(portTracker()->getPort(id, portname));
+            AddPort cp(portTracker()->getPort(id, portname));
             cp.setSenderId(id);
             appendMessage(state, cp);
          }
 
          for (auto &portname: portTracker()->getOutputPortNames(id)) {
-            CreatePort cp(portTracker()->getPort(id, portname));
+            AddPort cp(portTracker()->getPort(id, portname));
             cp.setSenderId(id);
             appendMessage(state, cp);
          }
@@ -269,8 +269,8 @@ bool StateTracker::handle(const message::Message &msg, bool track) {
       case Message::COMPUTE: {
          break;
       }
-      case Message::CREATEPORT: {
-         const CreatePort &cp = static_cast<const CreatePort &>(msg);
+      case Message::ADDPORT: {
+         const AddPort &cp = static_cast<const AddPort &>(msg);
          handlePriv(cp);
          break;
       }
@@ -672,7 +672,7 @@ bool StateTracker::handlePriv(const message::BarrierReached &barrReached) {
    return true;
 }
 
-bool StateTracker::handlePriv(const message::CreatePort &createPort) {
+bool StateTracker::handlePriv(const message::AddPort &createPort) {
 
    if (portTracker()) {
       Port * p = portTracker()->addPort(createPort.getPort());

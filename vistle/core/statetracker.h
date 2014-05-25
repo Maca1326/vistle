@@ -145,7 +145,7 @@ class V_COREEXPORT StateTracker {
    bool handlePriv(const message::ExecutionProgress &prog);
    bool handlePriv(const message::Busy &busy);
    bool handlePriv(const message::Idle &idle);
-   bool handlePriv(const message::CreatePort &createPort);
+   bool handlePriv(const message::AddPort &createPort);
    bool handlePriv(const message::AddParameter &addParam);
    bool handlePriv(const message::SetParameter &setParam);
    bool handlePriv(const message::SetParameterChoices &choices);

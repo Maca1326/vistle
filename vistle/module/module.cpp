@@ -130,6 +130,7 @@ Module::Module(const std::string &n, const std::string &shmname,
 , m_size(s)
 , m_id(m)
 , m_executionCount(0)
+, m_stateTracker(new StateTracker(m_name))
 , m_receivePolicy(message::ObjectReceivePolicy::Single)
 , m_schedulingPolicy(message::SchedulingPolicy::Single)
 , m_reducePolicy(message::ReducePolicy::Never)
@@ -140,7 +141,6 @@ Module::Module(const std::string &n, const std::string &shmname,
 , m_streambuf(nullptr)
 , m_traceMessages(message::Message::INVALID)
 , m_benchmark(false)
-, m_stateTracker(new StateTracker(m_name))
 {
 #ifdef _WIN32
     WSADATA wsaData;
@@ -322,7 +322,7 @@ Port *Module::createInputPort(const std::string &name, const std::string &descri
       Port *p = new Port(id(), name, Port::INPUT, flags);
       inputPorts[name] = p;
 
-      message::CreatePort message(p);
+      message::AddPort message(p);
       sendMessageQueue->send(message);
       return p;
    }
@@ -339,7 +339,7 @@ Port *Module::createOutputPort(const std::string &name, const std::string &descr
       Port *p = new Port(id(), name, Port::OUTPUT, flags);
       outputPorts[name] = p;
 
-      message::CreatePort message(p);
+      message::AddPort message(p);
       sendMessage(message);
       return p;
    }
@@ -954,10 +954,10 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          break;
       }
 
-      case message::Message::CREATEPORT: {
+      case message::Message::ADDPORT: {
 
-         const message::CreatePort *cp =
-            static_cast<const message::CreatePort *>(message);
+         const message::AddPort *cp =
+            static_cast<const message::AddPort *>(message);
          Port *port = cp->getPort();
          std::string name = port->getName();
          std::string::size_type p = name.find('[');
@@ -996,14 +996,14 @@ bool Module::handleMessage(const vistle::message::Message *message) {
                break;
          }
          if (newport) {
-            message::CreatePort np(newport);
+            message::AddPort np(newport);
             np.setUuid(cp->uuid());
             sendMessage(np);
             const Port::PortSet &links = newport->linkedPorts();
             for (Port::PortSet::iterator it = links.begin();
                   it != links.end();
                   ++it) {
-               message::CreatePort linked(*it);
+               message::AddPort linked(*it);
                linked.setUuid(cp->uuid());
                sendMessage(linked);
             }
@@ -1317,15 +1317,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
 
 std::string Module::getModuleName(int id) const {
 
-#if 0
-   auto it = m_otherModuleMap.find(id);
-   if (it == m_otherModuleMap.end())
-      return std::string();
-
-   return it->second;
-#else
    return m_stateTracker->getModuleName(id);
-#endif
 }
 
 Module::~Module() {

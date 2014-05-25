@@ -446,9 +446,9 @@ bool ModuleManager::handle(const message::Message &message) {
          break;
       }
 
-      case message::Message::CREATEPORT: {
+      case message::Message::ADDPORT: {
 
-         const message::CreatePort &m = static_cast<const message::CreatePort &>(message);
+         const message::AddPort &m = static_cast<const message::AddPort &>(message);
          //sendHub(m);
          result = handlePriv(m);
          break;
@@ -1146,7 +1146,7 @@ bool ModuleManager::handlePriv(const message::BarrierReached &barrReached) {
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::CreatePort &createPort) {
+bool ModuleManager::handlePriv(const message::AddPort &createPort) {
 
    m_stateTracker.handle(createPort);
    replayMessages();
