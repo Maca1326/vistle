@@ -45,8 +45,8 @@ namespace vistle {
 using message::Id;
 
 ModuleManager::ModuleManager(int argc, char *argv[], int r, const std::vector<std::string> &hosts)
-: m_portManager(this)
-, m_stateTracker("ModuleManager state", &m_portManager)
+: m_portManager(new PortManager(this))
+, m_stateTracker("ModuleManager state", m_portManager)
 , m_quitFlag(false)
 , m_rank(r)
 , m_size(hosts.size())
@@ -387,7 +387,20 @@ bool ModuleManager::handle(const message::Started &started) {
    // FIXME: not valid for cover
    //assert(m_stateTracker.getModuleName(moduleID) == started.getName());
 
-   sendAllOthers(started.senderId(), started);
+   message::Buffer buf(started);
+   if (Communicator::the().isMaster()) {
+      buf.msg.setDestId(Id::Broadcast);
+      sendHub(buf.msg);
+   } else {
+      int senderHub = started.senderId();
+      if (senderHub >= Id::ModuleBase)
+         senderHub = m_stateTracker.getHub(senderHub);
+      if (senderHub == Communicator::the().hubId()) {
+         buf.msg.setDestId(Id::ForBroadcast);
+         sendHub(buf.msg);
+      }
+   }
+   //sendAllOthers(started.senderId(), started);
    replayMessages();
    return true;
 }
@@ -398,8 +411,8 @@ bool ModuleManager::handle(const message::Connect &connect) {
    int modTo = connect.getModuleB();
    const char *portFrom = connect.getPortAName();
    const char *portTo = connect.getPortBName();
-   const Port *from = m_portManager.getPort(modFrom, portFrom);
-   const Port *to = m_portManager.getPort(modTo, portTo);
+   const Port *from = portManager().getPort(modFrom, portFrom);
+   const Port *to = portManager().getPort(modTo, portTo);
 
    message::Connect c = connect;
    if (from && to && from->getType() == Port::INPUT && to->getType() == Port::OUTPUT) {
@@ -409,7 +422,7 @@ bool ModuleManager::handle(const message::Connect &connect) {
    }
 
    m_stateTracker.handle(c);
-   if (m_portManager.addConnection(modFrom, portFrom, modTo, portTo)) {
+   if (portManager().addConnection(modFrom, portFrom, modTo, portTo)) {
       // inform modules about connections
       if (Communicator::the().isMaster()) {
          sendMessage(modFrom, c);
@@ -428,8 +441,8 @@ bool ModuleManager::handle(const message::Disconnect &disconnect) {
    int modTo = disconnect.getModuleB();
    const char *portFrom = disconnect.getPortAName();
    const char *portTo = disconnect.getPortBName();
-   const Port *from = m_portManager.getPort(modFrom, portFrom);
-   const Port *to = m_portManager.getPort(modTo, portTo);
+   const Port *from = portManager().getPort(modFrom, portFrom);
+   const Port *to = portManager().getPort(modTo, portTo);
 
    message::Disconnect d = disconnect;
    if (from->getType() == Port::INPUT && to->getType() == Port::OUTPUT) {
@@ -439,7 +452,7 @@ bool ModuleManager::handle(const message::Disconnect &disconnect) {
    }
    
    m_stateTracker.handle(d);
-   if (m_portManager.removeConnection(modFrom, portFrom, modTo, portTo)) {
+   if (portManager().removeConnection(modFrom, portFrom, modTo, portTo)) {
 
       if (Communicator::the().isMaster()) {
          sendMessage(modFrom, d);
@@ -464,7 +477,7 @@ bool ModuleManager::handle(const message::ModuleExit &moduleExit) {
 
    int mod = moduleExit.senderId();
 
-   m_portManager.removeConnections(mod);
+   portManager().removeConnections(mod);
 
    if (!moduleExit.isForwarded()) {
 
@@ -612,11 +625,11 @@ bool ModuleManager::handle(const message::ExecutionProgress &prog) {
    // forward message to all directly connected down-stream modules, but only once
    if (forward) {
       std::set<int> connectedIds;
-      auto out = m_portManager.getOutputPorts(prog.senderId());
+      auto out = portManager().getOutputPorts(prog.senderId());
       for (Port *port: out) {
          const Port::PortSet *list = NULL;
          if (port) {
-            list = m_portManager.getConnectionList(port);
+            list = portManager().getConnectionList(port);
          }
          if (list) {
             Port::PortSet::const_iterator pi;
@@ -710,12 +723,12 @@ bool ModuleManager::handle(const message::SetParameter &setParam) {
 
       std::function<ParameterSet (const Port *, ParameterSet)> findAllConnectedPorts;
       findAllConnectedPorts = [this, &findAllConnectedPorts] (const Port *port, ParameterSet conn) -> ParameterSet {
-         if (const Port::PortSet *list = this->m_portManager.getConnectionList(port)) {
+         if (const Port::PortSet *list = this->portManager().getConnectionList(port)) {
             for (auto port: *list) {
                Parameter *param = getParameter(port->getModuleID(), port->getName());
                if (param && conn.find(param) == conn.end()) {
                   conn.insert(param);
-                  const Port *port = m_portManager.getPort(param->module(), param->getName());
+                  const Port *port = portManager().getPort(param->module(), param->getName());
                   conn = findAllConnectedPorts(port, conn);
                }
             }
@@ -724,7 +737,7 @@ bool ModuleManager::handle(const message::SetParameter &setParam) {
       };
 
       if (Communicator::the().isMaster()) {
-         Port *port = m_portManager.getPort(setParam.getModule(), setParam.getName());
+         Port *port = portManager().getPort(setParam.getModule(), setParam.getName());
          if (port && applied) {
             ParameterSet conn = findAllConnectedPorts(port, ParameterSet());
 
@@ -780,10 +793,10 @@ bool ModuleManager::handle(const message::AddObject &addObj) {
       << " to port " << addObj.getPortName() << std::endl;
 #endif
 
-   Port *port = m_portManager.getPort(addObj.senderId(), addObj.getPortName());
+   Port *port = portManager().getPort(addObj.senderId(), addObj.getPortName());
    const Port::PortSet *list = NULL;
    if (port) {
-      list = m_portManager.getConnectionList(port);
+      list = portManager().getConnectionList(port);
    }
    if (list) {
       Port::PortSet::const_iterator pi;
@@ -980,9 +993,9 @@ std::vector<char> ModuleManager::getState() const {
    return m_stateTracker.getState();
 }
 
-const PortManager &ModuleManager::portManager() const {
+PortManager &ModuleManager::portManager() const {
 
-   return m_portManager;
+   return *m_portManager;
 }
 
 std::vector<std::string> ModuleManager::getParameters(int id) const {

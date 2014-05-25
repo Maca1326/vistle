@@ -31,13 +31,14 @@ int StateTracker::Module::state() const {
    return s;
 }
 
-StateTracker::StateTracker(const std::string &name, PortTracker *portTracker)
+StateTracker::StateTracker(const std::string &name, boost::shared_ptr<PortTracker> portTracker)
 : m_portTracker(portTracker)
 , m_traceType(message::Message::INVALID)
 , m_traceId(Id::Invalid)
 , m_name(name)
 {
-   assert(m_portTracker);
+   if (!m_portTracker)
+      m_portTracker.reset(new PortTracker());
 }
 
 StateTracker::mutex &StateTracker::getMutex() {
@@ -171,16 +172,18 @@ std::vector<char> StateTracker::getState() const {
 		 appendMessage(state, setMax);
       }
 
-      for (auto &portname: portTracker()->getInputPortNames(id)) {
-         CreatePort cp(portTracker()->getPort(id, portname));
-         cp.setSenderId(id);
-         appendMessage(state, cp);
-      }
+      if (portTracker()) {
+         for (auto &portname: portTracker()->getInputPortNames(id)) {
+            CreatePort cp(portTracker()->getPort(id, portname));
+            cp.setSenderId(id);
+            appendMessage(state, cp);
+         }
 
-      for (auto &portname: portTracker()->getOutputPortNames(id)) {
-         CreatePort cp(portTracker()->getPort(id, portname));
-         cp.setSenderId(id);
-         appendMessage(state, cp);
+         for (auto &portname: portTracker()->getOutputPortNames(id)) {
+            CreatePort cp(portTracker()->getPort(id, portname));
+            cp.setSenderId(id);
+            appendMessage(state, cp);
+         }
       }
    }
 
@@ -188,19 +191,21 @@ std::vector<char> StateTracker::getState() const {
    for (auto &it: runningMap) {
       const int id = it.first;
 
-      for (auto &portname: portTracker()->getOutputPortNames(id)) {
-         const Port::PortSet *connected = portTracker()->getConnectionList(id, portname);
-         for (auto &dest: *connected) {
-            Connect c(id, portname, dest->getModuleID(), dest->getName());
-            appendMessage(state, c);
+      if (portTracker()) {
+         for (auto &portname: portTracker()->getOutputPortNames(id)) {
+            const Port::PortSet *connected = portTracker()->getConnectionList(id, portname);
+            for (auto &dest: *connected) {
+               Connect c(id, portname, dest->getModuleID(), dest->getName());
+               appendMessage(state, c);
+            }
          }
-      }
 
-      for (auto &paramname: getParameters(id)) {
-         const Port::PortSet *connected = portTracker()->getConnectionList(id, paramname);
-         for (auto &dest: *connected) {
-            Connect c(id, paramname, dest->getModuleID(), dest->getName());
-            appendMessage(state, c);
+         for (auto &paramname: getParameters(id)) {
+            const Port::PortSet *connected = portTracker()->getConnectionList(id, paramname);
+            for (auto &dest: *connected) {
+               Connect c(id, paramname, dest->getModuleID(), dest->getName());
+               appendMessage(state, c);
+            }
          }
       }
    }
@@ -444,10 +449,12 @@ bool StateTracker::handlePriv(const message::Started &started) {
 
 bool StateTracker::handlePriv(const message::Connect &connect) {
 
-   portTracker()->addConnection(connect.getModuleA(),
-         connect.getPortAName(),
-         connect.getModuleB(),
-         connect.getPortBName());
+   if (portTracker()) {
+      portTracker()->addConnection(connect.getModuleA(),
+            connect.getPortAName(),
+            connect.getModuleB(),
+            connect.getPortBName());
+   }
 
    for (StateObserver *o: m_observers) {
       o->incModificationCount();
@@ -460,10 +467,12 @@ bool StateTracker::handlePriv(const message::Connect &connect) {
 
 bool StateTracker::handlePriv(const message::Disconnect &disconnect) {
 
-   portTracker()->removeConnection(disconnect.getModuleA(),
-         disconnect.getPortAName(),
-         disconnect.getModuleB(),
-         disconnect.getPortBName());
+   if (portTracker()) {
+      portTracker()->removeConnection(disconnect.getModuleA(),
+            disconnect.getPortAName(),
+            disconnect.getModuleB(),
+            disconnect.getPortBName());
+   }
 
    for (StateObserver *o: m_observers) {
       o->incModificationCount();
@@ -577,10 +586,13 @@ bool StateTracker::handlePriv(const message::AddParameter &addParam) {
       o->newParameter(addParam.senderId(), addParam.getName());
    }
 
-   Port *p = portTracker()->addPort(new Port(addParam.senderId(), addParam.getName(), Port::PARAMETER));
+   if (portTracker()) {
+      Port *p = portTracker()->addPort(new Port(addParam.senderId(), addParam.getName(), Port::PARAMETER));
 
-   for (StateObserver *o: m_observers) {
-      o->newPort(p->getModuleID(), p->getName());
+
+      for (StateObserver *o: m_observers) {
+         o->newPort(p->getModuleID(), p->getName());
+      }
    }
 
    return true;
@@ -665,11 +677,13 @@ bool StateTracker::handlePriv(const message::BarrierReached &barrReached) {
 
 bool StateTracker::handlePriv(const message::CreatePort &createPort) {
 
-   Port * p = portTracker()->addPort(createPort.getPort());
+   if (portTracker()) {
+      Port * p = portTracker()->addPort(createPort.getPort());
 
-   for (StateObserver *o: m_observers) {
-      o->incModificationCount();
-      o->newPort(p->getModuleID(), p->getName());
+      for (StateObserver *o: m_observers) {
+         o->incModificationCount();
+         o->newPort(p->getModuleID(), p->getName());
+      }
    }
 
    return true;
@@ -718,7 +732,7 @@ StateTracker::~StateTracker() {
 
 }
 
-PortTracker *StateTracker::portTracker() const {
+boost::shared_ptr<PortTracker> StateTracker::portTracker() const {
 
    return m_portTracker;
 }

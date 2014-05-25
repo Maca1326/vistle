@@ -63,14 +63,14 @@ class V_CONTROLEXPORT ModuleManager {
 
    std::vector<char> getState() const;
 
-   const PortManager &portManager() const;
+   PortManager &portManager() const;
 
  private:
    void queueMessage(const message::Message &msg);
    void replayMessages();
    std::vector<char> m_messageQueue;
 
-   PortManager m_portManager;
+   boost::shared_ptr<PortManager> m_portManager;
    StateTracker m_stateTracker;
    bool m_quitFlag;
 

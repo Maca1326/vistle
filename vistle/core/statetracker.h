@@ -66,7 +66,7 @@ class V_COREEXPORT StateTracker {
    friend class PortTracker;
 
  public:
-   StateTracker(const std::string &name, PortTracker *portTracker);
+   StateTracker(const std::string &name, boost::shared_ptr<PortTracker> portTracker=boost::shared_ptr<PortTracker>());
    ~StateTracker();
 
    typedef boost::recursive_mutex mutex;
@@ -86,7 +86,7 @@ class V_COREEXPORT StateTracker {
 
    bool handle(const message::Message &msg, bool track=true);
 
-   PortTracker *portTracker() const;
+   boost::shared_ptr<PortTracker> portTracker() const;
 
    std::vector<char> getState() const;
 
@@ -160,7 +160,7 @@ class V_COREEXPORT StateTracker {
    bool handlePriv(const message::Quit &quit);
    bool handlePriv(const message::ModuleAvailable &mod);
 
-   PortTracker *m_portTracker;
+   boost::shared_ptr<PortTracker> m_portTracker;
 
    mutex m_replyMutex;
    boost::condition_variable_any m_replyCondition;

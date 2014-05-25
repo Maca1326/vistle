@@ -59,7 +59,7 @@ Hub *hub_instance = nullptr;
 Hub::Hub()
 : m_port(31093)
 , m_acceptor(m_ioService)
-, m_stateTracker("Hub state", &m_portTracker)
+, m_stateTracker("Hub state")
 , m_uiManager(*this, m_stateTracker)
 , m_uiCount(0)
 , m_managerConnected(false)

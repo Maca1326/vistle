@@ -38,6 +38,7 @@
 #include <core/objectcache.h>
 #include <core/port.h>
 #include <core/exception.h>
+#include <core/statetracker.h>
 
 #ifndef TEMPLATES_IN_HEADERS
 #define VISTLE_IMPL
@@ -139,6 +140,7 @@ Module::Module(const std::string &n, const std::string &shmname,
 , m_streambuf(nullptr)
 , m_traceMessages(message::Message::INVALID)
 , m_benchmark(false)
+, m_stateTracker(new StateTracker(m_name))
 {
 #ifdef _WIN32
     WSADATA wsaData;
@@ -850,6 +852,7 @@ bool Module::dispatch() {
                break;
          }
 
+         m_stateTracker->handle(buf.msg);
          again &= handleMessage(&buf.msg);
 
          if (allsync && !sync) {
@@ -859,6 +862,7 @@ bool Module::dispatch() {
       } while(allsync && !sync);
    } else {
 
+      m_stateTracker->handle(buf.msg);
       again &= handleMessage(&buf.msg);
    }
 
@@ -1272,6 +1276,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          break;
       }
 
+#if 0
       case message::Message::SPAWN: {
          const message::Spawn *spawn =
             static_cast<const message::Spawn *>(message);
@@ -1285,6 +1290,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          m_otherModuleMap.erase(exit->senderId());
          break;
       }
+#endif
 
       case message::Message::BARRIER: {
 
@@ -1312,11 +1318,15 @@ bool Module::handleMessage(const vistle::message::Message *message) {
 
 std::string Module::getModuleName(int id) const {
 
+#if 0
    auto it = m_otherModuleMap.find(id);
    if (it == m_otherModuleMap.end())
       return std::string();
 
    return it->second;
+#else
+   return m_stateTracker->getModuleName(id);
+#endif
 }
 
 Module::~Module() {

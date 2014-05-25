@@ -21,6 +21,8 @@
 
 namespace vistle {
 
+class StateTracker;
+
 namespace message {
 class Message;
 class AddParameter;
@@ -188,6 +190,7 @@ protected:
    virtual bool reduce(int timestep); //< do reduction for timestep (-1: global) - called on all ranks
 
  private:
+   boost::shared_ptr<StateTracker> m_stateTracker;
    int m_receivePolicy;
    int m_schedulingPolicy;
    int m_reducePolicy;
@@ -212,8 +215,10 @@ protected:
    void updateCacheMode();
    bool m_syncMessageProcessing;
 
+#if 0
    typedef std::map<int, std::string> OtherModuleMap;
    OtherModuleMap m_otherModuleMap;
+#endif
 
    void updateOutputMode();
    std::streambuf *m_origStreambuf, *m_streambuf;

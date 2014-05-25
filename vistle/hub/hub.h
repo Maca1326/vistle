@@ -59,7 +59,6 @@ private:
    std::map<boost::shared_ptr<boost::asio::ip::tcp::socket>, message::Identify::Identity> m_sockets;
    std::set<boost::shared_ptr<boost::asio::ip::tcp::socket>> m_clients;
 
-   PortTracker m_portTracker;
    StateTracker m_stateTracker;
    UiManager m_uiManager;
    int m_uiCount;
