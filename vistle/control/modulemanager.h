@@ -69,7 +69,6 @@ class V_CONTROLEXPORT ClusterManager {
 
    bool handlePriv(const message::Trace &trace);
    bool handlePriv(const message::Spawn &spawn);
-   bool handlePriv(const message::Started &started);
    bool handlePriv(const message::Connect &connect);
    bool handlePriv(const message::Disconnect &disc);
    bool handlePriv(const message::ModuleExit &moduleExit);
@@ -92,16 +91,12 @@ class V_CONTROLEXPORT ClusterManager {
       message::MessageQueue *recvQueue;
 
       Module(): sendQueue(nullptr), recvQueue(nullptr),
-         hub(-1), local(false), baseRank(0),
          ranksStarted(0), ranksFinished(0), reducing(false)
          {}
       ~Module() {
          delete sendQueue;
          delete recvQueue;
       }
-      int hub;
-      bool local;
-      int baseRank;
       int ranksStarted, ranksFinished;
       bool reducing;
    };

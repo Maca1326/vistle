@@ -95,8 +95,8 @@ bool ClusterManager::checkBarrier(const message::uuid_t &uuid) const {
 
    assert(m_barrierActive);
    int numLocal = 0;
-   for (const auto &m: runningMap) {
-      if (m.second.local)
+   for (const auto &m: m_stateTracker.runningMap) {
+      if (m.second.hub == Communicator::the().hubId())
          ++numLocal;
    }
    //CERR << "checkBarrier " << uuid << ": #local=" << numLocal << ", #reached=" << reachedSet.size() << std::endl;
@@ -130,38 +130,35 @@ bool ClusterManager::dispatch(bool &received) {
    bool done = false;
 
    // handle messages from modules
-   for(RunningMap::iterator next, it = runningMap.begin();
-         it != runningMap.end();
+   for(auto it = m_stateTracker.runningMap.begin(), next = it;
+         it != m_stateTracker.runningMap.end();
          it = next) {
       next = it;
       ++next;
 
       const int modId = it->first;
-      const Module &mod = it->second;
+      const auto &mod = it->second;
 
       // keep messages from modules that have already reached a barrier on hold
       if (reachedSet.find(modId) != reachedSet.end())
          continue;
 
-      if (mod.local) {
+      if (mod.hub == Communicator::the().hubId()) {
          bool recv = false;
-         char msgRecvBuf[vistle::message::Message::MESSAGE_SIZE];
-         message::Message *msg = reinterpret_cast<message::Message *>(msgRecvBuf);
-         message::MessageQueue *mq = mod.recvQueue;
+         message::Buffer buf;
+         message::MessageQueue *mq = runningMap[modId].recvQueue;
          try {
-            recv = mq->tryReceive(*msg);
+            recv = mq->tryReceive(buf.msg);
          } catch (boost::interprocess::interprocess_exception &ex) {
             CERR << "receive mq " << ex.what() << std::endl;
             exit(-1);
          }
 
          if (recv) {
-            if (!Communicator::the().handleMessage(*msg))
+            received = true;
+            if (!Communicator::the().handleMessage(buf.msg))
                done = true;
          }
-
-         if (recv)
-            received = true;
       }
    }
 
@@ -203,7 +200,7 @@ bool ClusterManager::sendAllOthers(int excluded, const message::Message &message
 #endif
 
    // handle messages to modules
-   for(RunningMap::const_iterator next, it = runningMap.begin();
+   for(auto it = runningMap.begin(), next = it;
          it != runningMap.end();
          it = next) {
       next = it;
@@ -212,10 +209,12 @@ bool ClusterManager::sendAllOthers(int excluded, const message::Message &message
       const int modId = it->first;
       if (modId == excluded)
          continue;
-      const Module &mod = it->second;
+      const auto &mod = it->second;
+      const int hub = m_stateTracker.getHub(modId);
 
-      if (mod.local)
+      if (hub == Communicator::the().hubId()) {
          mod.sendQueue->send(message);
+      }
    }
 
    return true;
@@ -240,11 +239,11 @@ bool ClusterManager::sendMessage(const int moduleId, const message::Message &mes
    }
 
    auto &mod = it->second;
+   const int hub = m_stateTracker.getHub(moduleId);
 
-   if (mod.hub == Communicator::the().hubId()) {
+   if (hub == Communicator::the().hubId()) {
       std::cerr << "local send to " << moduleId << ": " << message << std::endl;
-      if (mod.local)
-         mod.sendQueue->send(message);
+      mod.sendQueue->send(message);
    } else {
       std::cerr << "remote send to " << moduleId << ": " << message << std::endl;
       message::Buffer buf(message);
@@ -282,13 +281,6 @@ bool ClusterManager::handle(const message::Message &message) {
 
          const message::Spawn &spawn = static_cast<const message::Spawn &>(message);
          result = handlePriv(spawn);
-         break;
-      }
-
-      case message::Message::STARTED: {
-
-         const message::Started &started = static_cast<const message::Started &>(message);
-         result = handlePriv(started);
          break;
       }
 
@@ -441,10 +433,6 @@ bool ClusterManager::handlePriv(const message::Spawn &spawn) {
    const std::string idStr = boost::lexical_cast<std::string>(newId);
 
    Module &mod = runningMap[newId];
-   mod.local = true;
-   mod.baseRank = 0;
-   mod.hub = spawn.hubId();
-
    std::string smqName = message::MessageQueue::createName("smq", newId, m_rank);
    std::string rmqName = message::MessageQueue::createName("rmq", newId, m_rank);
 
@@ -460,7 +448,7 @@ bool ClusterManager::handlePriv(const message::Spawn &spawn) {
    sendHub(message::SpawnPrepared(spawn));
 
    // inform newly started module about current parameter values of other modules
-   for (auto &mit: runningMap) {
+   for (auto &mit: m_stateTracker.runningMap) {
       const int id = mit.first;
       const std::string moduleName = getModuleName(id);
 
@@ -481,29 +469,6 @@ bool ClusterManager::handlePriv(const message::Spawn &spawn) {
       }
    }
 
-   return true;
-}
-
-bool ClusterManager::handlePriv(const message::Started &started) {
-
-   m_stateTracker.handle(started);
-   // FIXME: not valid for cover
-   //assert(m_stateTracker.getModuleName(moduleID) == started.getName());
-
-   message::Buffer buf(started);
-   if (Communicator::the().isMaster()) {
-      buf.msg.setDestId(Id::Broadcast);
-      sendHub(buf.msg);
-   } else {
-      int senderHub = started.senderId();
-      if (senderHub >= Id::ModuleBase)
-         senderHub = m_stateTracker.getHub(senderHub);
-      if (senderHub == Communicator::the().hubId()) {
-         buf.msg.setDestId(Id::ForBroadcast);
-         sendHub(buf.msg);
-      }
-   }
-   //sendAllOthers(started.senderId(), started);
    return true;
 }
 
@@ -588,8 +553,7 @@ bool ClusterManager::handlePriv(const message::ModuleExit &moduleExit) {
          CERR << " Module [" << mod << "] quit, but not found in running map" << std::endl;
          return true;
       }
-      Module &m = it->second;
-      if (m.baseRank == m_rank) {
+      if (m_rank == 0) {
          message::ModuleExit exit = moduleExit;
          exit.setForwarded();
          if (!Communicator::the().broadcastAndHandleMessage(exit))
@@ -605,9 +569,6 @@ bool ClusterManager::handlePriv(const message::ModuleExit &moduleExit) {
    { 
       RunningMap::iterator it = runningMap.find(mod);
       if (it != runningMap.end()) {
-         Module &mod = it->second;
-         if (m_rank == mod.baseRank) {
-         }
          runningMap.erase(it);
       } else {
          CERR << " Module [" << mod << "] not found in map" << std::endl;
@@ -656,13 +617,6 @@ bool ClusterManager::handlePriv(const message::Compute &compute) {
       }
    }
 
-   return true;
-}
-
-bool ClusterManager::handlePriv(const message::Reduce &reduce) {
-
-   m_stateTracker.handle(reduce);
-   sendMessage(reduce.module(), reduce);
    return true;
 }
 
@@ -756,6 +710,13 @@ bool ClusterManager::handlePriv(const message::ExecutionProgress &prog) {
    return result;
 }
 
+bool ClusterManager::handlePriv(const message::Reduce &reduce) {
+
+   m_stateTracker.handle(reduce);
+   sendMessage(reduce.module(), reduce);
+   return true;
+}
+
 bool ClusterManager::handlePriv(const message::Busy &busy) {
 
    //sendAllOthers(busy.senderId(), busy);
@@ -777,6 +738,14 @@ bool ClusterManager::handlePriv(const message::Idle &idle) {
    }
    return m_stateTracker.handle(idle);
 }
+
+bool ClusterManager::handlePriv(const message::ObjectReceived &objRecv) {
+
+   m_stateTracker.handle(objRecv);
+   sendMessage(objRecv.senderId(), objRecv);
+   return true;
+}
+
 
 bool ClusterManager::handlePriv(const message::SetParameter &setParam) {
 
@@ -918,13 +887,6 @@ bool ClusterManager::handlePriv(const message::AddObject &addObj) {
          << addObj.getHandle() << "] to port ["
          << addObj.getPortName() << "] of [" << addObj.senderId() << "]: port not found" << std::endl;
 
-   return true;
-}
-
-bool ClusterManager::handlePriv(const message::ObjectReceived &objRecv) {
-
-   m_stateTracker.handle(objRecv);
-   sendMessage(objRecv.senderId(), objRecv);
    return true;
 }
 
