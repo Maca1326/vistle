@@ -820,6 +820,33 @@ void StateTracker::registerObserver(StateObserver *observer) {
    m_observers.insert(observer);
 }
 
+ParameterSet StateTracker::getConnectedParameters(const Parameter &param) const {
+
+   std::function<ParameterSet (const Port *, ParameterSet)> findAllConnectedPorts;
+   findAllConnectedPorts = [this, &findAllConnectedPorts] (const Port *port, ParameterSet conn) -> ParameterSet {
+      if (const Port::PortSet *list = portTracker()->getConnectionList(port)) {
+         for (auto port: *list) {
+            Parameter *param = getParameter(port->getModuleID(), port->getName());
+            if (param && conn.find(param) == conn.end()) {
+               conn.insert(param);
+               const Port *port = portTracker()->getPort(param->module(), param->getName());
+               conn = findAllConnectedPorts(port, conn);
+            }
+         }
+      }
+      return conn;
+   };
+
+   if (!portTracker())
+      return ParameterSet();
+   Port *port = portTracker()->getPort(param.module(), param.getName());
+   if (!port)
+      return ParameterSet();
+   if (port->getType() != Port::PARAMETER)
+      return ParameterSet();
+   return findAllConnectedPorts(port, ParameterSet());
+}
+
 void StateObserver::quitRequested() {
 
 }

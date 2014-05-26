@@ -265,18 +265,6 @@ bool ModuleManager::handle(const message::Message &message) {
 
    bool result = true;
    switch (message.type()) {
-      case Message::IDENTIFY: {
-
-         const Identify &id = static_cast<const message::Identify &>(message);
-         //result = handlePriv(id);
-         break;
-      }
-
-      case Message::SETID: {
-         auto set = static_cast<const message::SetId &>(message);
-         //result = handlePriv(set);
-         break;
-      }
 
       case message::Message::TRACE: {
          const Trace &trace = static_cast<const Trace &>(message);
@@ -303,13 +291,6 @@ bool ModuleManager::handle(const message::Message &message) {
 
          const message::Started &started = static_cast<const message::Started &>(message);
          result = handlePriv(started);
-         break;
-      }
-
-      case message::Message::KILL: {
-
-         const message::Kill &kill = static_cast<const message::Kill &>(message);
-         result = handlePriv(kill);
          break;
       }
 
@@ -387,30 +368,6 @@ bool ModuleManager::handle(const message::Message &message) {
       case message::Message::SETPARAMETER: {
 
          const message::SetParameter &m = static_cast<const message::SetParameter &>(message);
-         //sendHub(m);
-         result = handlePriv(m);
-         break;
-      }
-
-      case message::Message::SETPARAMETERCHOICES: {
-
-         const message::SetParameterChoices &m = static_cast<const message::SetParameterChoices &>(message);
-         //sendHub(m);
-         result = handlePriv(m);
-         break;
-      }
-
-      case message::Message::ADDPARAMETER: {
-         
-         const message::AddParameter &m = static_cast<const message::AddParameter &>(message);
-         //sendHub(m);
-         result = handlePriv(m);
-         break;
-      }
-
-      case message::Message::ADDPORT: {
-
-         const message::AddPort &m = static_cast<const message::AddPort &>(message);
          //sendHub(m);
          result = handlePriv(m);
          break;
@@ -590,7 +547,6 @@ bool ModuleManager::handlePriv(const message::Started &started) {
       }
    }
    //sendAllOthers(started.senderId(), started);
-   replayMessages();
    return true;
 }
 
@@ -619,7 +575,7 @@ bool ModuleManager::handlePriv(const message::Connect &connect) {
          sendUi(c);
       }
    } else {
-      queueMessage(c);
+      return false;
    }
    return true;
 }
@@ -653,7 +609,7 @@ bool ModuleManager::handlePriv(const message::Disconnect &disconnect) {
       if (!m_messageQueue.empty()) {
          // only if messages are already queued, there is a chance that this
          // connection might still be established
-         queueMessage(d);
+         return false;
       }
    }
 
@@ -859,20 +815,6 @@ bool ModuleManager::handlePriv(const message::Idle &idle) {
    return m_stateTracker.handle(idle);
 }
 
-bool ModuleManager::handlePriv(const message::AddParameter &addParam) {
-
-   m_stateTracker.handle(addParam);
-#ifdef DEBUG
-   CERR << "AddParameter: module=" << addParam.moduleName() << "(" << addParam.senderId() << "), name=" << addParam.getName() << std::endl;
-#endif
-
-   // let all modules know that a parameter was added
-   sendAllOthers(addParam.senderId(), addParam);
-
-   replayMessages();
-   return true;
-}
-
 bool ModuleManager::handlePriv(const message::SetParameter &setParam) {
 
    m_stateTracker.handle(setParam);
@@ -880,6 +822,7 @@ bool ModuleManager::handlePriv(const message::SetParameter &setParam) {
    CERR << "SetParameter: sender=" << setParam.senderId() << ", module=" << setParam.getModule() << ", name=" << setParam.getName() << std::endl;
 #endif
 
+   bool handled = true;
    Parameter *param = getParameter(setParam.getModule(), setParam.getName());
    Parameter *applied = NULL;
    if (param) {
@@ -892,7 +835,7 @@ bool ModuleManager::handlePriv(const message::SetParameter &setParam) {
       if (i != runningMap.end() && param)
          sendMessage(setParam.getModule(), setParam);
       else
-         queueMessage(setParam);
+         handled = false;
    } else {
       // notification by owning module about a changed parameter
       if (param) {
@@ -908,27 +851,10 @@ bool ModuleManager::handlePriv(const message::SetParameter &setParam) {
    if (!setParam.isReply()) {
 
       // update linked parameters
-      typedef std::set<Parameter *> ParameterSet;
-
-      std::function<ParameterSet (const Port *, ParameterSet)> findAllConnectedPorts;
-      findAllConnectedPorts = [this, &findAllConnectedPorts] (const Port *port, ParameterSet conn) -> ParameterSet {
-         if (const Port::PortSet *list = this->portManager().getConnectionList(port)) {
-            for (auto port: *list) {
-               Parameter *param = getParameter(port->getModuleID(), port->getName());
-               if (param && conn.find(param) == conn.end()) {
-                  conn.insert(param);
-                  const Port *port = portManager().getPort(param->module(), param->getName());
-                  conn = findAllConnectedPorts(port, conn);
-               }
-            }
-         }
-         return conn;
-      };
-
       if (Communicator::the().isMaster()) {
          Port *port = portManager().getPort(setParam.getModule(), setParam.getName());
          if (port && applied) {
-            ParameterSet conn = findAllConnectedPorts(port, ParameterSet());
+            ParameterSet conn = m_stateTracker.getConnectedParameters(*param);
 
             for (ParameterSet::iterator it = conn.begin();
                   it != conn.end();
@@ -953,21 +879,7 @@ bool ModuleManager::handlePriv(const message::SetParameter &setParam) {
    }
    delete applied;
 
-   return true;
-}
-
-bool ModuleManager::handlePriv(const message::SetParameterChoices &setChoices) {
-
-   m_stateTracker.handle(setChoices);
-   sendAllOthers(setChoices.senderId(), setChoices);
-   return true;
-}
-
-bool ModuleManager::handlePriv(const message::Kill &kill) {
-
-   m_stateTracker.handle(kill);
-   sendMessage(kill.getModule(), kill);
-   return true;
+   return handled;
 }
 
 bool ModuleManager::handlePriv(const message::AddObject &addObj) {
@@ -1088,17 +1000,6 @@ bool ModuleManager::handlePriv(const message::BarrierReached &barrReached) {
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::AddPort &createPort) {
-
-   m_stateTracker.handle(createPort);
-   replayMessages();
-
-   // let all modules know that a port was created
-   sendAllOthers(createPort.senderId(), createPort);
-
-   return true;
-}
-
 bool ModuleManager::handlePriv(const message::ObjectReceivePolicy &receivePolicy)
 {
    const int id = receivePolicy.senderId();
@@ -1141,7 +1042,7 @@ bool ModuleManager::handlePriv(const message::ReducePolicy &reducePolicy)
 bool ModuleManager::quit() {
 
    if (!m_quitFlag)
-      sendAll(message::Kill(-1));
+      sendAll(message::Kill(message::Id::Broadcast));
 
    // receive all ModuleExit messages from modules
    // retry for some time, modules that don't answer might have crashed

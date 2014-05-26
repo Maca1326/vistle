@@ -16,6 +16,7 @@
 namespace vistle {
 
 class Parameter;
+typedef std::set<Parameter *> ParameterSet;
 class PortTracker;
 
 class V_COREEXPORT StateObserver {
@@ -83,6 +84,8 @@ class V_COREEXPORT StateTracker {
 
    std::vector<std::string> getParameters(int id) const;
    Parameter *getParameter(int id, const std::string &name) const;
+
+   ParameterSet getConnectedParameters(const Parameter &param) const;
 
    bool handle(const message::Message &msg, bool track=true);
 

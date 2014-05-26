@@ -310,7 +310,10 @@ bool Communicator::handleMessage(const message::Message &message) {
    }
 
    bool result = true;
-   switch (message.type()) {
+   const Message::Type t = message.type();
+   bool handled = true;
+
+   switch (t) {
       case Message::IDENTIFY: {
 
          const Identify &id = static_cast<const message::Identify &>(message);
@@ -327,6 +330,14 @@ bool Communicator::handleMessage(const message::Message &message) {
          m_hubId = set.getId();
          CERR << "got id " << m_hubId << std::endl;
          message::DefaultSender::init(m_hubId, m_rank);
+         break;
+      }
+
+      case Message::QUIT: {
+         auto quit = static_cast<const message::Quit &>(message);
+         CERR << "quit" << std::endl;
+         sendHub(quit);
+         result = false;
          break;
       }
 
@@ -358,14 +369,6 @@ bool Communicator::handleMessage(const message::Message &message) {
          }
 
          result = m_moduleManager->handle(trace);
-         break;
-      }
-
-      case message::Message::QUIT: {
-
-         const message::Quit &quit = static_cast<const message::Quit &>(message);
-         sendHub(quit);
-         result = false;
          break;
       }
 
@@ -559,6 +562,16 @@ bool Communicator::handleMessage(const message::Message &message) {
 
          break;
 
+   }
+
+   if (!handled) {
+      if (Router::rt[t] & QueueIfUnhandled) {
+         m_moduleManager->queueMessage(message);
+      }
+   } else {
+      if (Router::rt[t] & TriggerQueue) {
+         m_moduleManager->replayMessages();
+      }
    }
 
    return result;

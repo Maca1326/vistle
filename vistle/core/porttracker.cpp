@@ -1,4 +1,6 @@
 #include "porttracker.h"
+#include "statetracker.h"
+#include "parameter.h"
 #include <core/message.h>
 #include <iostream>
 #include <algorithm>
@@ -277,14 +279,15 @@ std::vector<Port *> PortTracker::getPorts(const int moduleID, Port::Type type) c
    return result;
 }
 
-std::vector<Port *> vistle::PortTracker::getInputPorts(const int moduleID) const
-{
+std::vector<Port *> PortTracker::getInputPorts(const int moduleID) const {
+
    return getPorts(moduleID, Port::INPUT);
 }
 
-std::vector<Port *> vistle::PortTracker::getOutputPorts(const int moduleID) const
-{
+std::vector<Port *> PortTracker::getOutputPorts(const int moduleID) const {
+
    return getPorts(moduleID, Port::OUTPUT);
 }
+
 
 } // namespace vistle

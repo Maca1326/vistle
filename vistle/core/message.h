@@ -812,12 +812,12 @@ class Router {
    bool toTracker(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN);
    bool toHandler(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN);
 
+   static unsigned rt[Message::NumMessageTypes];
  private:
    Router();
    Identify::Identity m_identity;
    int m_id;
 
-   static unsigned rt[Message::NumMessageTypes];
    static void initRoutingTable();
 };
 
