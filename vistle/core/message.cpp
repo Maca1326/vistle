@@ -30,6 +30,7 @@ DefaultSender::DefaultSender()
 : m_id(Id::Default)
 , m_rank(-1)
 {
+   Router::the();
 }
 
 int DefaultSender::id() {
@@ -1079,12 +1080,12 @@ void Router::initRoutingTable() {
    rt[M::COMPUTE]       = DestModule|DestHub|Ordered|HandleOnDest;
    rt[M::REDUCE]        = DestModule|OrderedLocal;
    rt[M::MODULEAVAILABLE]    = Track|DestHub|DestUi|RequiresSubscription;
-   rt[M::ADDPORT]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|Broadcast|TriggerQueue;
-   rt[M::ADDPARAMETER]  = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|Broadcast|TriggerQueue;
-   rt[M::CONNECT] = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|Broadcast|QueueIfUnhandled;
-   rt[M::DISCONNECT] = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|Broadcast|QueueIfUnhandled;
-   rt[M::SETPARAMETER]       = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|QueueIfUnhandled;
-   rt[M::SETPARAMETERCHOICES]       = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Ordered|QueueIfUnhandled;
+   rt[M::ADDPORT]    = Track|Broadcast|Ordered|TriggerQueue;
+   rt[M::ADDPARAMETER]    = Track|Broadcast|Ordered|TriggerQueue;
+   rt[M::CONNECT]    = Track|Broadcast|Ordered|QueueIfUnhandled|DestManager;
+   rt[M::DISCONNECT]    = Track|Broadcast|Ordered|QueueIfUnhandled|DestManager;
+   rt[M::SETPARAMETER]    = Track|Broadcast|Ordered|QueueIfUnhandled|DestManager;
+   rt[M::SETPARAMETERCHOICES]    = Track|Broadcast|Ordered|QueueIfUnhandled|DestManager;
    rt[M::PING] = Broadcast;
    rt[M::PONG] = Broadcast;
    rt[M::BUSY] = DestUi|DestMasterHub;

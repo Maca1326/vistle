@@ -42,7 +42,7 @@ Communicator *Communicator::s_singleton = NULL;
 
 Communicator::Communicator(int argc, char *argv[], int r, const std::vector<std::string> &hosts)
 : m_moduleManager(new ClusterManager(argc, argv, r, hosts))
-, m_hubId(0)
+, m_hubId(message::Id::Invalid)
 , m_rank(r)
 , m_size(hosts.size())
 , m_quitFlag(false)
@@ -312,6 +312,16 @@ bool Communicator::handleMessage(const message::Message &message) {
    bool result = true;
    const Message::Type t = message.type();
    bool handled = true;
+
+   if ((Router::rt[t] & Ordered) || (Router::rt[t] & Broadcast)) {
+      CERR << "ord|bc: " << message << std::endl;
+      int hub = message.senderId();
+      if (hub >= Id::ModuleBase) {
+         hub = m_moduleManager->m_stateTracker.getHub(hub);
+         if (hub == hubId())
+            sendHub(message);
+      }
+   }
 
    switch (t) {
       case Message::IDENTIFY: {
