@@ -15,10 +15,10 @@ namespace vistle {
 
 class Parameter;
 class PythonEmbed;
-class ModuleManager;
+class ClusterManager;
 
 class V_CONTROLEXPORT Communicator {
-   friend class ModuleManager;
+   friend class ClusterManager;
 
  public:
    Communicator(int argc, char *argv[], int rank, const std::vector<std::string> &hosts);
@@ -41,13 +41,13 @@ class V_CONTROLEXPORT Communicator {
 
    unsigned short uiPort() const;
 
-   ModuleManager &moduleManager() const;
+   ClusterManager &clusterManager() const;
    bool connectHub(const std::string &host, unsigned short port);
 
  private:
    bool sendHub(const message::Message &message);
 
-   ModuleManager *m_moduleManager;
+   ClusterManager *m_moduleManager;
 
    bool isMaster() const;
    int m_hubId;

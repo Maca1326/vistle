@@ -44,9 +44,9 @@ namespace vistle {
 
 using message::Id;
 
-ModuleManager::ModuleManager(int argc, char *argv[], int r, const std::vector<std::string> &hosts)
+ClusterManager::ClusterManager(int argc, char *argv[], int r, const std::vector<std::string> &hosts)
 : m_portManager(new PortManager(this))
-, m_stateTracker("ModuleManager state", m_portManager)
+, m_stateTracker("ClusterManager state", m_portManager)
 , m_quitFlag(false)
 , m_rank(r)
 , m_size(hosts.size())
@@ -55,17 +55,17 @@ ModuleManager::ModuleManager(int argc, char *argv[], int r, const std::vector<st
 {
 }
 
-int ModuleManager::getRank() const {
+int ClusterManager::getRank() const {
 
    return m_rank;
 }
 
-int ModuleManager::getSize() const {
+int ClusterManager::getSize() const {
 
    return m_size;
 }
 
-bool ModuleManager::scanModules(const std::string &dir) {
+bool ClusterManager::scanModules(const std::string &dir) {
 
 #ifdef SCAN_MODULES_ON_HUB
     return true;
@@ -74,7 +74,7 @@ bool ModuleManager::scanModules(const std::string &dir) {
 #endif
 }
 
-std::vector<AvailableModule> ModuleManager::availableModules() const {
+std::vector<AvailableModule> ClusterManager::availableModules() const {
 
     std::vector<AvailableModule> ret;
     for (auto mod: m_availableModules) {
@@ -83,17 +83,17 @@ std::vector<AvailableModule> ModuleManager::availableModules() const {
     return ret;
 }
 
-int ModuleManager::currentExecutionCount() {
+int ClusterManager::currentExecutionCount() {
 
    return m_executionCounter;
 }
 
-int ModuleManager::newExecutionCount() {
+int ClusterManager::newExecutionCount() {
 
    return m_executionCounter++;
 }
 
-bool ModuleManager::checkBarrier(const message::uuid_t &uuid) const {
+bool ClusterManager::checkBarrier(const message::uuid_t &uuid) const {
 
    assert(m_barrierActive);
    int numLocal = 0;
@@ -108,7 +108,7 @@ bool ModuleManager::checkBarrier(const message::uuid_t &uuid) const {
    return false;
 }
 
-void ModuleManager::barrierReached(const message::uuid_t &uuid) {
+void ClusterManager::barrierReached(const message::uuid_t &uuid) {
 
    assert(m_barrierActive);
    MPI_Barrier(MPI_COMM_WORLD);
@@ -121,13 +121,13 @@ void ModuleManager::barrierReached(const message::uuid_t &uuid) {
    m_stateTracker.handle(m);
 }
 
-std::string ModuleManager::getModuleName(int id) const {
+std::string ClusterManager::getModuleName(int id) const {
 
    return m_stateTracker.getModuleName(id);
 }
 
 
-bool ModuleManager::dispatch(bool &received) {
+bool ClusterManager::dispatch(bool &received) {
 
    bool done = false;
 
@@ -177,13 +177,13 @@ bool ModuleManager::dispatch(bool &received) {
    return !done;
 }
 
-bool ModuleManager::sendAll(const message::Message &message) const {
+bool ClusterManager::sendAll(const message::Message &message) const {
 
    // -1 is an invalid module id
    return sendAllOthers(-1, message);
 }
 
-bool ModuleManager::sendAllOthers(int excluded, const message::Message &message) const {
+bool ClusterManager::sendAllOthers(int excluded, const message::Message &message) const {
 
 #if 1
    message::Buffer buf(message);
@@ -223,17 +223,17 @@ bool ModuleManager::sendAllOthers(int excluded, const message::Message &message)
    return true;
 }
 
-bool ModuleManager::sendUi(const message::Message &message) const {
+bool ClusterManager::sendUi(const message::Message &message) const {
 
    return Communicator::the().sendHub(message);
 }
 
-bool ModuleManager::sendHub(const message::Message &message) const {
+bool ClusterManager::sendHub(const message::Message &message) const {
 
    return Communicator::the().sendHub(message);
 }
 
-bool ModuleManager::sendMessage(const int moduleId, const message::Message &message) const {
+bool ClusterManager::sendMessage(const int moduleId, const message::Message &message) const {
 
    RunningMap::const_iterator it = runningMap.find(moduleId);
    if (it == runningMap.end()) {
@@ -257,7 +257,7 @@ bool ModuleManager::sendMessage(const int moduleId, const message::Message &mess
    return true;
 }
 
-bool ModuleManager::handle(const message::Message &message) {
+bool ClusterManager::handle(const message::Message &message) {
 
    using namespace vistle::message;
 
@@ -442,7 +442,7 @@ bool ModuleManager::handle(const message::Message &message) {
    return result;
 }
 
-bool ModuleManager::handlePriv(const message::ModuleAvailable &avail) {
+bool ClusterManager::handlePriv(const message::ModuleAvailable &avail) {
 
    m_stateTracker.handle(avail);
 
@@ -459,7 +459,7 @@ bool ModuleManager::handlePriv(const message::ModuleAvailable &avail) {
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::Trace &trace) {
+bool ClusterManager::handlePriv(const message::Trace &trace) {
 
    m_stateTracker.handle(trace);
    if (trace.module() >= Id::ModuleBase) {
@@ -470,7 +470,7 @@ bool ModuleManager::handlePriv(const message::Trace &trace) {
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::Spawn &spawn) {
+bool ClusterManager::handlePriv(const message::Spawn &spawn) {
 
    if (spawn.spawnId() == Id::Invalid) {
       // ignore messages where master hub did not yet create an id
@@ -527,7 +527,7 @@ bool ModuleManager::handlePriv(const message::Spawn &spawn) {
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::Started &started) {
+bool ClusterManager::handlePriv(const message::Started &started) {
 
    m_stateTracker.handle(started);
    // FIXME: not valid for cover
@@ -550,7 +550,7 @@ bool ModuleManager::handlePriv(const message::Started &started) {
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::Connect &connect) {
+bool ClusterManager::handlePriv(const message::Connect &connect) {
 
    int modFrom = connect.getModuleA();
    int modTo = connect.getModuleB();
@@ -580,7 +580,7 @@ bool ModuleManager::handlePriv(const message::Connect &connect) {
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::Disconnect &disconnect) {
+bool ClusterManager::handlePriv(const message::Disconnect &disconnect) {
 
    int modFrom = disconnect.getModuleA();
    int modTo = disconnect.getModuleB();
@@ -616,7 +616,7 @@ bool ModuleManager::handlePriv(const message::Disconnect &disconnect) {
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::ModuleExit &moduleExit) {
+bool ClusterManager::handlePriv(const message::ModuleExit &moduleExit) {
 
    sendAllOthers(moduleExit.senderId(), moduleExit);
 
@@ -668,7 +668,7 @@ bool ModuleManager::handlePriv(const message::ModuleExit &moduleExit) {
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::Compute &compute) {
+bool ClusterManager::handlePriv(const message::Compute &compute) {
 
    m_stateTracker.handle(compute);
    message::Compute toSend = compute;
@@ -702,14 +702,14 @@ bool ModuleManager::handlePriv(const message::Compute &compute) {
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::Reduce &reduce) {
+bool ClusterManager::handlePriv(const message::Reduce &reduce) {
 
    m_stateTracker.handle(reduce);
    sendMessage(reduce.module(), reduce);
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::ExecutionProgress &prog) {
+bool ClusterManager::handlePriv(const message::ExecutionProgress &prog) {
 
    m_stateTracker.handle(prog);
    RunningMap::iterator i = runningMap.find(prog.senderId());
@@ -793,7 +793,7 @@ bool ModuleManager::handlePriv(const message::ExecutionProgress &prog) {
    return result;
 }
 
-bool ModuleManager::handlePriv(const message::Busy &busy) {
+bool ClusterManager::handlePriv(const message::Busy &busy) {
 
    //sendAllOthers(busy.senderId(), busy);
    if (Communicator::the().isMaster()) {
@@ -804,7 +804,7 @@ bool ModuleManager::handlePriv(const message::Busy &busy) {
    return m_stateTracker.handle(busy);
 }
 
-bool ModuleManager::handlePriv(const message::Idle &idle) {
+bool ClusterManager::handlePriv(const message::Idle &idle) {
 
    //sendAllOthers(idle.senderId(), idle);
    if (Communicator::the().isMaster()) {
@@ -815,7 +815,7 @@ bool ModuleManager::handlePriv(const message::Idle &idle) {
    return m_stateTracker.handle(idle);
 }
 
-bool ModuleManager::handlePriv(const message::SetParameter &setParam) {
+bool ClusterManager::handlePriv(const message::SetParameter &setParam) {
 
    m_stateTracker.handle(setParam);
 #ifdef DEBUG
@@ -882,7 +882,7 @@ bool ModuleManager::handlePriv(const message::SetParameter &setParam) {
    return handled;
 }
 
-bool ModuleManager::handlePriv(const message::AddObject &addObj) {
+bool ClusterManager::handlePriv(const message::AddObject &addObj) {
 
    m_stateTracker.handle(addObj);
    Object::const_ptr obj = addObj.takeObject();
@@ -959,14 +959,14 @@ bool ModuleManager::handlePriv(const message::AddObject &addObj) {
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::ObjectReceived &objRecv) {
+bool ClusterManager::handlePriv(const message::ObjectReceived &objRecv) {
 
    m_stateTracker.handle(objRecv);
    sendMessage(objRecv.senderId(), objRecv);
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::Barrier &barrier) {
+bool ClusterManager::handlePriv(const message::Barrier &barrier) {
 
    m_barrierActive = true;
    m_stateTracker.handle(barrier);
@@ -981,7 +981,7 @@ bool ModuleManager::handlePriv(const message::Barrier &barrier) {
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::BarrierReached &barrReached) {
+bool ClusterManager::handlePriv(const message::BarrierReached &barrReached) {
 
    assert(m_barrierActive);
 #ifdef DEBUG
@@ -1000,7 +1000,7 @@ bool ModuleManager::handlePriv(const message::BarrierReached &barrReached) {
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::ObjectReceivePolicy &receivePolicy)
+bool ClusterManager::handlePriv(const message::ObjectReceivePolicy &receivePolicy)
 {
    const int id = receivePolicy.senderId();
    RunningMap::iterator it = runningMap.find(id);
@@ -1013,7 +1013,7 @@ bool ModuleManager::handlePriv(const message::ObjectReceivePolicy &receivePolicy
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::SchedulingPolicy &schedulingPolicy)
+bool ClusterManager::handlePriv(const message::SchedulingPolicy &schedulingPolicy)
 {
    const int id = schedulingPolicy.senderId();
    RunningMap::iterator it = runningMap.find(id);
@@ -1026,7 +1026,7 @@ bool ModuleManager::handlePriv(const message::SchedulingPolicy &schedulingPolicy
    return true;
 }
 
-bool ModuleManager::handlePriv(const message::ReducePolicy &reducePolicy)
+bool ClusterManager::handlePriv(const message::ReducePolicy &reducePolicy)
 {
    const int id = reducePolicy.senderId();
    RunningMap::iterator it = runningMap.find(id);
@@ -1039,7 +1039,7 @@ bool ModuleManager::handlePriv(const message::ReducePolicy &reducePolicy)
    return true;
 }
 
-bool ModuleManager::quit() {
+bool ClusterManager::quit() {
 
    if (!m_quitFlag)
       sendAll(message::Kill(message::Id::Broadcast));
@@ -1056,38 +1056,38 @@ bool ModuleManager::quit() {
    return numRunning()==0;
 }
 
-bool ModuleManager::quitOk() const {
+bool ClusterManager::quitOk() const {
 
    return m_quitFlag && numRunning()==0;
 }
 
-ModuleManager::~ModuleManager() {
+ClusterManager::~ClusterManager() {
 
 }
 
-PortManager &ModuleManager::portManager() const {
+PortManager &ClusterManager::portManager() const {
 
    return *m_portManager;
 }
 
-std::vector<std::string> ModuleManager::getParameters(int id) const {
+std::vector<std::string> ClusterManager::getParameters(int id) const {
 
    return m_stateTracker.getParameters(id);
 }
 
-Parameter *ModuleManager::getParameter(int id, const std::string &name) const {
+Parameter *ClusterManager::getParameter(int id, const std::string &name) const {
 
    return m_stateTracker.getParameter(id, name);
 }
 
-void ModuleManager::queueMessage(const message::Message &msg) {
+void ClusterManager::queueMessage(const message::Message &msg) {
 
    const char *m = static_cast<const char *>(static_cast<const void *>(&msg));
    std::copy(m, m+message::Message::MESSAGE_SIZE, std::back_inserter(m_messageQueue));
    //CERR << "queueing " << msg.type() << ", now " << m_messageQueue.size()/message::Message::MESSAGE_SIZE << " in queue" << std::endl;
 }
 
-void ModuleManager::replayMessages() {
+void ClusterManager::replayMessages() {
 
    if (Communicator::the().isMaster()) {
       std::vector<char> queue;
@@ -1100,7 +1100,7 @@ void ModuleManager::replayMessages() {
    }
 }
 
-int ModuleManager::numRunning() const {
+int ClusterManager::numRunning() const {
 
    int n = 0;
    for (auto &m: runningMap) {

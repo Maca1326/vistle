@@ -6,8 +6,8 @@
 
 namespace vistle {
 
-PortManager::PortManager(ModuleManager *moduleManager)
-: m_moduleManager(moduleManager)
+PortManager::PortManager(ClusterManager *clusterManager)
+: m_moduleManager(clusterManager)
 {
 }
 

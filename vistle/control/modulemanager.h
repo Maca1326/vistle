@@ -1,5 +1,5 @@
-#ifndef MODULEMANAGER_H
-#define MODULEMANAGER_H
+#ifndef CLUSTERMANAGER_H
+#define CLUSTERMANAGER_H
 
 #include <vector>
 #include <map>
@@ -22,13 +22,13 @@ namespace message {
 
 class Parameter;
 
-class V_CONTROLEXPORT ModuleManager {
+class V_CONTROLEXPORT ClusterManager {
    friend class Communicator;
 
  public:
-   ModuleManager(int argc, char *argv[], int rank, const std::vector<std::string> &hosts);
-   ~ModuleManager();
-   static ModuleManager &the();
+   ClusterManager(int argc, char *argv[], int rank, const std::vector<std::string> &hosts);
+   ~ClusterManager();
+   static ClusterManager &the();
 
    bool scanModules(const std::string &dir);
 

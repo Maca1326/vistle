@@ -41,7 +41,7 @@ enum MpiTags {
 Communicator *Communicator::s_singleton = NULL;
 
 Communicator::Communicator(int argc, char *argv[], int r, const std::vector<std::string> &hosts)
-: m_moduleManager(new ModuleManager(argc, argv, r, hosts))
+: m_moduleManager(new ClusterManager(argc, argv, r, hosts))
 , m_hubId(0)
 , m_rank(r)
 , m_size(hosts.size())
@@ -254,7 +254,7 @@ bool Communicator::dispatch(bool *work) {
 
 bool Communicator::sendMessage(const int moduleId, const message::Message &message) const {
 
-   return moduleManager().sendMessage(moduleId, message);
+   return clusterManager().sendMessage(moduleId, message);
 }
 
 bool Communicator::forwardToMaster(const message::Message &message) {
@@ -318,7 +318,7 @@ bool Communicator::handleMessage(const message::Message &message) {
 
          const Identify &id = static_cast<const message::Identify &>(message);
          sendHub(Identify(Identify::MANAGER));
-         auto avail = moduleManager().availableModules();
+         auto avail = clusterManager().availableModules();
          for(const auto &mod: avail) {
             sendHub(message::ModuleAvailable(m_hubId, mod.name, mod.path));
          }
@@ -597,7 +597,7 @@ Communicator::~Communicator() {
    MPI_Barrier(MPI_COMM_WORLD);
 }
 
-ModuleManager &Communicator::moduleManager() const {
+ClusterManager &Communicator::clusterManager() const {
 
    return *m_moduleManager;
 }
