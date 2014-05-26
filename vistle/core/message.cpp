@@ -1092,9 +1092,9 @@ void Router::initRoutingTable() {
    rt[M::LOCKUI] = DestUi;
    rt[M::SENDTEXT] = DestUi|DestMasterHub;
 
-   rt[M::OBJECTRECEIVEPOLICY] = DestManager;
-   rt[M::SCHEDULINGPOLICY] = DestManager;
-   rt[M::REDUCEPOLICY] = DestManager;
+   rt[M::OBJECTRECEIVEPOLICY] = DestManager|Track;
+   rt[M::SCHEDULINGPOLICY] = DestManager|Track;
+   rt[M::REDUCEPOLICY] = DestManager|Track;
    rt[M::EXECUTIONPROGRESS] = DestManager|HandleOnRank0;
 
    rt[M::ADDOBJECT] = DestManager|HandleOnNode;

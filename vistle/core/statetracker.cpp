@@ -370,6 +370,22 @@ bool StateTracker::handle(const message::Message &msg, bool track) {
       case Message::LOCKUI: {
          break;
       }
+      case Message::OBJECTRECEIVEPOLICY: {
+         const ObjectReceivePolicy &m = static_cast<const ObjectReceivePolicy &>(msg);
+         handlePriv(m);
+         break;
+      }
+      case Message::SCHEDULINGPOLICY: {
+         const SchedulingPolicy &m = static_cast<const SchedulingPolicy &>(msg);
+         handlePriv(m);
+         break;
+      }
+      case Message::REDUCEPOLICY: {
+         const ReducePolicy &m = static_cast<const ReducePolicy &>(msg);
+         handlePriv(m);
+         break;
+      }
+
       default:
          CERR << "message type not handled: type=" << msg.type() << std::endl;
          assert("message type not handled" == 0);
@@ -711,6 +727,45 @@ bool StateTracker::handlePriv(const message::ModuleAvailable &avail) {
    }
 
     return true;
+}
+
+bool StateTracker::handlePriv(const message::ObjectReceivePolicy &receivePolicy)
+{
+   const int id = receivePolicy.senderId();
+   RunningMap::iterator it = runningMap.find(id);
+   if (it == runningMap.end()) {
+      CERR << " Module [" << id << "] changed ObjectReceivePolicy, but not found in running map" << std::endl;
+      return false;
+   }
+   Module &mod = it->second;
+   mod.objectPolicy = receivePolicy.policy();
+   return true;
+}
+
+bool StateTracker::handlePriv(const message::SchedulingPolicy &schedulingPolicy)
+{
+   const int id = schedulingPolicy.senderId();
+   RunningMap::iterator it = runningMap.find(id);
+   if (it == runningMap.end()) {
+      CERR << " Module [" << id << "] changed SchedulingPolicy, but not found in running map" << std::endl;
+      return false;
+   }
+   Module &mod = it->second;
+   mod.schedulingPolicy = schedulingPolicy.policy();
+   return true;
+}
+
+bool StateTracker::handlePriv(const message::ReducePolicy &reducePolicy)
+{
+   const int id = reducePolicy.senderId();
+   RunningMap::iterator it = runningMap.find(id);
+   if (it == runningMap.end()) {
+      CERR << " Module [" << id << "] changed ReducePolicy, but not found in running map" << std::endl;
+      return false;
+   }
+   Module &mod = it->second;
+   mod.reducePolicy = reducePolicy.policy();
+   return true;
 }
 
 

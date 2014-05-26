@@ -28,7 +28,6 @@ class V_CONTROLEXPORT ClusterManager {
  public:
    ClusterManager(int argc, char *argv[], int rank, const std::vector<std::string> &hosts);
    ~ClusterManager();
-   static ClusterManager &the();
 
    bool scanModules(const std::string &dir);
 
@@ -84,9 +83,6 @@ class V_CONTROLEXPORT ClusterManager {
    bool handlePriv(const message::ObjectReceived &objRecv);
    bool handlePriv(const message::Barrier &barrier);
    bool handlePriv(const message::BarrierReached &barrierReached);
-   bool handlePriv(const message::ObjectReceivePolicy &receivePolicy);
-   bool handlePriv(const message::SchedulingPolicy &schedulingPolicy);
-   bool handlePriv(const message::ReducePolicy &reducePolicy);
    bool handlePriv(const message::ModuleAvailable &avail);
 
    const int m_rank;
@@ -100,8 +96,7 @@ class V_CONTROLEXPORT ClusterManager {
 
       Module(): sendQueue(nullptr), recvQueue(nullptr),
          hub(-1), local(false), baseRank(0),
-         ranksStarted(0), ranksFinished(0), reducing(false),
-         objectPolicy(message::ObjectReceivePolicy::Single), schedulingPolicy(message::SchedulingPolicy::Single), reducePolicy(message::ReducePolicy::Never)
+         ranksStarted(0), ranksFinished(0), reducing(false)
          {}
       ~Module() {
          delete sendQueue;
@@ -112,9 +107,6 @@ class V_CONTROLEXPORT ClusterManager {
       int baseRank;
       int ranksStarted, ranksFinished;
       bool reducing;
-      message::ObjectReceivePolicy::Policy objectPolicy;
-      message::SchedulingPolicy::Schedule schedulingPolicy;
-      message::ReducePolicy::Reduce reducePolicy;
    };
    typedef std::map<int, Module> RunningMap;
    RunningMap runningMap;

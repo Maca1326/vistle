@@ -63,8 +63,7 @@ private:
 };
 
 class V_COREEXPORT StateTracker {
-   friend class StateTrackerLocker;
-   friend class PortTracker;
+   friend class ClusterManager;
 
  public:
    StateTracker(const std::string &name, boost::shared_ptr<PortTracker> portTracker=boost::shared_ptr<PortTracker>());
@@ -122,8 +121,14 @@ class V_COREEXPORT StateTracker {
       ParameterMap parameters;
       ParameterOrder paramOrder;
 
+      message::ObjectReceivePolicy::Policy objectPolicy;
+      message::SchedulingPolicy::Schedule schedulingPolicy;
+      message::ReducePolicy::Reduce reducePolicy;
+
       int state() const;
-      Module(): hub(0), initialized(false), killed(false), busy(false) {}
+      Module(): hub(0), initialized(false), killed(false), busy(false),
+         objectPolicy(message::ObjectReceivePolicy::Single), schedulingPolicy(message::SchedulingPolicy::Single), reducePolicy(message::ReducePolicy::Never)
+      {}
    };
    typedef std::map<int, Module> RunningMap;
    RunningMap runningMap;
@@ -161,6 +166,9 @@ class V_COREEXPORT StateTracker {
    bool handlePriv(const message::SendText &info);
    bool handlePriv(const message::Quit &quit);
    bool handlePriv(const message::ModuleAvailable &mod);
+   bool handlePriv(const message::ObjectReceivePolicy &pol);
+   bool handlePriv(const message::ReducePolicy &pol);
+   bool handlePriv(const message::SchedulingPolicy &pol);
 
    boost::shared_ptr<PortTracker> m_portTracker;
 

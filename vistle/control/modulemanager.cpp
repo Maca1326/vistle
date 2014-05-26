@@ -404,24 +404,6 @@ bool ClusterManager::handle(const message::Message &message) {
          break;
       }
 
-      case Message::OBJECTRECEIVEPOLICY: {
-         const ObjectReceivePolicy &m = static_cast<const ObjectReceivePolicy &>(message);
-         result = handlePriv(m);
-         break;
-      }
-
-      case Message::SCHEDULINGPOLICY: {
-         const SchedulingPolicy &m = static_cast<const SchedulingPolicy &>(message);
-         result = handlePriv(m);
-         break;
-      }
-
-      case Message::REDUCEPOLICY: {
-         const ReducePolicy &m = static_cast<const ReducePolicy &>(message);
-         result = handlePriv(m);
-         break;
-      }
-
       case Message::MODULEAVAILABLE: {
          const ModuleAvailable &m = static_cast<const ModuleAvailable &>(message);
          result = handlePriv(m);
@@ -717,10 +699,16 @@ bool ClusterManager::handlePriv(const message::ExecutionProgress &prog) {
       return false;
    }
 
+   auto i2 = m_stateTracker.runningMap.find(prog.senderId());
+   if (i2 == m_stateTracker.runningMap.end()) {
+      return false;
+   }
+
    // initiate reduction if requested by module
    auto &mod = i->second;
+   auto &mod2 = i2->second;
    bool forward = true;
-   if (mod.reducePolicy != message::ReducePolicy::Never
+   if (mod2.reducePolicy != message::ReducePolicy::Never
          && prog.stage() == message::ExecutionProgress::Finish
          && !mod.reducing) {
       // will be sent after reduce()
@@ -743,7 +731,7 @@ bool ClusterManager::handlePriv(const message::ExecutionProgress &prog) {
                assert(mod.ranksStarted == m_size);
                mod.ranksFinished = 0;
 
-               if (!mod.reducing && mod.reducePolicy != message::ReducePolicy::Never) {
+               if (!mod.reducing && mod2.reducePolicy != message::ReducePolicy::Never) {
                   mod.reducing = true;
                   message::Reduce red(prog.senderId());
                   Communicator::the().broadcastAndHandleMessage(red);
@@ -911,14 +899,13 @@ bool ClusterManager::handlePriv(const message::AddObject &addObj) {
          a.setRank(addObj.rank());
          sendMessage(destId, a);
 
-         auto it = runningMap.find(destId);
-         if (it == runningMap.end()) {
+         auto it = m_stateTracker.runningMap.find(destId);
+         if (it == m_stateTracker.runningMap.end()) {
             CERR << "port connection to module that is not running" << std::endl;
             assert("port connection to module that is not running" == 0);
             continue;
          }
-
-         Module &destMod = it->second;
+         auto &destMod = it->second;
 
          message::Compute c(destId);
          c.setUuid(addObj.uuid());
@@ -997,45 +984,6 @@ bool ClusterManager::handlePriv(const message::BarrierReached &barrReached) {
 #endif
    }
 
-   return true;
-}
-
-bool ClusterManager::handlePriv(const message::ObjectReceivePolicy &receivePolicy)
-{
-   const int id = receivePolicy.senderId();
-   RunningMap::iterator it = runningMap.find(id);
-   if (it == runningMap.end()) {
-      CERR << " Module [" << id << "] changed ObjectReceivePolicy, but not found in running map" << std::endl;
-      return false;
-   }
-   Module &mod = it->second;
-   mod.objectPolicy = receivePolicy.policy();
-   return true;
-}
-
-bool ClusterManager::handlePriv(const message::SchedulingPolicy &schedulingPolicy)
-{
-   const int id = schedulingPolicy.senderId();
-   RunningMap::iterator it = runningMap.find(id);
-   if (it == runningMap.end()) {
-      CERR << " Module [" << id << "] changed SchedulingPolicy, but not found in running map" << std::endl;
-      return false;
-   }
-   Module &mod = it->second;
-   mod.schedulingPolicy = schedulingPolicy.policy();
-   return true;
-}
-
-bool ClusterManager::handlePriv(const message::ReducePolicy &reducePolicy)
-{
-   const int id = reducePolicy.senderId();
-   RunningMap::iterator it = runningMap.find(id);
-   if (it == runningMap.end()) {
-      CERR << " Module [" << id << "] changed ReducePolicy, but not found in running map" << std::endl;
-      return false;
-   }
-   Module &mod = it->second;
-   mod.reducePolicy = reducePolicy.policy();
    return true;
 }
 
