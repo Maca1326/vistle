@@ -30,10 +30,11 @@ class Hub {
    bool handleMessage(const message::Message &msg,
          boost::shared_ptr<boost::asio::ip::tcp::socket> sock = boost::shared_ptr<boost::asio::ip::tcp::socket>());
 
-   bool sendManager(const message::Message &msg);
+   bool sendManager(const message::Message &msg, int hub = message::Id::LocalHub);
    bool sendMaster(const message::Message &msg);
    bool sendSlaves(const message::Message &msg);
    bool sendSlave(const message::Message &msg, int id);
+   bool sendHub(const message::Message &msg, int id);
    bool sendUi(const message::Message &msg);
 
    const StateTracker &stateTracker() const;
@@ -81,6 +82,10 @@ private:
    int m_moduleCount;
    int m_traceMessages;
    std::vector<message::Buffer> m_uiQueue;
+
+   int m_execCount;
+
+   bool handlePriv(const message::Compute &compute);
 };
 
 }

@@ -50,7 +50,6 @@ ClusterManager::ClusterManager(int argc, char *argv[], int r, const std::vector<
 , m_quitFlag(false)
 , m_rank(r)
 , m_size(hosts.size())
-, m_executionCounter(1)
 , m_barrierActive(false)
 {
 }
@@ -79,16 +78,6 @@ bool ClusterManager::scanModules(const std::string &dir) {
 std::vector<AvailableModule> ClusterManager::availableModules() const {
 
    return m_stateTracker.availableModules();
-}
-
-int ClusterManager::currentExecutionCount() {
-
-   return m_executionCounter;
-}
-
-int ClusterManager::newExecutionCount() {
-
-   return m_executionCounter++;
 }
 
 bool ClusterManager::checkBarrier(const message::uuid_t &uuid) const {
@@ -397,7 +386,7 @@ bool ClusterManager::handle(const message::Message &message) {
       default:
 
          CERR << "unhandled message from (id "
-            << message.senderId() << " m_rank " << message.rank() << ") "
+            << message.senderId() << " rank " << message.rank() << ") "
             << "type " << message.type()
             << std::endl;
 
@@ -444,6 +433,8 @@ bool ClusterManager::handlePriv(const message::Spawn &spawn) {
       CERR << "spawn mq " << ex.what() << std::endl;
       exit(-1);
    }
+
+   MPI_Barrier(MPI_COMM_WORLD);
 
    sendHub(message::SpawnPrepared(spawn));
 
@@ -588,33 +579,10 @@ bool ClusterManager::handlePriv(const message::ModuleExit &moduleExit) {
 
 bool ClusterManager::handlePriv(const message::Compute &compute) {
 
-   m_stateTracker.handle(compute);
-   message::Compute toSend = compute;
-   if (compute.getExecutionCount() > currentExecutionCount())
-      m_executionCounter = compute.getExecutionCount();
-   if (compute.getExecutionCount() < 0)
-      toSend.setExecutionCount(newExecutionCount());
-
-   if (compute.getModule() != -1) {
-      RunningMap::iterator i = runningMap.find(compute.getModule());
-      if (i != runningMap.end()) {
-         i->second.sendQueue->send(toSend);
-      }
-   } else {
-      // execute all sources in dataflow graph
-      for (auto &mod: runningMap) {
-         int id = mod.first;
-         auto inputs = m_stateTracker.portTracker()->getInputPorts(id);
-         bool isSource = true;
-         for (auto &input: inputs) {
-            if (!input->connections().empty())
-               isSource = false;
-         }
-         if (isSource) {
-            toSend.setModule(id);
-            Communicator::the().handleMessage(toSend);
-         }
-      }
+   assert (compute.getModule() != -1);
+   RunningMap::iterator i = runningMap.find(compute.getModule());
+   if (i != runningMap.end()) {
+      i->second.sendQueue->send(compute);
    }
 
    return true;

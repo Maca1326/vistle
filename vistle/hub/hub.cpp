@@ -69,6 +69,7 @@ Hub::Hub()
 , m_hubId(Id::Invalid)
 , m_moduleCount(0)
 , m_traceMessages(-1)
+, m_execCount(0)
 {
 
    assert(!hub_instance);
@@ -259,20 +260,25 @@ bool Hub::sendMaster(const message::Message &msg) {
    return numSent == 1;
 }
 
-bool Hub::sendManager(const message::Message &msg) {
+bool Hub::sendManager(const message::Message &msg, int hub) {
 
-   if (!m_managerConnected)
-      return false;
+   if (hub == Id::LocalHub || hub == m_hubId) {
+      if (!m_managerConnected)
+         return false;
 
-   int numSent = 0;
-   for (auto &sock: m_sockets) {
-      if (sock.second == message::Identify::MANAGER) {
-         ++numSent;
-         sendMessage(sock.first, msg);
+      int numSent = 0;
+      for (auto &sock: m_sockets) {
+         if (sock.second == message::Identify::MANAGER) {
+            ++numSent;
+            sendMessage(sock.first, msg);
+         }
       }
+      assert(numSent == 1);
+      return numSent == 1;
+   } else {
+      sendHub(msg, hub);
    }
-   assert(numSent == 1);
-   return numSent == 1;
+   return true;
 }
 
 bool Hub::sendSlaves(const message::Message &msg) {
@@ -295,6 +301,26 @@ bool Hub::sendSlaves(const message::Message &msg) {
       }
    }
    return true;
+}
+
+bool Hub::sendHub(const message::Message &msg, int hub) {
+
+   if (hub == m_hubId)
+      return true;
+
+   if (hub == Id::MasterHub) {
+      sendMaster(msg);
+      return true;
+   }
+
+   for (auto &sock: m_slaveSockets) {
+      if (sock.first == hub) {
+         sendMessage(sock.second, msg);
+         return true;
+      }
+   }
+
+   return false;
 }
 
 bool Hub::sendSlave(const message::Message &msg, int dest) {
@@ -493,6 +519,7 @@ bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::s
             }
             break;
          }
+
          case Message::SETID: {
 
             assert(!m_isMaster);
@@ -535,10 +562,15 @@ bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::s
             break;
          }
 
-         default: {
+         case Message::COMPUTE: {
+            auto &comp = static_cast<const Compute &>(msg);
+            handlePriv(comp);
             break;
          }
 
+         default: {
+            break;
+         }
       }
    }
 
@@ -729,6 +761,41 @@ bool Hub::processScript() {
    return false;
 #endif
 }
+
+bool Hub::handlePriv(const message::Compute &compute) {
+
+   message::Compute toSend = compute;
+   if (compute.getExecutionCount() > m_execCount)
+      m_execCount = compute.getExecutionCount();
+   if (compute.getExecutionCount() < 0)
+      toSend.setExecutionCount(++m_execCount);
+
+   if (compute.getModule() != -1) {
+      auto i = m_stateTracker.runningMap.find(compute.getModule());
+      const int hub = m_stateTracker.getHub(compute.getModule());
+      toSend.setDestId(compute.getModule());
+      sendManager(toSend, hub);
+   } else {
+      // execute all sources in dataflow graph
+      for (auto &mod: m_stateTracker.runningMap) {
+         int id = mod.first;
+         int hub = mod.second.hub;
+         auto inputs = m_stateTracker.portTracker()->getInputPorts(id);
+         bool isSource = true;
+         for (auto &input: inputs) {
+            if (!input->connections().empty())
+               isSource = false;
+         }
+         if (isSource) {
+            toSend.setModule(id);
+            sendManager(toSend, hub);
+         }
+      }
+   }
+
+   return true;
+}
+
 
 int main(int argc, char *argv[]) {
 

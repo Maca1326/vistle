@@ -341,22 +341,6 @@ bool Communicator::handleMessage(const message::Message &message) {
          break;
       }
 
-      case message::Message::PING: {
-
-         const message::Ping &ping = static_cast<const message::Ping &>(message);
-         //sendHub(ping);
-         result = m_moduleManager->handle(ping);
-         break;
-      }
-
-      case message::Message::PONG: {
-
-         const message::Pong &pong = static_cast<const message::Pong &>(message);
-         //sendHub(pong);
-         result = m_moduleManager->handle(pong);
-         break;
-      }
-
       case message::Message::TRACE: {
          const Trace &trace = static_cast<const Trace &>(message);
          sendHub(trace);
@@ -369,146 +353,6 @@ bool Communicator::handleMessage(const message::Message &message) {
          }
 
          result = m_moduleManager->handle(trace);
-         break;
-      }
-
-      case message::Message::SPAWN: {
-
-         const message::Spawn &spawn = static_cast<const message::Spawn &>(message);
-         result = m_moduleManager->handle(spawn);
-         break;
-      }
-
-      case message::Message::STARTED: {
-
-         const message::Started &started = static_cast<const message::Started &>(message);
-         //sendHub(started);
-         result = m_moduleManager->handle(started);
-         break;
-      }
-
-      case message::Message::KILL: {
-
-         const message::Kill &kill = static_cast<const message::Kill &>(message);
-         //sendHub(kill);
-         result = m_moduleManager->handle(kill);
-         break;
-      }
-
-      case message::Message::CONNECT: {
-
-         const message::Connect &connect = static_cast<const message::Connect &>(message);
-         result = m_moduleManager->handle(connect);
-         break;
-      }
-
-      case message::Message::DISCONNECT: {
-
-         const message::Disconnect &disc = static_cast<const message::Disconnect &>(message);
-         result = m_moduleManager->handle(disc);
-         break;
-      }
-
-      case message::Message::MODULEEXIT: {
-
-         const message::ModuleExit &moduleExit = static_cast<const message::ModuleExit &>(message);
-         result = m_moduleManager->handle(moduleExit);
-         //sendHub(moduleExit);
-         break;
-      }
-
-      case message::Message::COMPUTE: {
-
-         const message::Compute &comp = static_cast<const message::Compute &>(message);
-         result = m_moduleManager->handle(comp);
-         break;
-      }
-
-      case message::Message::REDUCE: {
-         const message::Reduce &red = static_cast<const message::Reduce &>(message);
-         result = m_moduleManager->handle(red);
-         break;
-      }
-
-      case message::Message::EXECUTIONPROGRESS: {
-
-         const message::ExecutionProgress &prog = static_cast<const message::ExecutionProgress &>(message);
-         result = m_moduleManager->handle(prog);
-         break;
-      }
-
-      case message::Message::BUSY: {
-
-         const message::Busy &busy = static_cast<const message::Busy &>(message);
-         //sendHub(busy);
-         result = m_moduleManager->handle(busy);
-         break;
-      }
-
-      case message::Message::IDLE: {
-
-         const message::Idle &idle = static_cast<const message::Idle &>(message);
-         ///sendHub(idle);
-         result = m_moduleManager->handle(idle);
-         break;
-      }
-
-      case message::Message::ADDOBJECT: {
-
-         const message::AddObject &m = static_cast<const message::AddObject &>(message);
-         result = m_moduleManager->handle(m);
-         break;
-      }
-
-      case message::Message::OBJECTRECEIVED: {
-         const message::ObjectReceived &m = static_cast<const message::ObjectReceived &>(message);
-         result = m_moduleManager->handle(m);
-         break;
-      }
-
-      case message::Message::SETPARAMETER: {
-
-         const message::SetParameter &m = static_cast<const message::SetParameter &>(message);
-         //sendHub(m);
-         result = m_moduleManager->handle(m);
-         break;
-      }
-
-      case message::Message::SETPARAMETERCHOICES: {
-
-         const message::SetParameterChoices &m = static_cast<const message::SetParameterChoices &>(message);
-         //sendHub(m);
-         result = m_moduleManager->handle(m);
-         break;
-      }
-
-      case message::Message::ADDPARAMETER: {
-         
-         const message::AddParameter &m = static_cast<const message::AddParameter &>(message);
-         //sendHub(m);
-         result = m_moduleManager->handle(m);
-         break;
-      }
-
-      case message::Message::ADDPORT: {
-
-         const message::AddPort &m = static_cast<const message::AddPort &>(message);
-         //sendHub(m);
-         result = m_moduleManager->handle(m);
-         break;
-      }
-
-      case message::Message::BARRIER: {
-
-         const message::Barrier &m = static_cast<const message::Barrier &>(message);
-         result = m_moduleManager->handle(m);
-         break;
-      }
-
-      case message::Message::BARRIERREACHED: {
-
-         const message::BarrierReached &m = static_cast<const message::BarrierReached &>(message);
-         result = m_moduleManager->handle(m);
          break;
       }
 
@@ -529,36 +373,15 @@ bool Communicator::handleMessage(const message::Message &message) {
          break;
       }
 
-      case Message::OBJECTRECEIVEPOLICY: {
-         const ObjectReceivePolicy &m = static_cast<const ObjectReceivePolicy &>(message);
-         result = m_moduleManager->handle(m);
-         break;
-      }
-
-      case Message::SCHEDULINGPOLICY: {
-         const SchedulingPolicy &m = static_cast<const SchedulingPolicy &>(message);
-         result = m_moduleManager->handle(m);
-         break;
-      }
-
-      case Message::REDUCEPOLICY: {
-         const ReducePolicy &m = static_cast<const ReducePolicy &>(message);
-         result = m_moduleManager->handle(m);
-         break;
-      }
-
-      case Message::MODULEAVAILABLE: {
-         const ModuleAvailable &m = static_cast<const ModuleAvailable &>(message);
-         result = m_moduleManager->handle(m);
-         break;
-      }
-
       default:
 
-         CERR << "unhandled message from (id "
-            << message.senderId() << " m_rank " << message.rank() << ") "
-            << "type " << message.type()
-            << std::endl;
+         result = m_moduleManager->handle(message);
+         if (!result) {
+            CERR << "unhandled message from (id "
+               << message.senderId() << " m_rank " << message.rank() << ") "
+               << "type " << message.type()
+               << std::endl;
+         }
 
          break;
 

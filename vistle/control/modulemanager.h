@@ -45,9 +45,6 @@ class V_CONTROLEXPORT ClusterManager {
    int getRank() const;
    int getSize() const;
 
-   int currentExecutionCount();
-   int newExecutionCount();
-
    std::vector<AvailableModule> availableModules() const;
 
    std::string getModuleName(int id) const;
@@ -103,8 +100,6 @@ class V_CONTROLEXPORT ClusterManager {
    typedef std::map<int, Module> RunningMap;
    RunningMap runningMap;
    int numRunning() const;
-
-   int m_executionCounter; //< incremented each time the pipeline is executed
 
    // barrier related stuff
    bool checkBarrier(const message::uuid_t &uuid) const;
