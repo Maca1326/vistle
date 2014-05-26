@@ -70,17 +70,15 @@ bool ClusterManager::scanModules(const std::string &dir) {
 #ifdef SCAN_MODULES_ON_HUB
     return true;
 #else
-    return vistle::scanModules(dir, Communicator::the().hubId(), m_availableModules);
+    //FIXME
+    AvailableMap availableModules;
+    return vistle::scanModules(dir, Communicator::the().hubId(), availableModules);
 #endif
 }
 
 std::vector<AvailableModule> ClusterManager::availableModules() const {
 
-    std::vector<AvailableModule> ret;
-    for (auto mod: m_availableModules) {
-        ret.push_back(mod.second);
-    }
-    return ret;
+   return m_stateTracker.availableModules();
 }
 
 int ClusterManager::currentExecutionCount() {
@@ -404,12 +402,6 @@ bool ClusterManager::handle(const message::Message &message) {
          break;
       }
 
-      case Message::MODULEAVAILABLE: {
-         const ModuleAvailable &m = static_cast<const ModuleAvailable &>(message);
-         result = handlePriv(m);
-         break;
-      }
-
       default:
 
          CERR << "unhandled message from (id "
@@ -422,23 +414,6 @@ bool ClusterManager::handle(const message::Message &message) {
    }
 
    return result;
-}
-
-bool ClusterManager::handlePriv(const message::ModuleAvailable &avail) {
-
-   m_stateTracker.handle(avail);
-
-   AvailableModule m;
-   m.hub = avail.hub();
-   m.name = avail.name();
-   m.path = avail.path();
-   AvailableModule::Key key(m.hub, m.name);
-   m_availableModules[key] = m;
-#if 0
-   if (Communicator::the().isMaster())
-      sendHub(avail);
-#endif
-   return true;
 }
 
 bool ClusterManager::handlePriv(const message::Trace &trace) {

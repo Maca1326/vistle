@@ -83,12 +83,9 @@ class V_CONTROLEXPORT ClusterManager {
    bool handlePriv(const message::ObjectReceived &objRecv);
    bool handlePriv(const message::Barrier &barrier);
    bool handlePriv(const message::BarrierReached &barrierReached);
-   bool handlePriv(const message::ModuleAvailable &avail);
 
    const int m_rank;
    const int m_size;
-
-   AvailableMap m_availableModules;
 
    struct Module {
       message::MessageQueue *sendQueue;

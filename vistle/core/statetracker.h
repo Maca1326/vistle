@@ -10,6 +10,8 @@
 #include <boost/thread/recursive_mutex.hpp>
 #include <boost/thread/condition_variable.hpp>
 
+#include <util/directory.h>
+
 #include "export.h"
 #include "message.h"
 
@@ -92,13 +94,6 @@ class V_COREEXPORT StateTracker {
 
    std::vector<char> getState() const;
 
-   struct AvailableModule {
-       int hub;
-       std::string name;
-       std::string path;
-
-       AvailableModule() : hub(0) {}
-   };
    const std::vector<AvailableModule> &availableModules() const;
 
    void registerObserver(StateObserver *observer);
@@ -162,8 +157,8 @@ class V_COREEXPORT StateTracker {
    bool handlePriv(const message::ObjectReceived &objRecv);
    bool handlePriv(const message::Barrier &barrier);
    bool handlePriv(const message::BarrierReached &barrierReached);
-   bool handlePriv(const message::ReplayFinished &reset);
    bool handlePriv(const message::SendText &info);
+   bool handlePriv(const message::ReplayFinished &reset);
    bool handlePriv(const message::Quit &quit);
    bool handlePriv(const message::ModuleAvailable &mod);
    bool handlePriv(const message::ObjectReceivePolicy &pol);

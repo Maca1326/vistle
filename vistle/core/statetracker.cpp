@@ -213,7 +213,7 @@ std::vector<char> StateTracker::getState() const {
    return state;
 }
 
-const std::vector<StateTracker::AvailableModule> &StateTracker::availableModules() const {
+const std::vector<AvailableModule> &StateTracker::availableModules() const {
 
     return m_availableModules;
 }
