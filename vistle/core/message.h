@@ -780,10 +780,8 @@ enum RoutingFlags {
    DestManager = DestSlaveManager|DestMasterManager,
 
    Special = 0x1000,
-   RequiresLogic = 0x2000,
    RequiresSubscription = 0x4000,
 
-   ThroughMaster = 0x800,
    OrderedLocal = 0x20000,
    OrderedGlobal = 0x40000,
    Ordered = OrderedLocal|OrderedGlobal,
@@ -795,6 +793,9 @@ enum RoutingFlags {
    HandleOnHub = 0x400000,
    HandleOnMaster = 0x800000,
    HandleOnDest = 0x1000000,
+
+   QueueIfUnhandled = 0x2000000,
+   TriggerQueue = 0x4000000,
 };
 
 class Router {
