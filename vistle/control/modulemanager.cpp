@@ -436,7 +436,9 @@ bool ClusterManager::handlePriv(const message::Spawn &spawn) {
 
    MPI_Barrier(MPI_COMM_WORLD);
 
-   sendHub(message::SpawnPrepared(spawn));
+   message::SpawnPrepared prep(spawn);
+   prep.setDestId(Id::LocalHub);
+   sendHub(prep);
 
    // inform newly started module about current parameter values of other modules
    for (auto &mit: m_stateTracker.runningMap) {
