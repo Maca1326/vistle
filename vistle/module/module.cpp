@@ -1149,6 +1149,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
             vassert(m_executionDepth == 0);
             message::ExecutionProgress fin(message::ExecutionProgress::Finish);
             fin.setUuid(comp->uuid());
+            fin.setDestId(Id::LocalManager);
             sendMessage(fin);
          }
          return ret;
@@ -1161,6 +1162,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
 
          message::Busy busy;
          busy.setUuid(red->uuid());
+         busy.setDestId(Id::LocalManager);
          sendMessage(busy);
          bool ret = false;
          try {
@@ -1171,6 +1173,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          }
          message::Idle idle;
          idle.setUuid(red->uuid());
+         idle.setDestId(Id::LocalManager);
          sendMessage(idle);
 
          vassert(m_executionDepth == 0);
@@ -1178,6 +1181,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
                ? message::ExecutionProgress::Finish
                : message::ExecutionProgress::Timestep);
          fin.setUuid(red->uuid());
+         fin.setDestId(Id::LocalManager);
          sendMessage(fin);
 
          return ret;
@@ -1252,12 +1256,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
                parameterChanged(p);
             }
 
-            // notify controller about current value
-#if 0
-            if (Parameter *p = findParameter(param->getName())) {
-               sendMessage(message::SetParameter(id(), param->getName(), p));
-            }
-#endif
+            // notification of controller about current value happens in set...Parameter
          } else {
 
             parameterChanged(param->senderId(), param->getName(), *param);
@@ -1283,27 +1282,12 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          break;
       }
 
-#if 0
-      case message::Message::SPAWN: {
-         const message::Spawn *spawn =
-            static_cast<const message::Spawn *>(message);
-         m_otherModuleMap[spawn->spawnId()] = spawn->getName();
-         break;
-      }
-
-      case message::Message::MODULEEXIT: {
-         const message::ModuleExit *exit =
-            static_cast<const message::ModuleExit *>(message);
-         m_otherModuleMap.erase(exit->senderId());
-         break;
-      }
-#endif
-
       case message::Message::BARRIER: {
 
          const message::Barrier *barrier = static_cast<const message::Barrier *>(message);
          message::BarrierReached reached;
          reached.setUuid(barrier->uuid());
+         reached.setDestId(Id::LocalManager);
          sendMessage(reached);
          break;
       }

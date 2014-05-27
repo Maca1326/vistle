@@ -392,6 +392,7 @@ bool Communicator::handleMessage(const message::Message &message) {
                << message.senderId() << " m_rank " << message.rank() << ") "
                << "type " << message.type()
                << std::endl;
+            result = true;
          }
 
          break;

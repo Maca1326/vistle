@@ -1071,7 +1071,7 @@ void Router::initRoutingTable() {
    rt[M::SETID]      = Special;
    rt[M::REPLAYFINISHED] = Special;
    rt[M::TRACE]         = Broadcast|Track;
-   rt[M::SPAWN]         = Track|HandleOnMaster|Ordered;
+   rt[M::SPAWN]         = Track|HandleOnMaster|Ordered|Broadcast;
    rt[M::SPAWNPREPARED] = DestLocalHub|HandleOnHub;
    rt[M::STARTED]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Broadcast;
    rt[M::KILL]          = DestModule|Ordered;

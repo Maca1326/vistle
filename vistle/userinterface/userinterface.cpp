@@ -52,6 +52,8 @@ UserInterface::UserInterface(const std::string &host, const unsigned short port,
 
 void UserInterface::stop() {
 
+   m_socket.cancel();
+   m_socket.shutdown(asio::ip::tcp::socket::shutdown_both);
    m_ioService.stop();
 }
 
