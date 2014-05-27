@@ -49,6 +49,8 @@ using namespace boost::interprocess;
 
 namespace vistle {
 
+using message::Id;
+
 template<typename CharT, typename TraitsT = std::char_traits<CharT> >
 class msgstreambuf: public std::basic_streambuf<CharT, TraitsT> {
 
@@ -208,6 +210,8 @@ Module::Module(const std::string &n, const std::string &shmname,
    outrank->setMaximum(size()-1);
 
    IntParameter *openmp_threads = addIntParameter("_openmp_threads", "number of OpenMP threads (0: system default)", 0);
+   openmp_threads->setMinimum(0);
+   openmp_threads->setMaximum(4096);
    addIntParameter("_benchmark", "show timing information", m_benchmark ? 1 : 0, Parameter::Boolean);
 }
 
@@ -900,6 +904,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
                    << ping->getCharacter() << "]" << std::endl;
          vistle::message::Pong m(ping->getCharacter(), ping->senderId());
          m.setUuid(ping->uuid());
+         m.setDestId(ping->senderId());
          sendMessage(m);
          break;
       }
@@ -1090,6 +1095,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
             ++m_executionDepth;
             message::ExecutionProgress start(message::ExecutionProgress::Start);
             start.setUuid(comp->uuid());
+            start.setDestId(Id::LocalManager);
             sendMessage(start);
          }
 
@@ -1115,6 +1121,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          */
          message::Busy busy;
          busy.setUuid(comp->uuid());
+         busy.setDestId(Id::LocalManager);
          sendMessage(busy);
          bool ret = false;
          try {
@@ -1134,6 +1141,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          }
          message::Idle idle;
          idle.setUuid(comp->uuid());
+         idle.setDestId(Id::LocalManager);
          sendMessage(idle);
 
          if (comp->reason() == message::Compute::Execute) {

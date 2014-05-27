@@ -35,7 +35,6 @@ class UiManager {
    void join();
    void disconnect();
 
-   Hub &m_hub;
    StateTracker &m_stateTracker;
 
    bool m_requestQuit;

@@ -12,8 +12,7 @@
 namespace vistle {
 
 UiManager::UiManager(Hub &hub, StateTracker &stateTracker)
-: m_hub(hub)
-, m_stateTracker(stateTracker)
+: m_stateTracker(stateTracker)
 , m_requestQuit(false)
 , m_locked(false)
 {

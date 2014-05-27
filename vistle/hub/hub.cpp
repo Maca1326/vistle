@@ -771,7 +771,6 @@ bool Hub::handlePriv(const message::Compute &compute) {
       toSend.setExecutionCount(++m_execCount);
 
    if (compute.getModule() != -1) {
-      auto i = m_stateTracker.runningMap.find(compute.getModule());
       const int hub = m_stateTracker.getHub(compute.getModule());
       toSend.setDestId(compute.getModule());
       sendManager(toSend, hub);

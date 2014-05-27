@@ -31,8 +31,9 @@ struct Id {
       Broadcast = -1, //< master is broadcasting
       ForBroadcast = -2, //< to master for broadcasting
       Invalid = -3,
-      LocalHub = -4,
-      MasterHub = -5, //< < MasterHub: slave hubs
+      LocalManager = -4,
+      LocalHub = -5,
+      MasterHub = -6, //< < MasterHub: slave hubs
    };
 };
 

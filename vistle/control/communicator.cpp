@@ -327,6 +327,7 @@ bool Communicator::handleMessage(const message::Message &message) {
       case Message::IDENTIFY: {
 
          const Identify &id = static_cast<const message::Identify &>(message);
+         assert(id.identity() == Identify::UNKNOWN);
          sendHub(Identify(Identify::MANAGER));
          auto avail = clusterManager().availableModules();
          for(const auto &mod: avail) {
