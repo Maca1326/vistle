@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <sstream>
 
+#include <core/assert.h>
 #include <util/findself.h>
 #include <util/spawnprocess.h>
 #include <util/sleep.h>
@@ -72,7 +73,7 @@ Hub::Hub()
 , m_execCount(0)
 {
 
-   assert(!hub_instance);
+   vassert(!hub_instance);
    hub_instance = this;
 
    message::DefaultSender::init(m_hubId, 0);
@@ -160,7 +161,7 @@ void Hub::handleAccept(shared_ptr<asio::ip::tcp::socket> sock, const boost::syst
 void Hub::addSocket(shared_ptr<asio::ip::tcp::socket> sock, message::Identify::Identity ident) {
 
    bool ok = m_sockets.insert(std::make_pair(sock, ident)).second;
-   assert(ok);
+   vassert(ok);
 }
 
 bool Hub::removeSocket(shared_ptr<asio::ip::tcp::socket> sock) {
@@ -245,7 +246,7 @@ bool Hub::dispatch() {
 
 bool Hub::sendMaster(const message::Message &msg) {
 
-   assert(!m_isMaster);
+   vassert(!m_isMaster);
    if (m_isMaster) {
       return false;
    }
@@ -257,7 +258,7 @@ bool Hub::sendMaster(const message::Message &msg) {
          sendMessage(sock.first, msg);
       }
    }
-   assert(numSent == 1);
+   vassert(numSent == 1);
    return numSent == 1;
 }
 
@@ -274,7 +275,7 @@ bool Hub::sendManager(const message::Message &msg, int hub) {
             sendMessage(sock.first, msg);
          }
       }
-      assert(numSent == 1);
+      vassert(numSent == 1);
       return numSent == 1;
    } else {
       sendHub(msg, hub);
@@ -284,7 +285,7 @@ bool Hub::sendManager(const message::Message &msg, int hub) {
 
 bool Hub::sendSlaves(const message::Message &msg) {
 
-   assert(m_isMaster);
+   vassert(m_isMaster);
    if (!m_isMaster)
       return false;
 
@@ -326,7 +327,7 @@ bool Hub::sendHub(const message::Message &msg, int hub) {
 
 bool Hub::sendSlave(const message::Message &msg, int dest) {
 
-   assert(m_isMaster);
+   vassert(m_isMaster);
    if (!m_isMaster)
       return false;
 
@@ -358,7 +359,7 @@ bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::s
    message::Identify::Identity senderType = message::Identify::UNKNOWN;
    auto it = m_sockets.find(sock);
    if (sock) {
-      assert(it != m_sockets.end());
+      vassert(it != m_sockets.end());
       senderType = it->second;
    }
 
@@ -379,7 +380,7 @@ bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::s
             break;
          }
          case Identify::MANAGER: {
-            assert(!m_managerConnected);
+            vassert(!m_managerConnected);
             m_managerConnected = true;
 
             if (m_hubId != Id::Invalid) {
@@ -409,12 +410,12 @@ bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::s
             break;
          }
          case Identify::HUB: {
-            assert(!m_isMaster);
+            vassert(!m_isMaster);
             CERR << "master hub connected" << std::endl;
             break;
          }
          case Identify::SLAVEHUB: {
-            assert(m_isMaster);
+            vassert(m_isMaster);
             CERR << "slave hub connected" << std::endl;
             ++m_slaveCount;
             addSlave(m_slaveCount, sock);
@@ -454,7 +455,7 @@ bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::s
          sendSlaves(msg);
          slave = true;
       }
-      assert(!(slave && master));
+      vassert(!(slave && master));
    } else {
       if (dest != m_hubId) {
          if (m_isMaster) {
@@ -475,7 +476,7 @@ bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::s
          case Message::SPAWN: {
             auto &spawn = static_cast<const Spawn &>(msg);
             if (m_isMaster) {
-               assert(spawn.spawnId() == Id::Invalid);
+               vassert(spawn.spawnId() == Id::Invalid);
                auto notify = spawn;
                notify.setSenderId(m_hubId);
                notify.setSpawnId(Id::ModuleBase + m_moduleCount);
@@ -498,7 +499,7 @@ bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::s
          case Message::SPAWNPREPARED: {
 
             auto &spawn = static_cast<const SpawnPrepared &>(msg);
-            assert(spawn.hubId() == m_hubId);
+            vassert(spawn.hubId() == m_hubId);
 
             std::string name = spawn.getName();
             AvailableModule::Key key(spawn.hubId(), name);
@@ -528,7 +529,7 @@ bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::s
 
          case Message::SETID: {
 
-            assert(!m_isMaster);
+            vassert(!m_isMaster);
             auto &set = static_cast<const SetId &>(msg);
             m_hubId = set.getId();
             message::DefaultSender::init(m_hubId, 0);
@@ -708,7 +709,7 @@ bool Hub::init(int argc, char *argv[]) {
 
 bool Hub::connectToMaster(const std::string &host, unsigned short port) {
 
-   assert(!m_isMaster);
+   vassert(!m_isMaster);
 
    asio::ip::tcp::resolver resolver(m_ioService);
    asio::ip::tcp::resolver::query query(host, boost::lexical_cast<std::string>(port));
@@ -754,7 +755,7 @@ bool Hub::startUi(const std::string &uipath) {
 
 bool Hub::processScript() {
 
-   assert(m_uiManager.isLocked());
+   vassert(m_uiManager.isLocked());
 #ifdef HAVE_PYTHON
    if (!m_scriptPath.empty()) {
       PythonInterpreter inter(m_scriptPath);
@@ -804,13 +805,18 @@ bool Hub::handlePriv(const message::Compute &compute) {
 
 int main(int argc, char *argv[]) {
 
-   Hub hub;
-   if (!hub.init(argc, argv)) {
+   try {
+      Hub hub;
+      if (!hub.init(argc, argv)) {
+         return 1;
+      }
+
+      while(hub.dispatch())
+         ;
+   } catch (vistle::exception &e) {
+      std::cerr << "Hub: fatal exception: " << e.what() << std::endl << e.where() << std::endl;
       return 1;
    }
-
-   while(hub.dispatch())
-      ;
 
    return 0;
 }
