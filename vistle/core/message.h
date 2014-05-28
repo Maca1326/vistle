@@ -798,7 +798,7 @@ enum RoutingFlags {
    TriggerQueue         = 0x080000,
 };
 
-class Router {
+class V_COREEXPORT Router {
 
  public:
    static Router &the();
