@@ -181,9 +181,10 @@ void Hub::addSlave(int id, shared_ptr<asio::ip::tcp::socket> sock) {
 
    message::SetId set(slaveid);
    sendMessage(sock, set);
-   for (auto &am: m_availableModules) {
-      message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
-      sendMessage(sock, m);
+
+   auto state = m_stateTracker.getState();
+   for (auto &m: state) {
+      sendMessage(sock, m.msg);
    }
 }
 
@@ -459,6 +460,8 @@ bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::s
          if (m_isMaster) {
             sendSlaves(msg);
             slave = true;
+         } else {
+            sendMaster(msg);
          }
       }
    }
@@ -483,8 +486,11 @@ bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::s
                sendManager(notify);
                sendSlaves(notify);
             } else {
-               assert(spawn.spawnId() >= Id::ModuleBase);
-               sendManager(spawn);
+               if (spawn.spawnId() >= Id::ModuleBase) {
+                  sendManager(spawn);
+               } else {
+                  sendMaster(spawn);
+               }
             }
             break;
          }

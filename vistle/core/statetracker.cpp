@@ -99,22 +99,21 @@ int StateTracker::getModuleState(int id) const {
    return it->second.state();
 }
 
-static void appendMessage(std::vector<char> &v, const message::Message &msg) {
+static void appendMessage(std::vector<message::Buffer> &v, const message::Message &msg) {
 
-   assert(v.size() % message::Message::MESSAGE_SIZE == 0);
-
-   size_t sz = msg.size();
-   size_t fill = message::Message::MESSAGE_SIZE - sz;
-   std::copy((char *)&msg, ((char *)&msg)+sz, std::back_inserter(v));
-   v.resize(v.size()+fill);
-
-   assert(v.size() % message::Message::MESSAGE_SIZE == 0);
+   v.emplace_back(msg);
 }
 
-std::vector<char> StateTracker::getState() const {
+std::vector<message::Buffer> StateTracker::getState() const {
 
    using namespace vistle::message;
-   std::vector<char> state;
+   std::vector<message::Buffer> state;
+
+   // available modules
+   auto avail = availableModules();
+   for(const auto &mod: avail) {
+      appendMessage(state, ModuleAvailable(mod.hub, mod.name, mod.path));
+   }
 
    // modules with parameters and ports
    for (auto &it: runningMap) {
@@ -210,6 +209,9 @@ std::vector<char> StateTracker::getState() const {
       }
    }
 
+   // finalize
+   appendMessage(state, ReplayFinished());
+
    return state;
 }
 
@@ -269,15 +271,20 @@ bool StateTracker::handle(const message::Message &msg, bool track) {
       case Message::COMPUTE: {
          break;
       }
+      case Message::ADDOBJECT: {
+         break;
+      }
+      case Message::OBJECTRECEIVED: {
+         break;
+      }
       case Message::ADDPORT: {
          const AddPort &cp = static_cast<const AddPort &>(msg);
          handlePriv(cp);
          break;
       }
-      case Message::ADDOBJECT: {
-         break;
-      }
-      case Message::OBJECTRECEIVED: {
+      case Message::ADDPARAMETER: {
+         const AddParameter &add = static_cast<const AddParameter &>(msg);
+         handlePriv(add);
          break;
       }
       case Message::CONNECT: {
@@ -288,11 +295,6 @@ bool StateTracker::handle(const message::Message &msg, bool track) {
       case Message::DISCONNECT: {
          const Disconnect &disc = static_cast<const Disconnect &>(msg);
          handlePriv(disc);
-         break;
-      }
-      case Message::ADDPARAMETER: {
-         const AddParameter &add = static_cast<const AddParameter &>(msg);
-         handlePriv(add);
          break;
       }
       case Message::SETPARAMETER: {

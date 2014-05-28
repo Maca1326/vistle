@@ -138,6 +138,7 @@ void vistle::VistleConnection::sendParameter(const Parameter *p) const
 {
    mutex_lock lock(m_mutex);
    vistle::message::SetParameter set(p->module(), p->getName(), p);
+   set.setDestId(p->module());
    sendMessage(set);
 }
 

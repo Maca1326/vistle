@@ -383,6 +383,11 @@ bool ClusterManager::handle(const message::Message &message) {
          break;
       }
 
+      case Message::STARTED:
+      case Message::ADDPORT:
+      case Message::ADDPARAMETER:
+         break;
+
       default:
 
          CERR << "unhandled message from (id "

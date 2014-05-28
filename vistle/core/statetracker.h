@@ -93,7 +93,7 @@ class V_COREEXPORT StateTracker {
 
    boost::shared_ptr<PortTracker> portTracker() const;
 
-   std::vector<char> getState() const;
+   std::vector<message::Buffer> getState() const;
 
    const std::vector<AvailableModule> &availableModules() const;
 

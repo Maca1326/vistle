@@ -767,37 +767,35 @@ V_COREEXPORT std::ostream &operator<<(std::ostream &s, const Message &msg);
 
 enum RoutingFlags {
 
-   Track = 1,
-   NodeLocal = 8,
-   ClusterLocal = 16,
+   Track                = 0x000001,
+   NodeLocal            = 0x000002,
+   ClusterLocal         = 0x000004,
 
-   DestMasterHub = 32,
-   DestSlaveHub = 64,
-   DestLocalHub = 0x10000,
-   DestHub = DestMasterHub|DestSlaveHub,
-   DestUi = 128,
-   DestModule = 256,
-   DestMasterManager = 512,
-   DestSlaveManager = 0x400,
-   DestManager = DestSlaveManager|DestMasterManager,
+   DestMasterHub        = 0x000008,
+   DestSlaveHub         = 0x000010,
+   DestLocalHub         = 0x000020,
+   DestHub              = DestMasterHub|DestSlaveHub,
+   DestUi               = 0x000040,
+   DestModules          = 0x000080,
+   DestMasterManager    = 0x000100,
+   DestSlaveManager     = 0x000200,
+   DestLocalManager     = 0x000400,
+   DestManager          = DestSlaveManager|DestMasterManager,
 
-   Special = 0x1000,
-   RequiresSubscription = 0x4000,
+   Special              = 0x000800,
+   RequiresSubscription = 0x001000,
 
-   OrderedLocal = 0x20000,
-   OrderedGlobal = 0x40000,
-   Ordered = OrderedLocal|OrderedGlobal,
+   Broadcast            = DestHub|DestUi|DestManager,
+   BroadcastModule      = Broadcast|DestModules,
 
-   Broadcast = 0x80000,
+   HandleOnNode         = 0x002000,
+   HandleOnRank0        = 0x004000,
+   HandleOnHub          = 0x008000,
+   HandleOnMaster       = 0x010000,
+   HandleOnDest         = 0x020000,
 
-   HandleOnNode = 0x100000,
-   HandleOnRank0 = 0x200000,
-   HandleOnHub = 0x400000,
-   HandleOnMaster = 0x800000,
-   HandleOnDest = 0x1000000,
-
-   QueueIfUnhandled = 0x2000000,
-   TriggerQueue = 0x4000000,
+   QueueIfUnhandled     = 0x040000,
+   TriggerQueue         = 0x080000,
 };
 
 class Router {

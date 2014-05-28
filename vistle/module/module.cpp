@@ -185,6 +185,7 @@ Module::Module(const std::string &n, const std::string &shmname,
              << std::endl;
 #endif
 
+#if 0
    Parameter *cm = addIntParameter("_cache_mode", "input object caching", ObjectCache::CacheDefault, Parameter::Choice);
    std::vector<std::string> modes;
    vassert(ObjectCache::CacheDefault == 0);
@@ -206,19 +207,20 @@ Module::Module(const std::string &n, const std::string &shmname,
    setParameterChoices(em, errmodes);
 
    IntParameter *outrank = addIntParameter("_error_output_rank", "rank from which to show stderr (-1: all ranks)", 0);
-   outrank->setMinimum(-1);
-   outrank->setMaximum(size()-1);
+   setParameterRange<Integer>(outrank, -1, size()-1);
 
    IntParameter *openmp_threads = addIntParameter("_openmp_threads", "number of OpenMP threads (0: system default)", 0);
-   openmp_threads->setMinimum(0);
-   openmp_threads->setMaximum(4096);
+   setParameterRange<Integer>(openmp_threads, 0, 4096);
    addIntParameter("_benchmark", "show timing information", m_benchmark ? 1 : 0, Parameter::Boolean);
+#endif
 }
 
 void Module::initDone() {
 
+#if 0
    m_streambuf = new msgstreambuf<char>(this);
    m_origStreambuf = std::cerr.rdbuf(m_streambuf);
+#endif
 
    sendMessage(message::Started(name()));
 
@@ -327,7 +329,7 @@ Port *Module::createInputPort(const std::string &name, const std::string &descri
       inputPorts[name] = p;
 
       message::AddPort message(p);
-      sendMessageQueue->send(message);
+      sendMessage(message);
       return p;
    }
 
@@ -426,6 +428,7 @@ bool Module::updateParameter(const std::string &name, const Parameter *param, co
       set.setReply();
       set.setUuid(inResponseTo->uuid());
    }
+   set.setDestId(Id::Broadcast);
    sendMessage(set);
 
    return true;
@@ -1294,6 +1297,11 @@ bool Module::handleMessage(const vistle::message::Message *message) {
 
       case message::Message::OBJECTRECEIVED:
          // currently only relevant for renderers
+         break;
+
+      //case Message::ADDPORT:
+      //case Message::ADDPARAMETER:
+      case Message::SPAWN:
          break;
 
       default:

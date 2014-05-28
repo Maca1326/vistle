@@ -313,8 +313,8 @@ bool Communicator::handleMessage(const message::Message &message) {
    const Message::Type t = message.type();
    bool handled = true;
 
-   if ((Router::rt[t] & Ordered) || (Router::rt[t] & Broadcast)) {
-      CERR << "ord|bc: " << message << std::endl;
+   if (Router::rt[t] & Broadcast || message.destId() == Id::Broadcast) {
+      CERR << "BC: " << message << std::endl;
       int hub = message.senderId();
       if (hub >= Id::ModuleBase) {
          hub = m_moduleManager->m_stateTracker.getHub(hub);
@@ -383,6 +383,9 @@ bool Communicator::handleMessage(const message::Message &message) {
          //result = m_moduleManager->handle(m);
          break;
       }
+
+      case Message::SETPARAMETER:
+         break;
 
       default:
 

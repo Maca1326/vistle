@@ -1066,43 +1066,43 @@ void Router::initRoutingTable() {
    typedef Message M;
    memset(&rt, '\0', sizeof(rt));
 
-   rt[M::INVALID]       = 0;
-   rt[M::IDENTIFY]      = Special;
-   rt[M::SETID]      = Special;
-   rt[M::REPLAYFINISHED] = Special;
-   rt[M::TRACE]         = Broadcast|Track;
-   rt[M::SPAWN]         = Track|HandleOnMaster|Ordered|Broadcast;
-   rt[M::SPAWNPREPARED] = DestLocalHub|HandleOnHub;
-   rt[M::STARTED]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Broadcast;
-   rt[M::KILL]          = DestModule|Ordered;
-   rt[M::QUIT]          = Broadcast|HandleOnMaster;
-   rt[M::MODULEEXIT]    = Track|DestManager|RequiresSubscription|DestUi|DestMasterHub|Broadcast;
-   rt[M::COMPUTE]       = DestModule|DestHub|Ordered|HandleOnDest;
-   rt[M::REDUCE]        = DestModule|OrderedLocal;
-   rt[M::MODULEAVAILABLE]    = Track|DestHub|DestUi|RequiresSubscription;
-   rt[M::ADDPORT]    = Track|Broadcast|Ordered|TriggerQueue;
-   rt[M::ADDPARAMETER]    = Track|Broadcast|Ordered|TriggerQueue;
-   rt[M::CONNECT]    = Track|Broadcast|Ordered|QueueIfUnhandled|DestManager;
-   rt[M::DISCONNECT]    = Track|Broadcast|Ordered|QueueIfUnhandled|DestManager;
-   rt[M::SETPARAMETER]    = Track|Broadcast|Ordered|QueueIfUnhandled|DestManager;
-   rt[M::SETPARAMETERCHOICES]    = Track|Broadcast|Ordered|QueueIfUnhandled|DestManager;
-   rt[M::PING] = Broadcast;
-   rt[M::PONG] = Broadcast;
-   rt[M::BUSY] = DestUi|DestMasterHub;
-   rt[M::IDLE] = DestUi|DestMasterHub;
-   rt[M::LOCKUI] = DestUi;
-   rt[M::SENDTEXT] = DestUi|DestMasterHub;
+   rt[M::INVALID]               = 0;
+   rt[M::IDENTIFY]              = Special;
+   rt[M::SETID]                 = Special;
+   rt[M::REPLAYFINISHED]        = Special;
+   rt[M::TRACE]                 = Broadcast|Track;
+   rt[M::SPAWN]                 = Broadcast|Track|HandleOnMaster;
+   rt[M::SPAWNPREPARED]         = DestLocalHub|HandleOnHub;
+   rt[M::STARTED]               = Broadcast|Track|DestUi;
+   rt[M::MODULEEXIT]            = Broadcast|Track|DestUi;
+   rt[M::KILL]                  = DestModules|HandleOnDest;
+   rt[M::QUIT]                  = Broadcast|HandleOnMaster|HandleOnHub|HandleOnNode;
+   rt[M::COMPUTE]               = DestModules|DestHub|HandleOnDest;
+   rt[M::REDUCE]                = DestModules;
+   rt[M::MODULEAVAILABLE]       = Track|DestHub|DestUi|HandleOnHub;
+   rt[M::ADDPORT]               = Broadcast|Track|DestUi|TriggerQueue;
+   rt[M::ADDPARAMETER]          = Broadcast|Track|DestUi|TriggerQueue;
+   rt[M::CONNECT]               = Track|Broadcast|QueueIfUnhandled|DestManager;
+   rt[M::DISCONNECT]            = Track|Broadcast|QueueIfUnhandled|DestManager;
+   rt[M::SETPARAMETER]          = Track|Broadcast|QueueIfUnhandled|DestManager;
+   rt[M::SETPARAMETERCHOICES]   = Track|Broadcast|QueueIfUnhandled|DestManager;
+   rt[M::PING]                  = Broadcast;
+   rt[M::PONG]                  = Broadcast;
+   rt[M::BUSY]                  = DestUi|DestMasterHub;
+   rt[M::IDLE]                  = DestUi|DestMasterHub;
+   rt[M::LOCKUI]                = DestUi;
+   rt[M::SENDTEXT]              = DestUi|DestMasterHub;
 
-   rt[M::OBJECTRECEIVEPOLICY] = DestManager|Track;
-   rt[M::SCHEDULINGPOLICY] = DestManager|Track;
-   rt[M::REDUCEPOLICY] = DestManager|Track;
-   rt[M::EXECUTIONPROGRESS] = DestManager|HandleOnRank0;
+   rt[M::OBJECTRECEIVEPOLICY]   = DestLocalManager|Track;
+   rt[M::SCHEDULINGPOLICY]      = DestLocalManager|Track;
+   rt[M::REDUCEPOLICY]          = DestLocalManager|Track;
+   rt[M::EXECUTIONPROGRESS]     = DestLocalManager|HandleOnRank0;
 
-   rt[M::ADDOBJECT] = DestManager|HandleOnNode;
+   rt[M::ADDOBJECT]             = DestLocalManager|HandleOnNode;
 
-   rt[M::BARRIER] = Broadcast|HandleOnMaster;
-   rt[M::BARRIERREACHED] = Broadcast|HandleOnMaster;
-   rt[M::OBJECTRECEIVED] = HandleOnRank0;
+   rt[M::BARRIER]               = Broadcast|HandleOnMaster;
+   rt[M::BARRIERREACHED]        = Broadcast|HandleOnMaster;
+   rt[M::OBJECTRECEIVED]        = HandleOnRank0;
 
    for (int i=M::ANY+1; i<M::NumMessageTypes; ++i) {
       if (rt[i] == 0) {
@@ -1134,6 +1134,8 @@ void Router::init(Identify::Identity identity, int id) {
 bool Router::toUi(const Message &msg, Identify::Identity senderType) {
 
    if (msg.destId() == Id::ForBroadcast)
+      return false;
+   if (msg.destId() >= Id::ModuleBase)
       return false;
    const int t = msg.type();
    if (rt[t] & DestUi)
@@ -1212,10 +1214,13 @@ bool Router::toSlaveHub(const Message &msg, Identify::Identity senderType, int s
 bool Router::toManager(const Message &msg, Identify::Identity senderType) {
 
    const int t = msg.type();
+   if (msg.destId() <= Id::MasterHub) {
+      return false;
+   }
    if (senderType != Identify::MANAGER) {
       if (rt[t] & DestManager)
          return true;
-      if  (rt[t] & DestModule)
+      if  (rt[t] & DestModules)
          return true;
       if (rt[t] & Broadcast)
          return true;
@@ -1230,7 +1235,7 @@ bool Router::toModule(const Message &msg, Identify::Identity senderType) {
       return false;
 
    const int t = msg.type();
-   if (rt[t] & DestModule)
+   if (rt[t] & DestModules)
       return true;
    if (rt[t] & Broadcast)
       return true;

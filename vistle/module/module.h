@@ -1,10 +1,14 @@
 #ifndef MODULE_H
 #define MODULE_H
 
+#if 0
 #ifndef MPICH_IGNORE_CXX_SEEK
 #define MPICH_IGNORE_CXX_SEEK
 #endif
 #include <mpi.h>
+#else
+#include <boost/mpi.hpp>
+#endif
 
 #include <iostream>
 #include <list>
@@ -214,11 +218,6 @@ protected:
    ObjectCache::CacheMode m_defaultCacheMode;
    void updateCacheMode();
    bool m_syncMessageProcessing;
-
-#if 0
-   typedef std::map<int, std::string> OtherModuleMap;
-   OtherModuleMap m_otherModuleMap;
-#endif
 
    void updateOutputMode();
    std::streambuf *m_origStreambuf, *m_streambuf;
