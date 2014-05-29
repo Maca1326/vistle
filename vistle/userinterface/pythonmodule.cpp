@@ -49,7 +49,7 @@ PythonModule *PythonModule::s_instance = nullptr;
 static void sendMessage(const vistle::message::Message &m) {
 
 #ifdef VISTLE_CONTROL
-   bool ret = Hub::the().sendMaster(m);
+   bool ret = Hub::the().handleMessage(m);
    assert(ret);
    if (!ret) {
       std::cerr << "Python: failed to send message " << m << std::endl;
@@ -311,6 +311,7 @@ static void setIntParam(int id, const char *name, Integer value) {
    std::cerr << "Python: setIntParam " << id << ":" << name << " = " << value << std::endl;
 #endif
    message::SetParameter m(id, name, value);
+   m.setDestId(id);
    sendMessage(m);
 }
 
@@ -320,30 +321,35 @@ static void setFloatParam(int id, const char *name, Float value) {
    std::cerr << "Python: setFloatParam " << id << ":" << name << " = " << value << std::endl;
 #endif
    message::SetParameter m(id, name, value);
+   m.setDestId(id);
    sendMessage(m);
 }
 
 static void setVectorParam4(int id, const char *name, Float v1, Float v2, Float v3, Float v4) {
 
    message::SetParameter m(id, name, ParamVector(v1, v2, v3, v4));
+   m.setDestId(id);
    sendMessage(m);
 }
 
 static void setVectorParam3(int id, const char *name, Float v1, Float v2, Float v3) {
 
    message::SetParameter m(id, name, ParamVector(v1, v2, v3));
+   m.setDestId(id);
    sendMessage(m);
 }
 
 static void setVectorParam2(int id, const char *name, Float v1, Float v2) {
 
    message::SetParameter m(id, name, ParamVector(v1, v2));
+   m.setDestId(id);
    sendMessage(m);
 }
 
 static void setVectorParam1(int id, const char *name, Float v1) {
 
    message::SetParameter m(id, name, ParamVector(v1));
+   m.setDestId(id);
    sendMessage(m);
 }
 
@@ -353,6 +359,7 @@ static void setStringParam(int id, const char *name, const std::string &value) {
    std::cerr << "Python: setStringParam " << id << ":" << name << " = " << value << std::endl;
 #endif
    message::SetParameter m(id, name, value);
+   m.setDestId(id);
    sendMessage(m);
 }
 
@@ -362,6 +369,10 @@ static void compute(int id=message::Id::Broadcast) {
    std::cerr << "Python: compute " << id << std::endl;
 #endif
    message::Compute m(id);
+   if (id == message::Id::Broadcast)
+      m.setDestId(message::Id::MasterHub);
+   else
+      m.setDestId(id);
    sendMessage(m);
 }
 BOOST_PYTHON_FUNCTION_OVERLOADS(compute_overloads, compute, 0, 1)

@@ -221,16 +221,9 @@ void vistle::VistleConnection::resetDataFlowNetwork() const
 void VistleConnection::executeSources() const
 {
    mutex_lock lock(m_mutex);
-   for (int id: ui().state().getRunningList()) {
-      auto inputs = ui().state().portTracker()->getInputPorts(id);
-      bool isSource = true;
-      for (auto input: inputs) {
-         if (!input->connections().empty())
-            isSource = false;
-      }
-      if (isSource)
-         sendMessage(message::Compute(id));
-   }
+   message::Compute comp;
+   comp.setDestId(message::Id::MasterHub);
+   sendMessage(comp);
 }
 
 void VistleConnection::connect(const Port *from, const Port *to) const {

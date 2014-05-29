@@ -600,7 +600,7 @@ bool ClusterManager::handlePriv(const message::ModuleExit &moduleExit) {
 
 bool ClusterManager::handlePriv(const message::Compute &compute) {
 
-   assert (compute.getModule() != -1);
+   assert (compute.getModule() >= Id::ModuleBase);
    RunningMap::iterator i = runningMap.find(compute.getModule());
    if (i != runningMap.end()) {
       i->second.sendQueue->send(compute);

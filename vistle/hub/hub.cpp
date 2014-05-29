@@ -264,7 +264,7 @@ bool Hub::sendMaster(const message::Message &msg) {
 
 bool Hub::sendManager(const message::Message &msg, int hub) {
 
-   if (hub == Id::LocalHub || hub == m_hubId) {
+   if (hub == Id::LocalHub || hub == m_hubId || (hub == Id::MasterHub && m_isMaster)) {
       if (!m_managerConnected)
          return false;
 
@@ -310,7 +310,7 @@ bool Hub::sendHub(const message::Message &msg, int hub) {
    if (hub == m_hubId)
       return true;
 
-   if (hub == Id::MasterHub) {
+   if (!m_isMaster && hub == Id::MasterHub) {
       sendMaster(msg);
       return true;
    }
@@ -789,7 +789,7 @@ bool Hub::handlePriv(const message::Compute &compute) {
    if (compute.getExecutionCount() < 0)
       toSend.setExecutionCount(++m_execCount);
 
-   if (compute.getModule() != -1) {
+   if (compute.getModule() >= Id::ModuleBase) {
       const int hub = m_stateTracker.getHub(compute.getModule());
       toSend.setDestId(compute.getModule());
       sendManager(toSend, hub);
