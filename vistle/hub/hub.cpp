@@ -291,9 +291,9 @@ bool Hub::sendSlaves(const message::Message &msg) {
 
    int senderHub = msg.senderId();
    if (senderHub > 0) {
-      std::cerr << "mod id " << senderHub;
+      //std::cerr << "mod id " << senderHub;
       senderHub = m_stateTracker.getHub(senderHub);
-      std::cerr << " -> hub id " << senderHub << std::endl;
+      //std::cerr << " -> hub id " << senderHub << std::endl;
    }
 
    for (auto &sock: m_slaveSockets) {

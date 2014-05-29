@@ -321,13 +321,13 @@ bool Communicator::handleMessage(const message::Message &message) {
       destHub = m_moduleManager->m_stateTracker.getHub(destHub);
    if (Router::rt[t] & Broadcast || message.destId() == Id::Broadcast) {
       if (message.senderId() != hubId() && senderHub == hubId()) {
-         CERR << "BC: " << message << std::endl;
+         //CERR << "BC: " << message << std::endl;
          sendHub(message);
       }
    }
    if (message.destId() >= Id::ModuleBase) {
       if (destHub == hubId()) {
-         CERR << "module: " << message << std::endl;
+         //CERR << "module: " << message << std::endl;
          return sendMessage(message.destId(), message);
       }
    }

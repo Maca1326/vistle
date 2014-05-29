@@ -1305,6 +1305,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
 
       //case Message::ADDPORT:
       //case Message::ADDPARAMETER:
+      case Message::MODULEEXIT:
       case Message::SPAWN:
          break;
 
