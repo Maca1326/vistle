@@ -1071,7 +1071,7 @@ void Router::initRoutingTable() {
    rt[M::SETID]                 = Special;
    rt[M::REPLAYFINISHED]        = Special;
    rt[M::TRACE]                 = Broadcast|Track;
-   rt[M::SPAWN]                 = Track|HandleOnMaster;
+   rt[M::SPAWN]                 = Broadcast|Track|HandleOnMaster;
    rt[M::SPAWNPREPARED]         = DestLocalHub|HandleOnHub;
    rt[M::STARTED]               = Broadcast|Track|DestUi;
    rt[M::MODULEEXIT]            = Broadcast|Track|DestUi;
@@ -1137,6 +1137,8 @@ bool Router::toUi(const Message &msg, Identify::Identity senderType) {
       return false;
    if (msg.destId() >= Id::ModuleBase)
       return false;
+   if (msg.destId() == Id::Broadcast)
+      return true;
    const int t = msg.type();
    if (rt[t] & DestUi)
       return true;
@@ -1254,7 +1256,7 @@ bool Router::toTracker(const Message &msg, Identify::Identity senderType) {
          return senderType == Identify::MANAGER;
       }
       if (m_identity == Identify::SLAVEHUB) {
-         return senderType == Identify::HUB;
+         return senderType == Identify::HUB || senderType == Identify::MANAGER;
       }
    }
 

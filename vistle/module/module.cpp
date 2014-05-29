@@ -222,7 +222,9 @@ void Module::initDone() {
    m_origStreambuf = std::cerr.rdbuf(m_streambuf);
 #endif
 
-   sendMessage(message::Started(name()));
+   message::Started start(name());
+   start.setDestId(Id::Broadcast);
+   sendMessage(start);
 
    for (auto &pair: parameters) {
       parameterChanged(pair.second);
@@ -395,8 +397,10 @@ bool Module::addParameterGeneric(const std::string &name, Parameter *param) {
    parameters[name] = param;
 
    message::AddParameter add(param, m_name);
+   add.setDestId(Id::Broadcast);
    sendMessage(add);
    message::SetParameter set(id(), name, param);
+   set.setDestId(Id::Broadcast);
    set.setInit();
    set.setUuid(add.uuid());
    sendMessage(set);

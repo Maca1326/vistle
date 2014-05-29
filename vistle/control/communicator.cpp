@@ -313,13 +313,22 @@ bool Communicator::handleMessage(const message::Message &message) {
    const Message::Type t = message.type();
    bool handled = true;
 
+   int senderHub = message.senderId();
+   if (senderHub >= Id::ModuleBase)
+      senderHub = m_moduleManager->m_stateTracker.getHub(senderHub);
+   int destHub = message.destId();
+   if (destHub >= Id::ModuleBase)
+      destHub = m_moduleManager->m_stateTracker.getHub(destHub);
    if (Router::rt[t] & Broadcast || message.destId() == Id::Broadcast) {
-      CERR << "BC: " << message << std::endl;
-      int hub = message.senderId();
-      if (hub >= Id::ModuleBase) {
-         hub = m_moduleManager->m_stateTracker.getHub(hub);
-         if (hub == hubId())
-            sendHub(message);
+      if (message.senderId() != hubId() && senderHub == hubId()) {
+         CERR << "BC: " << message << std::endl;
+         sendHub(message);
+      }
+   }
+   if (message.destId() >= Id::ModuleBase) {
+      if (destHub == hubId()) {
+         CERR << "module: " << message << std::endl;
+         return sendMessage(message.destId(), message);
       }
    }
 

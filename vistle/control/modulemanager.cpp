@@ -69,9 +69,16 @@ bool ClusterManager::scanModules(const std::string &dir) {
 #ifdef SCAN_MODULES_ON_HUB
     return true;
 #else
-    //FIXME
-    AvailableMap availableModules;
-    return vistle::scanModules(dir, Communicator::the().hubId(), availableModules);
+   bool result = true;
+   if (getRank() == 0) {
+      AvailableMap availableModules;
+      result = vistle::scanModules(dir, Communicator::the().hubId(), availableModules);
+      for (auto &p: availableModules) {
+         const auto &m = p.second;
+         sendHub(message::ModuleAvailable(m.hub, m.name, m.path));
+      }
+   }
+   return result;
 #endif
 }
 
@@ -135,12 +142,17 @@ bool ClusterManager::dispatch(bool &received) {
       if (mod.hub == Communicator::the().hubId()) {
          bool recv = false;
          message::Buffer buf;
-         message::MessageQueue *mq = runningMap[modId].recvQueue;
-         try {
-            recv = mq->tryReceive(buf.msg);
-         } catch (boost::interprocess::interprocess_exception &ex) {
-            CERR << "receive mq " << ex.what() << std::endl;
-            exit(-1);
+         message::MessageQueue *mq = nullptr;
+         auto it = runningMap.find(modId);
+         if (it != runningMap.end())
+            mq = it->second.recvQueue;
+         if (mq) {
+            try {
+               recv = mq->tryReceive(buf.msg);
+            } catch (boost::interprocess::interprocess_exception &ex) {
+               CERR << "receive mq " << ex.what() << std::endl;
+               exit(-1);
+            }
          }
 
          if (recv) {
@@ -386,6 +398,8 @@ bool ClusterManager::handle(const message::Message &message) {
       case Message::STARTED:
       case Message::ADDPORT:
       case Message::ADDPARAMETER:
+      case Message::MODULEAVAILABLE:
+      case Message::REPLAYFINISHED:
          break;
 
       default:

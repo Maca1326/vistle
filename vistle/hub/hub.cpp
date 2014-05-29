@@ -352,16 +352,21 @@ int Hub::idToHub(int id) const {
    return id;
 }
 
-bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::socket> sock) {
+bool Hub::handleMessage(const message::Message &recv, shared_ptr<asio::ip::tcp::socket> sock) {
 
    using namespace vistle::message;
 
+   message::Buffer buf(recv);
+   Message &msg = buf.msg;
    message::Identify::Identity senderType = message::Identify::UNKNOWN;
    auto it = m_sockets.find(sock);
    if (sock) {
       vassert(it != m_sockets.end());
       senderType = it->second;
    }
+
+   if (senderType == Identify::UI)
+      msg.setSenderId(m_hubId);
 
    if (msg.type() == message::Message::IDENTIFY) {
 
@@ -386,10 +391,10 @@ bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::s
             if (m_hubId != Id::Invalid) {
                message::SetId set(m_hubId);
                sendMessage(sock, set);
-               if (m_hubId < Id::MasterHub) {
-                  for (auto &am: m_availableModules) {
-                     message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
-                     sendMessage(sock, m);
+               if (m_hubId <= Id::MasterHub) {
+                  auto state = m_stateTracker.getState();
+                  for (auto &m: state) {
+                     sendMessage(sock, m.msg);
                   }
                }
             }
@@ -461,7 +466,7 @@ bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::s
          if (m_isMaster) {
             sendSlaves(msg);
             slave = true;
-         } else {
+         } else if (sender == m_hubId) {
             sendMaster(msg);
          }
       }
@@ -482,9 +487,11 @@ bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::s
                notify.setSpawnId(Id::ModuleBase + m_moduleCount);
                ++m_moduleCount;
                notify.setDestId(spawn.hubId());
+               sendManager(notify, spawn.hubId());
+               notify.setDestId(Id::Broadcast);
                m_stateTracker.handle(notify);
-               sendUi(notify);
                sendManager(notify);
+               sendUi(notify);
                sendSlaves(notify);
             } else {
                if (spawn.spawnId() >= Id::ModuleBase) {
@@ -541,16 +548,21 @@ bool Hub::handleMessage(const message::Message &msg, shared_ptr<asio::ip::tcp::s
             scanModules(m_bindir + "/../libexec/module", m_hubId, m_availableModules);
             for (auto &am: m_availableModules) {
                message::ModuleAvailable m(m_hubId, am.second.name, am.second.path);
-               sendManager(m);
                m.setDestId(Id::MasterHub);
                sendMaster(m);
+            }
+            if (m_managerConnected) {
+               auto state = m_stateTracker.getState();
+               for (auto &m: state) {
+                  sendMessage(sock, m.msg);
+               }
             }
             break;
          }
 
          case Message::QUIT: {
 
-            //std::cerr << "hub: broadcasting message: " << msg << std::endl;
+            std::cerr << "hub: got quit: " << msg << std::endl;
             auto &quit = static_cast<const Quit &>(msg);
             if (senderType == message::Identify::MANAGER) {
                m_uiManager.requestQuit();
