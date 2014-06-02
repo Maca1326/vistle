@@ -34,7 +34,7 @@
 #endif
 
 #define CERR \
-   std::cerr << "mod mgr [" << m_rank << "/" << m_size << "] "
+   std::cerr << "ClusterManager [" << m_rank << "/" << m_size << "] "
 
 //#define DEBUG
 
@@ -112,7 +112,6 @@ void ClusterManager::barrierReached(const message::uuid_t &uuid) {
    message::BarrierReached m;
    m.setUuid(uuid);
    sendHub(m);
-   m_stateTracker.handle(m);
 }
 
 std::string ClusterManager::getModuleName(int id) const {
@@ -243,7 +242,7 @@ bool ClusterManager::sendMessage(const int moduleId, const message::Message &mes
    const int hub = m_stateTracker.getHub(moduleId);
 
    if (hub == Communicator::the().hubId()) {
-      std::cerr << "local send to " << moduleId << ": " << message << std::endl;
+      //std::cerr << "local send to " << moduleId << ": " << message << std::endl;
       mod.sendQueue->send(message);
    } else {
       std::cerr << "remote send to " << moduleId << ": " << message << std::endl;
@@ -398,8 +397,11 @@ bool ClusterManager::handle(const message::Message &message) {
       case Message::STARTED:
       case Message::ADDPORT:
       case Message::ADDPARAMETER:
+      case Message::SETPARAMETERCHOICES:
       case Message::MODULEAVAILABLE:
       case Message::REPLAYFINISHED:
+      case Message::REDUCEPOLICY:
+      case Message::OBJECTRECEIVEPOLICY:
          break;
 
       default:
@@ -418,7 +420,6 @@ bool ClusterManager::handle(const message::Message &message) {
 
 bool ClusterManager::handlePriv(const message::Trace &trace) {
 
-   m_stateTracker.handle(trace);
    if (trace.module() >= Id::ModuleBase) {
       sendMessage(trace.module(), trace);
    } else if (trace.module() == Id::Broadcast) {
@@ -433,7 +434,6 @@ bool ClusterManager::handlePriv(const message::Spawn &spawn) {
       // ignore messages where master hub did not yet create an id
       return true;
    }
-   m_stateTracker.handle(spawn);
    if (spawn.destId() != Communicator::the().hubId())
       return true;
 
@@ -574,8 +574,6 @@ bool ClusterManager::handlePriv(const message::ModuleExit &moduleExit) {
       return true;
    }
 
-   m_stateTracker.handle(moduleExit);
-
    //CERR << " Module [" << mod << "] quit" << std::endl;
 
    { 
@@ -611,7 +609,6 @@ bool ClusterManager::handlePriv(const message::Compute &compute) {
 
 bool ClusterManager::handlePriv(const message::ExecutionProgress &prog) {
 
-   m_stateTracker.handle(prog);
    RunningMap::iterator i = runningMap.find(prog.senderId());
    if (i == runningMap.end()) {
       return false;
@@ -701,7 +698,6 @@ bool ClusterManager::handlePriv(const message::ExecutionProgress &prog) {
 
 bool ClusterManager::handlePriv(const message::Reduce &reduce) {
 
-   m_stateTracker.handle(reduce);
    sendMessage(reduce.module(), reduce);
    return true;
 }
@@ -714,7 +710,7 @@ bool ClusterManager::handlePriv(const message::Busy &busy) {
       buf.msg.setDestId(Id::MasterHub);
       sendHub(buf.msg);
    }
-   return m_stateTracker.handle(busy);
+   return true;
 }
 
 bool ClusterManager::handlePriv(const message::Idle &idle) {
@@ -725,12 +721,11 @@ bool ClusterManager::handlePriv(const message::Idle &idle) {
       buf.msg.setDestId(Id::MasterHub);
       sendHub(buf.msg);
    }
-   return m_stateTracker.handle(idle);
+   return true;
 }
 
 bool ClusterManager::handlePriv(const message::ObjectReceived &objRecv) {
 
-   m_stateTracker.handle(objRecv);
    sendMessage(objRecv.senderId(), objRecv);
    return true;
 }
@@ -738,7 +733,6 @@ bool ClusterManager::handlePriv(const message::ObjectReceived &objRecv) {
 
 bool ClusterManager::handlePriv(const message::SetParameter &setParam) {
 
-   m_stateTracker.handle(setParam);
 #ifdef DEBUG
    CERR << "SetParameter: sender=" << setParam.senderId() << ", module=" << setParam.getModule() << ", name=" << setParam.getName() << std::endl;
 #endif
@@ -805,7 +799,6 @@ bool ClusterManager::handlePriv(const message::SetParameter &setParam) {
 
 bool ClusterManager::handlePriv(const message::AddObject &addObj) {
 
-   m_stateTracker.handle(addObj);
    Object::const_ptr obj = addObj.takeObject();
    assert(obj->refcount() >= 1);
 #if 0
@@ -882,7 +875,6 @@ bool ClusterManager::handlePriv(const message::AddObject &addObj) {
 bool ClusterManager::handlePriv(const message::Barrier &barrier) {
 
    m_barrierActive = true;
-   m_stateTracker.handle(barrier);
    sendHub(barrier);
    CERR << "Barrier [" << barrier.uuid() << "]" << std::endl;
    m_barrierUuid = barrier.uuid();

@@ -401,7 +401,7 @@ bool Communicator::handleMessage(const message::Message &message) {
          result = m_moduleManager->handle(message);
          if (!result) {
             CERR << "unhandled message from (id "
-               << message.senderId() << " m_rank " << message.rank() << ") "
+               << message.senderId() << " rank " << message.rank() << ") "
                << "type " << message.type()
                << std::endl;
             result = true;

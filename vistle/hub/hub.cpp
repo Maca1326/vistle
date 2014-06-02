@@ -783,7 +783,7 @@ bool Hub::processScript() {
 
 bool Hub::handlePriv(const message::Compute &compute) {
 
-   message::Compute toSend = compute;
+   message::Compute toSend(compute);
    if (compute.getExecutionCount() > m_execCount)
       m_execCount = compute.getExecutionCount();
    if (compute.getExecutionCount() < 0)
@@ -806,6 +806,7 @@ bool Hub::handlePriv(const message::Compute &compute) {
          }
          if (isSource) {
             toSend.setModule(id);
+            toSend.setDestId(id);
             sendManager(toSend, hub);
          }
       }

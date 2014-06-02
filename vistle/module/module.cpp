@@ -185,7 +185,6 @@ Module::Module(const std::string &n, const std::string &shmname,
              << std::endl;
 #endif
 
-#if 0
    Parameter *cm = addIntParameter("_cache_mode", "input object caching", ObjectCache::CacheDefault, Parameter::Choice);
    std::vector<std::string> modes;
    vassert(ObjectCache::CacheDefault == 0);
@@ -212,7 +211,6 @@ Module::Module(const std::string &n, const std::string &shmname,
    IntParameter *openmp_threads = addIntParameter("_openmp_threads", "number of OpenMP threads (0: system default)", 0);
    setParameterRange<Integer>(openmp_threads, 0, 4096);
    addIntParameter("_benchmark", "show timing information", m_benchmark ? 1 : 0, Parameter::Boolean);
-#endif
 }
 
 void Module::initDone() {
