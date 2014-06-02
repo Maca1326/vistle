@@ -1077,7 +1077,7 @@ void Router::initRoutingTable() {
    rt[M::MODULEEXIT]            = Broadcast|Track|DestUi;
    rt[M::KILL]                  = DestModules|HandleOnDest;
    rt[M::QUIT]                  = Broadcast|HandleOnMaster|HandleOnHub|HandleOnNode;
-   rt[M::COMPUTE]               = Special;
+   rt[M::COMPUTE]               = Special|HandleOnMaster;
    rt[M::REDUCE]                = DestModules;
    rt[M::MODULEAVAILABLE]       = Track|DestHub|DestUi|HandleOnHub;
    rt[M::ADDPORT]               = Broadcast|Track|DestUi|TriggerQueue;

@@ -237,6 +237,8 @@ bool StateTracker::handle(const message::Message &msg, bool track) {
    if (!track)
       return true;
 
+   bool handled = true;
+
    mutex_locker locker(getMutex());
    switch (msg.type()) {
       case Message::IDENTIFY: {
@@ -245,27 +247,27 @@ bool StateTracker::handle(const message::Message &msg, bool track) {
       case Message::SPAWN: {
          const Spawn &spawn = static_cast<const Spawn &>(msg);
          registerReply(msg.uuid(), msg);
-         handlePriv(spawn);
+         handled = handlePriv(spawn);
          break;
       }
       case Message::STARTED: {
          const Started &started = static_cast<const Started &>(msg);
-         handlePriv(started);
+         handled = handlePriv(started);
          break;
       }
       case Message::KILL: {
          const Kill &kill = static_cast<const Kill &>(msg);
-         handlePriv(kill);
+         handled = handlePriv(kill);
          break;
       }
       case Message::QUIT: {
          const Quit &quit = static_cast<const Quit &>(msg);
-         handlePriv(quit);
+         handled = handlePriv(quit);
          break;
       }
       case Message::MODULEEXIT: {
          const ModuleExit &modexit = static_cast<const ModuleExit &>(msg);
-         handlePriv(modexit);
+         handled = handlePriv(modexit);
          break;
       }
       case Message::COMPUTE: {
@@ -279,67 +281,67 @@ bool StateTracker::handle(const message::Message &msg, bool track) {
       }
       case Message::ADDPORT: {
          const AddPort &cp = static_cast<const AddPort &>(msg);
-         handlePriv(cp);
+         handled = handlePriv(cp);
          break;
       }
       case Message::ADDPARAMETER: {
          const AddParameter &add = static_cast<const AddParameter &>(msg);
-         handlePriv(add);
+         handled = handlePriv(add);
          break;
       }
       case Message::CONNECT: {
          const Connect &conn = static_cast<const Connect &>(msg);
-         handlePriv(conn);
+         handled = handlePriv(conn);
          break;
       }
       case Message::DISCONNECT: {
          const Disconnect &disc = static_cast<const Disconnect &>(msg);
-         handlePriv(disc);
+         handled = handlePriv(disc);
          break;
       }
       case Message::SETPARAMETER: {
          const SetParameter &set = static_cast<const SetParameter &>(msg);
-         handlePriv(set);
+         handled = handlePriv(set);
          break;
       }
       case Message::SETPARAMETERCHOICES: {
          const SetParameterChoices &choice = static_cast<const SetParameterChoices &>(msg);
-         handlePriv(choice);
+         handled = handlePriv(choice);
          break;
       }
       case Message::PING: {
          const Ping &ping = static_cast<const Ping &>(msg);
-         handlePriv(ping);
+         handled = handlePriv(ping);
          break;
       }
       case Message::PONG: {
          const Pong &pong = static_cast<const Pong &>(msg);
-         handlePriv(pong);
+         handled = handlePriv(pong);
          break;
       }
       case Message::TRACE: {
          const Trace &trace = static_cast<const Trace &>(msg);
-         handlePriv(trace);
+         handled = handlePriv(trace);
          break;
       }
       case Message::BUSY: {
          const Busy &busy = static_cast<const Busy &>(msg);
-         handlePriv(busy);
+         handled = handlePriv(busy);
          break;
       }
       case Message::IDLE: {
          const Idle &idle = static_cast<const Idle &>(msg);
-         handlePriv(idle);
+         handled = handlePriv(idle);
          break;
       }
       case Message::BARRIER: {
          const Barrier &barrier = static_cast<const Barrier &>(msg);
-         handlePriv(barrier);
+         handled = handlePriv(barrier);
          break;
       }
       case Message::BARRIERREACHED: {
          const BarrierReached &reached = static_cast<const BarrierReached &>(msg);
-         handlePriv(reached);
+         handled = handlePriv(reached);
          registerReply(msg.uuid(), msg);
          break;
       }
@@ -350,17 +352,17 @@ bool StateTracker::handle(const message::Message &msg, bool track) {
       }
       case Message::REPLAYFINISHED: {
          const ReplayFinished &fin = static_cast<const ReplayFinished &>(msg);
-         handlePriv(fin);
+         handled = handlePriv(fin);
          break;
       }
       case Message::SENDTEXT: {
          const SendText &info = static_cast<const SendText &>(msg);
-         handlePriv(info);
+         handled = handlePriv(info);
          break;
       }
       case Message::MODULEAVAILABLE: {
          const ModuleAvailable &mod = static_cast<const ModuleAvailable &>(msg);
-         handlePriv(mod);
+         handled = handlePriv(mod);
          break;
       }
       case Message::EXECUTIONPROGRESS: {
@@ -374,17 +376,17 @@ bool StateTracker::handle(const message::Message &msg, bool track) {
       }
       case Message::OBJECTRECEIVEPOLICY: {
          const ObjectReceivePolicy &m = static_cast<const ObjectReceivePolicy &>(msg);
-         handlePriv(m);
+         handled = handlePriv(m);
          break;
       }
       case Message::SCHEDULINGPOLICY: {
          const SchedulingPolicy &m = static_cast<const SchedulingPolicy &>(msg);
-         handlePriv(m);
+         handled = handlePriv(m);
          break;
       }
       case Message::REDUCEPOLICY: {
          const ReducePolicy &m = static_cast<const ReducePolicy &>(msg);
-         handlePriv(m);
+         handled = handlePriv(m);
          break;
       }
 
@@ -394,7 +396,35 @@ bool StateTracker::handle(const message::Message &msg, bool track) {
          break;
    }
 
+   if (!handled) {
+
+      if (message::Router::rt[msg.type()] & QueueIfUnhandled) {
+         m_queue.emplace_back(msg);
+      }
+   } else {
+      if (message::Router::rt[msg.type()] & TriggerQueue) {
+         processQueue();
+      }
+   }
+
    return true;
+}
+
+void StateTracker::processQueue() {
+
+   static bool processing = false;
+   if (processing)
+      return;
+   processing = true;
+
+   std::vector<message::Buffer> queue;
+   std::swap(m_queue, queue);
+
+   for (auto &m: queue) {
+      handle(m.msg);
+   }
+
+   processing = false;
 }
 
 bool StateTracker::handlePriv(const message::Ping &ping) {
@@ -459,20 +489,23 @@ bool StateTracker::handlePriv(const message::Started &started) {
 
 bool StateTracker::handlePriv(const message::Connect &connect) {
 
+   bool handled = true;
    if (portTracker()) {
-      portTracker()->addConnection(connect.getModuleA(),
+      handled = portTracker()->addConnection(connect.getModuleA(),
             connect.getPortAName(),
             connect.getModuleB(),
             connect.getPortBName());
    }
 
-   for (StateObserver *o: m_observers) {
-      o->incModificationCount();
-      o->newConnection(connect.getModuleA(), connect.getPortAName(),
-            connect.getModuleB(), connect.getPortBName());
+   if (handled) {
+      for (StateObserver *o: m_observers) {
+         o->incModificationCount();
+         o->newConnection(connect.getModuleA(), connect.getPortAName(),
+                          connect.getModuleB(), connect.getPortBName());
+      }
    }
 
-   return true;
+   return handled;
 }
 
 bool StateTracker::handlePriv(const message::Disconnect &disconnect) {
@@ -614,16 +647,22 @@ bool StateTracker::handlePriv(const message::SetParameter &setParam) {
    CERR << "SetParameter: sender=" << setParam.senderId() << ", module=" << setParam.getModule() << ", name=" << setParam.getName() << std::endl;
 #endif
 
-   Parameter *param = getParameter(setParam.getModule(), setParam.getName());
-   if (param)
-      setParam.apply(param);
+   bool handled = false;
 
-   for (StateObserver *o: m_observers) {
-      o->incModificationCount();
-      o->parameterValueChanged(setParam.senderId(), setParam.getName());
+   Parameter *param = getParameter(setParam.getModule(), setParam.getName());
+   if (param) {
+      setParam.apply(param);
+      handled = true;
    }
 
-   return true;
+   if (handled) {
+      for (StateObserver *o: m_observers) {
+         o->incModificationCount();
+         o->parameterValueChanged(setParam.senderId(), setParam.getName());
+      }
+   }
+
+   return handled;
 }
 
 bool StateTracker::handlePriv(const message::SetParameterChoices &choices) {

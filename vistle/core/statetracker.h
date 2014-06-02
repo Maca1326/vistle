@@ -135,6 +135,9 @@ class V_COREEXPORT StateTracker {
 
    std::set<StateObserver *> m_observers;
 
+   std::vector<message::Buffer> m_queue;
+   void processQueue();
+
  private:
    bool handlePriv(const message::Ping &ping);
    bool handlePriv(const message::Pong &pong);

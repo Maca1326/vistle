@@ -69,7 +69,7 @@ Hub::Hub()
 , m_slaveCount(0)
 , m_hubId(Id::Invalid)
 , m_moduleCount(0)
-, m_traceMessages(-1)
+, m_traceMessages(message::Message::ANY)
 , m_execCount(0)
 {
 
@@ -593,7 +593,7 @@ bool Hub::handleMessage(const message::Message &recv, shared_ptr<asio::ip::tcp::
       }
    }
 
-   if (m_traceMessages == -1 || msg.type() == m_traceMessages) {
+   if (m_traceMessages == Message::ANY || msg.type() == m_traceMessages) {
       if (track) std::cerr << "t"; else std::cerr << ".";
       if (mgr) std::cerr << "m" ;else std::cerr << ".";
       if (ui) std::cerr << "u"; else std::cerr << ".";
