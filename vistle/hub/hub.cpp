@@ -764,7 +764,7 @@ bool Hub::processScript() {
    vassert(m_uiManager.isLocked());
 #ifdef HAVE_PYTHON
    if (!m_scriptPath.empty()) {
-      PythonInterpreter inter(m_scriptPath);
+      PythonInterpreter inter(m_scriptPath, m_bindir + "/../lib/");
       while(inter.check()) {
          dispatch();
       }
@@ -822,6 +822,9 @@ int main(int argc, char *argv[]) {
          ;
    } catch (vistle::exception &e) {
       std::cerr << "Hub: fatal exception: " << e.what() << std::endl << e.where() << std::endl;
+      return 1;
+   } catch (std::exception &e) {
+      std::cerr << "Hub: fatal exception: " << e.what() << std::endl;
       return 1;
    }
 
