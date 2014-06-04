@@ -35,7 +35,6 @@ bool recv(socket_t &sock, Message &msg, bool &received, bool block) {
       asio::read(sock, msgbuf);
    } catch (std::exception &ex) {
       std::cerr << "message::recv: exception: " << ex.what() << std::endl;
-      attach_debugger();
       received = false;
       result = false;
    }
@@ -53,7 +52,6 @@ bool send(socket_t &sock, const Message &msg) {
       return asio::write(sock, msgbuf);
    } catch (std::exception &ex) {
       std::cerr << "message::send: exception: " << ex.what() << std::endl;
-      attach_debugger();
       return false;
    }
 }

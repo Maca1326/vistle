@@ -52,6 +52,10 @@ UserInterface::UserInterface(const std::string &host, const unsigned short port,
 
 void UserInterface::stop() {
 
+   vistle::message::ModuleExit m;
+   m.setDestId(vistle::message::Id::LocalHub);
+   sendMessage(m);
+
    m_socket.cancel();
    m_socket.shutdown(asio::ip::tcp::socket::shutdown_both);
    m_ioService.stop();
@@ -249,10 +253,6 @@ void UserInterface::registerObserver(StateObserver *observer) {
 }
 
 UserInterface::~UserInterface() {
-
-   vistle::message::ModuleExit m;
-   m.setDestId(vistle::message::Id::LocalHub);
-   sendMessage(m);
 
    std::cerr << "  userinterface [" << host() << "] [" << id()
              << "] quit" << std::endl;

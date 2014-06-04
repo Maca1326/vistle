@@ -47,11 +47,6 @@ VistleConnection::VistleConnection(vistle::UserInterface &ui)
 
 VistleConnection::~VistleConnection() {
 
-   if (m_quitOnExit) {
-      sendMessage(message::Quit());
-      m_quitOnExit = false;
-   }
-
    s_instance = nullptr;
 }
 
@@ -69,16 +64,14 @@ bool VistleConnection::done() const {
 
 void VistleConnection::cancel() {
 
-   {
+   if (!done()) {
       mutex_lock lock(m_mutex);
-      if (!m_done) {
-         m_done = true;
+      m_done = true;
+   }
 
-         if (m_quitOnExit) {
-            sendMessage(message::Quit());
-            m_quitOnExit = false;
-         }
-      }
+   if (m_quitOnExit) {
+      sendMessage(message::Quit());
+      m_quitOnExit = false;
    }
 
    mutex_lock lock(m_mutex);
@@ -86,6 +79,7 @@ void VistleConnection::cancel() {
 }
 
 void VistleConnection::operator()() {
+
    while(m_ui.dispatch()) {
       mutex_lock lock(m_mutex);
       if (m_done) {

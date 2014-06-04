@@ -570,6 +570,7 @@ bool Hub::handleMessage(const message::Message &recv, shared_ptr<asio::ip::tcp::
                return true;
             } else {
                sendSlaves(quit);
+               m_quitting = true;
             }
             break;
          }

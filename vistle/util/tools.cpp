@@ -73,6 +73,7 @@ bool attach_debugger() {
 #endif
    } else {
       kill(getpid(), SIGSTOP);
+      sleep(1);
 #if 0
       const int wait = 30;
       unsigned int remain = sleep(wait);

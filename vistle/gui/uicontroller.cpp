@@ -105,9 +105,6 @@ void UiController::finish() {
    delete m_scene;
    m_scene = nullptr;
 
-   delete m_ui;
-   m_ui = nullptr;
-
    m_vistleConnection->cancel();
    m_thread->join();
    delete m_thread;
@@ -115,6 +112,9 @@ void UiController::finish() {
 
    delete m_pythonMod;
    m_pythonMod = nullptr;
+
+   delete m_ui;
+   m_ui = nullptr;
 
    delete m_vistleConnection;
    m_vistleConnection = nullptr;
