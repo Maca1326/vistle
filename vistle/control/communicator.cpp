@@ -99,7 +99,7 @@ int Communicator::getSize() const {
 
 bool Communicator::connectHub(const std::string &host, unsigned short port) {
 
-   bool ret = true;
+   int ret = 1;
    if (getRank() == 0) {
 
       CERR << "connecting to hub on " << host << ":" << port << "..." << std::flush;
@@ -377,20 +377,7 @@ bool Communicator::handleMessage(const message::Message &message) {
          break;
       }
 
-      case message::Message::SENDTEXT: {
-         const message::SendText &m = static_cast<const message::SendText &>(message);
-         if (m_rank == 0) {
-            message::Buffer buf(m);
-            buf.msg.setDestId(Id::MasterHub);
-            sendHub(buf.msg);
-         } else {
-            result = forwardToMaster(m);
-         }
-         break;
-      }
-
       default: {
-
          handled = m_moduleManager->handle(message);
          if (!handled) {
             CERR << "unhandled message from (id "
@@ -399,7 +386,6 @@ bool Communicator::handleMessage(const message::Message &message) {
                << std::endl;
             result = true;
          }
-
          break;
       }
    }

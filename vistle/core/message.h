@@ -788,7 +788,8 @@ enum RoutingFlags {
    Special              = 0x000800,
    RequiresSubscription = 0x001000,
 
-   Broadcast            = DestHub|DestUi|DestManager,
+   //Broadcast            = DestHub|DestUi|DestManager,
+   Broadcast            = 0x100000,
    BroadcastModule      = Broadcast|DestModules,
 
    HandleOnNode         = 0x002000,
