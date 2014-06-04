@@ -261,7 +261,43 @@ bool ClusterManager::handle(const message::Message &message) {
    m_stateTracker.handle(message);
 
    bool result = true;
+   const Message::Type t = message.type();
+   const int hubId = Communicator::the().hubId();
+
+   int senderHub = message.senderId();
+   if (senderHub >= Id::ModuleBase)
+      senderHub = m_stateTracker.getHub(senderHub);
+   int destHub = message.destId();
+   if (destHub >= Id::ModuleBase)
+      destHub = m_stateTracker.getHub(destHub);
+   if (message.typeFlags() & Broadcast || message.destId() == Id::Broadcast) {
+      if (message.senderId() != hubId && senderHub == hubId) {
+         //CERR << "BC: " << message << std::endl;
+         sendHub(message);
+      }
+   }
+   if (message.destId() >= Id::ModuleBase) {
+      if (destHub == hubId) {
+         //CERR << "module: " << message << std::endl;
+         return sendMessage(message.destId(), message);
+      } else {
+         return sendHub(message);
+      }
+   }
+
    switch (message.type()) {
+
+      case Message::IDENTIFY: {
+
+         const Identify &id = static_cast<const message::Identify &>(message);
+         vassert(id.identity() == Identify::UNKNOWN);
+         sendHub(Identify(Identify::MANAGER));
+         auto avail = availableModules();
+         for(const auto &mod: avail) {
+            sendHub(message::ModuleAvailable(hubId, mod.name, mod.path));
+         }
+         break;
+      }
 
       case message::Message::QUIT: {
 
@@ -398,6 +434,17 @@ bool ClusterManager::handle(const message::Message &message) {
 
    }
 
+   if (result) {
+      if (message.typeFlags() & TriggerQueue) {
+         replayMessages();
+      }
+   } else {
+      if (message.typeFlags() & QueueIfUnhandled) {
+         queueMessage(message);
+         result = true;
+      }
+   }
+
    return result;
 }
 
@@ -408,6 +455,14 @@ bool ClusterManager::handlePriv(const message::Trace &trace) {
    } else if (trace.module() == Id::Broadcast) {
       sendAll(trace);
    }
+#if 0
+   if (trace.module() == Id::Broadcast || trace.module() == Communicator::the().hubId()) {
+      if (trace.on())
+         m_traceMessages = trace.messageType();
+      else
+         m_traceMessages = message::Message::INVALID;
+   }
+#endif
    return true;
 }
 

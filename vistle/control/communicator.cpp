@@ -304,103 +304,20 @@ bool Communicator::broadcastAndHandleMessage(const message::Message &message) {
 
 bool Communicator::handleMessage(const message::Message &message) {
 
-   using namespace vistle::message;
-
-   if (m_traceMessages == Message::ANY || message.type() == m_traceMessages) {
-      CERR << "Message: " << message << std::endl;
-   }
-
-   bool result = true;
-   const Message::Type t = message.type();
-   bool handled = true;
-
-   int senderHub = message.senderId();
-   if (senderHub >= Id::ModuleBase)
-      senderHub = m_moduleManager->m_stateTracker.getHub(senderHub);
-   int destHub = message.destId();
-   if (destHub >= Id::ModuleBase)
-      destHub = m_moduleManager->m_stateTracker.getHub(destHub);
-   if (message.typeFlags() & Broadcast || message.destId() == Id::Broadcast) {
-      if (message.senderId() != hubId() && senderHub == hubId()) {
-         //CERR << "BC: " << message << std::endl;
-         sendHub(message);
-      }
-   }
-   if (message.destId() >= Id::ModuleBase) {
-      if (destHub == hubId()) {
-         //CERR << "module: " << message << std::endl;
-         return sendMessage(message.destId(), message);
-      } else {
-         return sendHub(message);
-      }
-   }
-
-   switch (t) {
-      case Message::IDENTIFY: {
-
-         const Identify &id = static_cast<const message::Identify &>(message);
-         vassert(id.identity() == Identify::UNKNOWN);
-         sendHub(Identify(Identify::MANAGER));
-         auto avail = clusterManager().availableModules();
-         for(const auto &mod: avail) {
-            sendHub(message::ModuleAvailable(m_hubId, mod.name, mod.path));
-         }
-         break;
-      }
-
-      case Message::SETID: {
+   switch(message.type()) {
+      case message::Message::SETID: {
          auto set = static_cast<const message::SetId &>(message);
          m_hubId = set.getId();
          CERR << "got id " << m_hubId << std::endl;
          message::DefaultSender::init(m_hubId, m_rank);
+         return true;
          break;
       }
-
-      case Message::QUIT: {
-         auto quit = static_cast<const message::Quit &>(message);
-         CERR << "quit" << std::endl;
-         result = m_moduleManager->handle(quit);
-         break;
-      }
-
-      case message::Message::TRACE: {
-         const Trace &trace = static_cast<const Trace &>(message);
-         if (trace.module() == Id::Broadcast || trace.module() == hubId()) {
-            if (trace.on())
-               m_traceMessages = trace.messageType();
-            else
-               m_traceMessages = Message::INVALID;
-            result = true;
-         }
-
-         result = m_moduleManager->handle(trace);
-         break;
-      }
-
-      default: {
-         handled = m_moduleManager->handle(message);
-         if (!handled) {
-            CERR << "unhandled message from (id "
-               << message.senderId() << " rank " << message.rank() << ") "
-               << "type " << message.type()
-               << std::endl;
-            result = true;
-         }
-         break;
-      }
+      default:
+         return m_moduleManager->handle(message);
    }
 
-   if (handled) {
-      if (message.typeFlags() & TriggerQueue) {
-         m_moduleManager->replayMessages();
-      }
-   } else {
-      if (message.typeFlags() & QueueIfUnhandled) {
-         m_moduleManager->queueMessage(message);
-      }
-   }
-
-   return result;
+   return true;
 }
 
 Communicator::~Communicator() {
