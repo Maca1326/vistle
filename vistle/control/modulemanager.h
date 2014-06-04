@@ -58,7 +58,7 @@ class V_CONTROLEXPORT ClusterManager {
  private:
    void queueMessage(const message::Message &msg);
    void replayMessages();
-   std::vector<char> m_messageQueue;
+   std::vector<message::Buffer> m_messageQueue;
 
    boost::shared_ptr<PortManager> m_portManager;
    StateTracker m_stateTracker;
@@ -79,6 +79,7 @@ class V_CONTROLEXPORT ClusterManager {
    bool handlePriv(const message::ObjectReceived &objRecv);
    bool handlePriv(const message::Barrier &barrier);
    bool handlePriv(const message::BarrierReached &barrierReached);
+   bool handlePriv(const message::SendText &text);
 
    const int m_rank;
    const int m_size;

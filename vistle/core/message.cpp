@@ -71,6 +71,19 @@ Message::Message(const Type t, const unsigned int s)
    assert(m_rank >= 0);
 }
 
+unsigned long Message::typeFlags() const {
+
+   assert(type() > ANY && type() > INVALID && type() < NumMessageTypes);
+   if (type() <= ANY || type() <= INVALID) {
+      return 0;
+   }
+   if (type() >= NumMessageTypes) {
+      return 0;
+   }
+
+   return Router::rt[type()];
+}
+
 const uuid_t &Message::uuid() const {
 
    return m_uuid;

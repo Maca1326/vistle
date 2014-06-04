@@ -69,7 +69,7 @@ Hub::Hub()
 , m_slaveCount(0)
 , m_hubId(Id::Invalid)
 , m_moduleCount(0)
-, m_traceMessages(message::Message::ANY)
+, m_traceMessages(message::Message::INVALID)
 , m_execCount(0)
 {
 
@@ -209,10 +209,13 @@ bool Hub::dispatch() {
          bool received = false;
          if (message::recv(*sock, msg, received) && received) {
             work = true;
-            if (!handleMessage(msg, sock)) {
-               ret = false;
-               break;
+            if (senderType == message::Identify::UI) {
+               ret = m_uiManager.handleMessage(msg, sock);
+            } else {
+               ret = handleMessage(msg, sock);
             }
+            if (!ret)
+               break;
          }
       }
    }
@@ -402,10 +405,6 @@ bool Hub::handleMessage(const message::Message &recv, shared_ptr<asio::ip::tcp::
                processScript();
             }
             m_uiManager.lockUi(false);
-            for (message::Buffer &m: m_uiQueue) {
-               handleMessage(m.msg);
-            }
-            m_uiQueue.clear();
             break;
          }
          case Identify::UI: {
@@ -427,12 +426,6 @@ bool Hub::handleMessage(const message::Message &recv, shared_ptr<asio::ip::tcp::
             break;
          }
       }
-      return true;
-   }
-
-   if (senderType == Identify::UI && m_uiManager.isLocked()) {
-
-      m_uiQueue.emplace_back(msg);
       return true;
    }
 

@@ -49,6 +49,7 @@ VistleConnection::~VistleConnection() {
 
    if (m_quitOnExit) {
       sendMessage(message::Quit());
+      m_quitOnExit = false;
    }
 
    s_instance = nullptr;
@@ -68,23 +69,27 @@ bool VistleConnection::done() const {
 
 void VistleConnection::cancel() {
 
-   if (m_quitOnExit) {
-      sendMessage(message::Quit());
-      m_quitOnExit = false;
+   {
+      mutex_lock lock(m_mutex);
+      if (!m_done) {
+         m_done = true;
+
+         if (m_quitOnExit) {
+            sendMessage(message::Quit());
+            m_quitOnExit = false;
+         }
+      }
    }
 
    mutex_lock lock(m_mutex);
    m_ui.stop();
-   m_done = true;
 }
 
 void VistleConnection::operator()() {
    while(m_ui.dispatch()) {
-      {
-         mutex_lock lock(m_mutex);
-         if (m_done) {
-            break;
-         }
+      mutex_lock lock(m_mutex);
+      if (m_done) {
+         break;
       }
    }
    {

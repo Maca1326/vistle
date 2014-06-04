@@ -40,9 +40,9 @@ void UiClient::cancel() {
    m_done = true;
 }
 
-asio::ip::tcp::socket &UiClient::socket() {
+boost::shared_ptr<asio::ip::tcp::socket> UiClient::socket() {
 
-   return *m_socket;
+   return m_socket;
 }
 
 } // namespace vistle

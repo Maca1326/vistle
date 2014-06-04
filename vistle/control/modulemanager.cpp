@@ -89,7 +89,7 @@ std::vector<AvailableModule> ClusterManager::availableModules() const {
 
 bool ClusterManager::checkBarrier(const message::uuid_t &uuid) const {
 
-   assert(m_barrierActive);
+   vassert(m_barrierActive);
    int numLocal = 0;
    for (const auto &m: m_stateTracker.runningMap) {
       if (m.second.hub == Communicator::the().hubId())
@@ -104,7 +104,7 @@ bool ClusterManager::checkBarrier(const message::uuid_t &uuid) const {
 
 void ClusterManager::barrierReached(const message::uuid_t &uuid) {
 
-   assert(m_barrierActive);
+   vassert(m_barrierActive);
    MPI_Barrier(MPI_COMM_WORLD);
    reachedSet.clear();
    m_barrierActive = false;
@@ -174,8 +174,8 @@ bool ClusterManager::dispatch(bool &received) {
 
 bool ClusterManager::sendAll(const message::Message &message) const {
 
-   // -1 is an invalid module id
-   return sendAllOthers(-1, message);
+   // no module has id Invalid
+   return sendAllOthers(message::Id::Invalid, message);
 }
 
 bool ClusterManager::sendAllOthers(int excluded, const message::Message &message) const {
@@ -263,17 +263,15 @@ bool ClusterManager::handle(const message::Message &message) {
    bool result = true;
    switch (message.type()) {
 
-      case message::Message::TRACE: {
-         const Trace &trace = static_cast<const Trace &>(message);
-         result = handlePriv(trace);
+      case message::Message::QUIT: {
+
+         result = false;
          break;
       }
 
-      case message::Message::QUIT: {
-
-         const message::Quit &quit = static_cast<const message::Quit &>(message);
-         //result = handlePriv(quit);
-         result = false;
+      case message::Message::TRACE: {
+         const Trace &trace = static_cast<const Trace &>(message);
+         result = handlePriv(trace);
          break;
       }
 
@@ -302,7 +300,6 @@ bool ClusterManager::handle(const message::Message &message) {
 
          const message::ModuleExit &moduleExit = static_cast<const message::ModuleExit &>(message);
          result = handlePriv(moduleExit);
-         //sendHub(moduleExit);
          break;
       }
 
@@ -329,7 +326,6 @@ bool ClusterManager::handle(const message::Message &message) {
       case message::Message::BUSY: {
 
          const message::Busy &busy = static_cast<const message::Busy &>(message);
-         //sendHub(busy);
          result = handlePriv(busy);
          break;
       }
@@ -337,7 +333,6 @@ bool ClusterManager::handle(const message::Message &message) {
       case message::Message::IDLE: {
 
          const message::Idle &idle = static_cast<const message::Idle &>(message);
-         ///sendHub(idle);
          result = handlePriv(idle);
          break;
       }
@@ -358,7 +353,6 @@ bool ClusterManager::handle(const message::Message &message) {
       case message::Message::SETPARAMETER: {
 
          const message::SetParameter &m = static_cast<const message::SetParameter &>(message);
-         //sendHub(m);
          result = handlePriv(m);
          break;
       }
@@ -379,18 +373,7 @@ bool ClusterManager::handle(const message::Message &message) {
 
       case message::Message::SENDTEXT: {
          const message::SendText &m = static_cast<const message::SendText &>(message);
-         if (m_rank == 0) {
-            if (Communicator::the().isMaster()) {
-               message::Buffer buf(m);
-               buf.msg.setDestId(Id::MasterHub);
-               sendHub(buf.msg);
-            } else {
-               sendHub(m);
-            }
-         } else {
-            result = Communicator::the().forwardToMaster(m);
-         }
-         //result = m_moduleManager->handle(m);
+         result = handlePriv(m);
          break;
       }
 
@@ -449,6 +432,10 @@ bool ClusterManager::handlePriv(const message::Spawn &spawn) {
       mod.recvQueue = message::MessageQueue::create(rmqName);
    } catch (bi::interprocess_exception &ex) {
 
+      delete mod.sendQueue;
+      mod.sendQueue = nullptr;
+      delete mod.recvQueue;
+      mod.recvQueue = nullptr;
       CERR << "spawn mq " << ex.what() << std::endl;
       exit(-1);
    }
@@ -460,25 +447,9 @@ bool ClusterManager::handlePriv(const message::Spawn &spawn) {
    sendHub(prep);
 
    // inform newly started module about current parameter values of other modules
-   for (auto &mit: m_stateTracker.runningMap) {
-      const int id = mit.first;
-      const std::string moduleName = getModuleName(id);
-
-      message::Spawn spawn(mit.second.hub, moduleName);
-      spawn.setSpawnId(id);
-      sendMessage(newId, spawn);
-
-      for (std::string paramname: m_stateTracker.getParameters(id)) {
-         const Parameter *param = m_stateTracker.getParameter(id, paramname);
-
-         message::AddParameter add(param, moduleName);
-         add.setSenderId(id);
-         sendMessage(newId, add);
-
-         message::SetParameter set(id, paramname, param);
-         set.setSenderId(id);
-         sendMessage(newId, set);
-      }
+   auto state = m_stateTracker.getState();
+   for (const auto &m: state) {
+      sendMessage(newId, m.msg);
    }
 
    return true;
@@ -552,10 +523,8 @@ bool ClusterManager::handlePriv(const message::Disconnect &disconnect) {
 
 bool ClusterManager::handlePriv(const message::ModuleExit &moduleExit) {
 
-   sendAllOthers(moduleExit.senderId(), moduleExit);
-
    int mod = moduleExit.senderId();
-
+   sendAllOthers(mod, moduleExit);
    portManager().removeConnections(mod);
 
    if (!moduleExit.isForwarded()) {
@@ -568,6 +537,7 @@ bool ClusterManager::handlePriv(const message::ModuleExit &moduleExit) {
       if (m_rank == 0) {
          message::ModuleExit exit = moduleExit;
          exit.setForwarded();
+         sendHub(exit);
          if (!Communicator::the().broadcastAndHandleMessage(exit))
             return false;
       }
@@ -598,7 +568,7 @@ bool ClusterManager::handlePriv(const message::ModuleExit &moduleExit) {
 
 bool ClusterManager::handlePriv(const message::Compute &compute) {
 
-   assert (compute.getModule() >= Id::ModuleBase);
+   vassert (compute.getModule() >= Id::ModuleBase);
    RunningMap::iterator i = runningMap.find(compute.getModule());
    if (i != runningMap.end()) {
       i->second.sendQueue->send(compute);
@@ -635,7 +605,7 @@ bool ClusterManager::handlePriv(const message::ExecutionProgress &prog) {
    if (m_rank == 0) {
       switch (prog.stage()) {
          case message::ExecutionProgress::Start: {
-            assert(mod.ranksFinished < m_size);
+            vassert(mod.ranksFinished < m_size);
             ++mod.ranksStarted;
             break;
          }
@@ -643,7 +613,7 @@ bool ClusterManager::handlePriv(const message::ExecutionProgress &prog) {
          case message::ExecutionProgress::Finish: {
             ++mod.ranksFinished;
             if (mod.ranksFinished == m_size) {
-               assert(mod.ranksStarted == m_size);
+               vassert(mod.ranksStarted == m_size);
                mod.ranksFinished = 0;
 
                if (!mod.reducing && mod2.reducePolicy != message::ReducePolicy::Never) {
@@ -704,23 +674,17 @@ bool ClusterManager::handlePriv(const message::Reduce &reduce) {
 
 bool ClusterManager::handlePriv(const message::Busy &busy) {
 
-   //sendAllOthers(busy.senderId(), busy);
-   if (Communicator::the().isMaster()) {
-      message::Buffer buf(busy);
-      buf.msg.setDestId(Id::MasterHub);
-      sendHub(buf.msg);
-   }
+   message::Buffer buf(busy);
+   buf.msg.setDestId(Id::MasterHub);
+   sendHub(buf.msg);
    return true;
 }
 
 bool ClusterManager::handlePriv(const message::Idle &idle) {
 
-   //sendAllOthers(idle.senderId(), idle);
-   if (Communicator::the().isMaster()) {
-      message::Buffer buf(idle);
-      buf.msg.setDestId(Id::MasterHub);
-      sendHub(buf.msg);
-   }
+   message::Buffer buf(idle);
+   buf.msg.setDestId(Id::MasterHub);
+   sendHub(buf.msg);
    return true;
 }
 
@@ -800,7 +764,7 @@ bool ClusterManager::handlePriv(const message::SetParameter &setParam) {
 bool ClusterManager::handlePriv(const message::AddObject &addObj) {
 
    Object::const_ptr obj = addObj.takeObject();
-   assert(obj->refcount() >= 1);
+   vassert(obj->refcount() >= 1);
 #if 0
    std::cerr << "Module " << addObj.senderId() << ": "
       << "AddObject " << addObj.getHandle() << " (" << obj->getName() << ")"
@@ -828,7 +792,7 @@ bool ClusterManager::handlePriv(const message::AddObject &addObj) {
          auto it = m_stateTracker.runningMap.find(destId);
          if (it == m_stateTracker.runningMap.end()) {
             CERR << "port connection to module that is not running" << std::endl;
-            assert("port connection to module that is not running" == 0);
+            vassert("port connection to module that is not running" == 0);
             continue;
          }
          auto &destMod = it->second;
@@ -888,7 +852,7 @@ bool ClusterManager::handlePriv(const message::Barrier &barrier) {
 
 bool ClusterManager::handlePriv(const message::BarrierReached &barrReached) {
 
-   assert(m_barrierActive);
+   vassert(m_barrierActive);
 #ifdef DEBUG
    CERR << "BarrierReached [barrier " << barrReached.uuid() << ", module " << barrReached.senderId() << "]" << std::endl;
 #endif
@@ -902,6 +866,22 @@ bool ClusterManager::handlePriv(const message::BarrierReached &barrReached) {
 #endif
    }
 
+   return true;
+}
+
+bool ClusterManager::handlePriv(const message::SendText &text) {
+
+   if (m_rank == 0) {
+      if (Communicator::the().isMaster()) {
+         message::Buffer buf(text);
+         buf.msg.setDestId(Id::MasterHub);
+         sendHub(buf.msg);
+      } else {
+         sendHub(text);
+      }
+   } else {
+      Communicator::the().forwardToMaster(text);
+   }
    return true;
 }
 
@@ -948,21 +928,18 @@ Parameter *ClusterManager::getParameter(int id, const std::string &name) const {
 
 void ClusterManager::queueMessage(const message::Message &msg) {
 
-   const char *m = static_cast<const char *>(static_cast<const void *>(&msg));
-   std::copy(m, m+message::Message::MESSAGE_SIZE, std::back_inserter(m_messageQueue));
-   //CERR << "queueing " << msg.type() << ", now " << m_messageQueue.size()/message::Message::MESSAGE_SIZE << " in queue" << std::endl;
+   m_messageQueue.emplace_back(msg);
+   CERR << "queueing " << msg.type() << ", now " << m_messageQueue.size() << " in queue" << std::endl;
 }
 
 void ClusterManager::replayMessages() {
 
-   if (Communicator::the().isMaster()) {
-      std::vector<char> queue;
-      std::swap(m_messageQueue, queue);
-      //CERR << "replaying " << queue.size()/message::Message::MESSAGE_SIZE << " messages" << std::endl;
-      for (size_t i=0; i<queue.size(); i+=message::Message::MESSAGE_SIZE) {
-         const message::Message &m = *static_cast<const message::Message *>(static_cast<const void *>(&queue[i]));
-         Communicator::the().handleMessage(m);
-      }
+   std::vector<message::Buffer> queue;
+   std::swap(m_messageQueue, queue);
+   if (!queue.empty())
+      CERR << "replaying " << queue.size() << " messages" << std::endl;
+   for (const auto &m: queue) {
+      Communicator::the().handleMessage(m.msg);
    }
 }
 

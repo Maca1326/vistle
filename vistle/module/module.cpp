@@ -955,7 +955,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          const message::Kill *kill =
             static_cast<const message::Kill *>(message);
          //TODO: uuid should be included in coresponding ModuleExit message
-         if (kill->getModule() == id() || kill->getModule() == -1) {
+         if (kill->getModule() == id() || kill->getModule() == message::Id::Broadcast) {
             return false;
          } else {
             std::cerr << "module [" << name() << "] [" << id() << "] ["
@@ -1045,6 +1045,9 @@ bool Module::handleMessage(const vistle::message::Message *message) {
                other = new Port(conn->getModuleA(), conn->getPortAName(), Port::OUTPUT);
                ports = &port->connections();
             }
+         } else {
+            // ignore: not connected to us
+            break;
          }
 
          if (ports && port && other) {
@@ -1305,6 +1308,9 @@ bool Module::handleMessage(const vistle::message::Message *message) {
       //case Message::ADDPARAMETER:
       case Message::MODULEEXIT:
       case Message::SPAWN:
+      case Message::STARTED:
+      case Message::MODULEAVAILABLE:
+      case Message::REPLAYFINISHED:
          break;
 
       default:
@@ -1326,6 +1332,7 @@ std::string Module::getModuleName(int id) const {
 Module::~Module() {
 
    m_cache.clear();
+   Shm::the().detach();
 
    if (m_origStreambuf)
       std::cerr.rdbuf(m_origStreambuf);
@@ -1333,8 +1340,6 @@ Module::~Module() {
 
    vistle::message::ModuleExit m;
    sendMessage(m);
-
-   Shm::the().detach();
 
    std::cerr << "  module [" << name() << "] [" << id() << "] [" << rank()
              << "/" << size() << "]: I'm quitting" << std::endl;

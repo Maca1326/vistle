@@ -20,7 +20,7 @@ class UiClient {
       void cancel();
       bool done() const;
       UiManager &manager() const;
-      boost::asio::ip::tcp::socket &socket();
+      boost::shared_ptr<boost::asio::ip::tcp::socket> socket();
 
    private:
       UiClient(const UiClient &o);

@@ -251,6 +251,7 @@ void UserInterface::registerObserver(StateObserver *observer) {
 UserInterface::~UserInterface() {
 
    vistle::message::ModuleExit m;
+   m.setDestId(vistle::message::Id::LocalHub);
    sendMessage(m);
 
    std::cerr << "  userinterface [" << host() << "] [" << id()

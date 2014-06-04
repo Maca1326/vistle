@@ -396,14 +396,13 @@ bool StateTracker::handle(const message::Message &msg, bool track) {
          break;
    }
 
-   if (!handled) {
-
-      if (message::Router::rt[msg.type()] & QueueIfUnhandled) {
-         m_queue.emplace_back(msg);
+   if (handled) {
+      if (msg.typeFlags() & TriggerQueue) {
+         processQueue();
       }
    } else {
-      if (message::Router::rt[msg.type()] & TriggerQueue) {
-         processQueue();
+      if (msg.typeFlags() & QueueIfUnhandled) {
+         m_queue.emplace_back(msg);
       }
    }
 
@@ -528,7 +527,8 @@ bool StateTracker::handlePriv(const message::Disconnect &disconnect) {
 
 bool StateTracker::handlePriv(const message::ModuleExit &moduleExit) {
 
-   int mod = moduleExit.senderId();
+   const int mod = moduleExit.senderId();
+   portTracker()->removeConnectionsWithModule(mod);
 
    //CERR << " Module [" << mod << "] quit" << std::endl;
 

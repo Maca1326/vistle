@@ -81,7 +81,6 @@ private:
 
    int m_moduleCount;
    int m_traceMessages;
-   std::vector<message::Buffer> m_uiQueue;
 
    int m_execCount;
 

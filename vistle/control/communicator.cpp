@@ -50,7 +50,7 @@ Communicator::Communicator(int argc, char *argv[], int r, const std::vector<std:
 , m_traceMessages(message::Message::INVALID)
 , m_hubSocket(m_ioService)
 {
-   assert(s_singleton == NULL);
+   vassert(s_singleton == NULL);
    s_singleton = this;
 
    CERR << "started" << std::endl;
@@ -70,7 +70,7 @@ Communicator::Communicator(int argc, char *argv[], int r, const std::vector<std:
 
 Communicator &Communicator::the() {
 
-   assert(s_singleton && "make sure to use the vistle Python module only from within vistle");
+   vassert(s_singleton && "make sure to use the vistle Python module only from within vistle");
    if (!s_singleton)
       exit(1);
    return *s_singleton;
@@ -83,7 +83,7 @@ int Communicator::hubId() const {
 
 bool Communicator::isMaster() const {
 
-   assert(m_hubId <= Id::MasterHub); // make sure that hub id has already been set
+   vassert(m_hubId <= Id::MasterHub); // make sure that hub id has already been set
    return m_hubId == Id::MasterHub;
 }
 
@@ -175,7 +175,7 @@ bool Communicator::dispatch(bool *work) {
       MPI_Test(&m_reqToRank0, &flag, &status);
       if (flag && status.MPI_TAG == TagToRank0) {
 
-         assert(m_rank == 0);
+         vassert(m_rank == 0);
          received = true;
          message::Message *message = (message::Message *) m_recvBufTo0.data();
          if (message->broadcast()) {
@@ -219,6 +219,7 @@ bool Communicator::dispatch(bool *work) {
       message::Buffer buf;
       bool gotMsg = false;
       if (!message::recv(m_hubSocket, buf.msg, gotMsg)) {
+         broadcastAndHandleMessage(message::Quit());
          done = true;
       } else if (gotMsg) {
          received = true;
@@ -259,7 +260,7 @@ bool Communicator::sendMessage(const int moduleId, const message::Message &messa
 
 bool Communicator::forwardToMaster(const message::Message &message) {
 
-   assert(m_rank != 0);
+   vassert(m_rank != 0);
    if (m_rank != 0) {
 
       MPI_Send(const_cast<message::Message *>(&message), message.m_size, MPI_BYTE, 0, TagToRank0, MPI_COMM_WORLD);
@@ -319,7 +320,7 @@ bool Communicator::handleMessage(const message::Message &message) {
    int destHub = message.destId();
    if (destHub >= Id::ModuleBase)
       destHub = m_moduleManager->m_stateTracker.getHub(destHub);
-   if (Router::rt[t] & Broadcast || message.destId() == Id::Broadcast) {
+   if (message.typeFlags() & Broadcast || message.destId() == Id::Broadcast) {
       if (message.senderId() != hubId() && senderHub == hubId()) {
          //CERR << "BC: " << message << std::endl;
          sendHub(message);
@@ -329,6 +330,8 @@ bool Communicator::handleMessage(const message::Message &message) {
       if (destHub == hubId()) {
          //CERR << "module: " << message << std::endl;
          return sendMessage(message.destId(), message);
+      } else {
+         return sendHub(message);
       }
    }
 
@@ -336,7 +339,7 @@ bool Communicator::handleMessage(const message::Message &message) {
       case Message::IDENTIFY: {
 
          const Identify &id = static_cast<const message::Identify &>(message);
-         assert(id.identity() == Identify::UNKNOWN);
+         vassert(id.identity() == Identify::UNKNOWN);
          sendHub(Identify(Identify::MANAGER));
          auto avail = clusterManager().availableModules();
          for(const auto &mod: avail) {
@@ -356,14 +359,12 @@ bool Communicator::handleMessage(const message::Message &message) {
       case Message::QUIT: {
          auto quit = static_cast<const message::Quit &>(message);
          CERR << "quit" << std::endl;
-         sendHub(quit);
-         result = false;
+         result = m_moduleManager->handle(quit);
          break;
       }
 
       case message::Message::TRACE: {
          const Trace &trace = static_cast<const Trace &>(message);
-         sendHub(trace);
          if (trace.module() == Id::Broadcast || trace.module() == hubId()) {
             if (trace.on())
                m_traceMessages = trace.messageType();
@@ -379,27 +380,19 @@ bool Communicator::handleMessage(const message::Message &message) {
       case message::Message::SENDTEXT: {
          const message::SendText &m = static_cast<const message::SendText &>(message);
          if (m_rank == 0) {
-            if (isMaster()) {
-               message::Buffer buf(m);
-               buf.msg.setDestId(Id::MasterHub);
-               sendHub(buf.msg);
-            } else {
-               sendHub(m);
-            }
+            message::Buffer buf(m);
+            buf.msg.setDestId(Id::MasterHub);
+            sendHub(buf.msg);
          } else {
             result = forwardToMaster(m);
          }
-         //result = m_moduleManager->handle(m);
          break;
       }
 
-      case Message::SETPARAMETER:
-         break;
+      default: {
 
-      default:
-
-         result = m_moduleManager->handle(message);
-         if (!result) {
+         handled = m_moduleManager->handle(message);
+         if (!handled) {
             CERR << "unhandled message from (id "
                << message.senderId() << " rank " << message.rank() << ") "
                << "type " << message.type()
@@ -408,16 +401,16 @@ bool Communicator::handleMessage(const message::Message &message) {
          }
 
          break;
-
+      }
    }
 
-   if (!handled) {
-      if (Router::rt[t] & QueueIfUnhandled) {
-         m_moduleManager->queueMessage(message);
+   if (handled) {
+      if (message.typeFlags() & TriggerQueue) {
+         m_moduleManager->replayMessages();
       }
    } else {
-      if (Router::rt[t] & TriggerQueue) {
-         m_moduleManager->replayMessages();
+      if (message.typeFlags() & QueueIfUnhandled) {
+         m_moduleManager->queueMessage(message);
       }
    }
 

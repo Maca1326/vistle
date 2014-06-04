@@ -114,6 +114,9 @@ class V_COREEXPORT Message {
    Message(const Type type, const unsigned int size);
    // Message (or its subclasses) may not require destructors
 
+   //! processing flags for messages of a type, composed of RoutingFlags
+   unsigned long typeFlags() const;
+
    //! message uuid - copied to related messages (i.e. responses or errors)
    const uuid_t &uuid() const;
    //! set message uuid
@@ -800,6 +803,8 @@ enum RoutingFlags {
 
 class V_COREEXPORT Router {
 
+   friend class Message;
+
  public:
    static Router &the();
    static void init(Identify::Identity identity, int id);
@@ -812,8 +817,8 @@ class V_COREEXPORT Router {
    bool toTracker(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN);
    bool toHandler(const Message &msg, Identify::Identity senderType=Identify::UNKNOWN);
 
-   static unsigned rt[Message::NumMessageTypes];
  private:
+   static unsigned rt[Message::NumMessageTypes];
    Router();
    Identify::Identity m_identity;
    int m_id;
