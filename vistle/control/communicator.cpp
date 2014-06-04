@@ -168,7 +168,7 @@ bool Communicator::dispatch(bool *work) {
       }
    }
 
-   // handle or broadcast messages received from slaves (m_rank > 0)
+   // handle or broadcast messages received from slaves (rank > 0)
    if (m_rank == 0) {
       int flag;
       MPI_Status status;
@@ -189,11 +189,11 @@ bool Communicator::dispatch(bool *work) {
       }
    }
 
-   // test for message m_size from another MPI node
-   //    - receive actual message from broadcast (on any m_rank)
-   //    - receive actual message from slave m_rank (on m_rank 0) for broadcasting
+   // test for message size from another MPI node
+   //    - receive actual message from broadcast (on any rank)
+   //    - receive actual message from slave rank (on rank 0) for broadcasting
    //    - handle message
-   //    - post another MPI receive for m_size of next message
+   //    - post another MPI receive for size of next message
    int flag;
    MPI_Status status;
    MPI_Test(&m_reqAny, &flag, &status);
@@ -296,7 +296,7 @@ bool Communicator::broadcastAndHandleMessage(const message::Message &message) {
    } else {
       MPI_Send(const_cast<message::Message *>(&message), message.m_size, MPI_BYTE, 0, TagToRank0, MPI_COMM_WORLD);
 
-      // message will be handled when received again from m_rank 0
+      // message will be handled when received again from rank 0
       return true;
    }
 }
