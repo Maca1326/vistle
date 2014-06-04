@@ -137,6 +137,8 @@ static int waitForSpawn(const std::string &uuid) {
    if (buf->msg.type() == message::Message::SPAWN) {
       auto spawn = static_cast<const message::Spawn &>(buf->msg);
       return spawn.spawnId();
+   } else {
+      std::cerr << "waitForSpawn: got " << buf->msg << std::endl;
    }
 
    return message::Id::Invalid;

@@ -1084,7 +1084,7 @@ void Router::initRoutingTable() {
    rt[M::SETID]                 = Special;
    rt[M::REPLAYFINISHED]        = Special;
    rt[M::TRACE]                 = Broadcast|Track;
-   rt[M::SPAWN]                 = Broadcast|Track|HandleOnMaster;
+   rt[M::SPAWN]                 = Track|HandleOnMaster;
    rt[M::SPAWNPREPARED]         = DestLocalHub|HandleOnHub;
    rt[M::STARTED]               = Broadcast|Track|DestUi;
    rt[M::MODULEEXIT]            = Broadcast|Track|DestUi;
