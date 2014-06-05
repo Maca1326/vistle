@@ -1297,8 +1297,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
       case message::Message::BARRIER: {
 
          const message::Barrier *barrier = static_cast<const message::Barrier *>(message);
-         message::BarrierReached reached;
-         reached.setUuid(barrier->uuid());
+         message::BarrierReached reached(barrier->uuid());
          reached.setDestId(Id::LocalManager);
          sendMessage(reached);
          break;

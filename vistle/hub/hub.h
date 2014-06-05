@@ -62,7 +62,6 @@ private:
 
    StateTracker m_stateTracker;
    UiManager m_uiManager;
-   int m_uiCount;
 
    std::map<process_handle, int> m_processMap;
    bool m_managerConnected;
@@ -84,7 +83,13 @@ private:
 
    int m_execCount;
 
+   bool m_barrierActive;
+   int m_barrierReached;
+   message::uuid_t m_barrierUuid;
+
    bool handlePriv(const message::Compute &compute);
+   bool handlePriv(const message::Barrier &barrier);
+   bool handlePriv(const message::BarrierReached &reached);
 };
 
 }

@@ -100,6 +100,7 @@ BOOST_PYTHON_FUNCTION_OVERLOADS(trace_overloads, trace, 0, 3)
 
 static bool barrier() {
    message::Barrier m;
+   m.setDestId(message::Id::MasterHub);
    MODULEMANAGER.registerRequest(m.uuid());
    sendMessage(m);
    auto buf = MODULEMANAGER.waitForReply(m.uuid());

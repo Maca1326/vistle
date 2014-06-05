@@ -29,7 +29,7 @@ UserInterface::UserInterface(const std::string &host, const unsigned short port,
 , m_socket(m_ioService)
 , m_locked(false)
 {
-   message::DefaultSender::init(message::Id::Default, 0);
+   message::DefaultSender::init(message::Id::UI, 0);
 
    if (observer)
       m_stateTracker.registerObserver(observer);

@@ -14,8 +14,9 @@ namespace vistle {
 UiManager::UiManager(Hub &hub, StateTracker &stateTracker)
 : m_hub(hub)
 , m_stateTracker(stateTracker)
-, m_requestQuit(false)
 , m_locked(false)
+, m_requestQuit(false)
+, m_uiCount(0)
 {
 }
 
@@ -85,9 +86,12 @@ void UiManager::disconnect() {
    m_clients.clear();
 }
 
-void UiManager::addClient(boost::shared_ptr<UiClient> c) {
+void UiManager::addClient(boost::shared_ptr<boost::asio::ip::tcp::socket> sock) {
 
-   m_clients.insert(std::make_pair(c->socket(), c));
+   ++m_uiCount;
+   boost::shared_ptr<UiClient> c(new UiClient(*this, m_uiCount, sock));
+
+   m_clients.insert(std::make_pair(sock, c));
 
    if (m_requestQuit) {
 

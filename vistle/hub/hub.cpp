@@ -62,15 +62,16 @@ Hub::Hub()
 , m_acceptor(m_ioService)
 , m_stateTracker("Hub state")
 , m_uiManager(*this, m_stateTracker)
-, m_uiCount(0)
 , m_managerConnected(false)
 , m_quitting(false)
 , m_isMaster(true)
 , m_slaveCount(0)
 , m_hubId(Id::Invalid)
 , m_moduleCount(0)
-, m_traceMessages(message::Message::INVALID)
+, m_traceMessages(message::Message::ANY)
 , m_execCount(0)
+, m_barrierActive(false)
+, m_barrierReached(0)
 {
 
    vassert(!hub_instance);
@@ -408,9 +409,7 @@ bool Hub::handleMessage(const message::Message &recv, shared_ptr<asio::ip::tcp::
             break;
          }
          case Identify::UI: {
-            ++m_uiCount;
-            boost::shared_ptr<UiClient> c(new UiClient(m_uiManager, m_uiCount, sock));
-            m_uiManager.addClient(c);
+            m_uiManager.addClient(sock);
             break;
          }
          case Identify::HUB: {
@@ -578,6 +577,18 @@ bool Hub::handleMessage(const message::Message &recv, shared_ptr<asio::ip::tcp::
          case Message::COMPUTE: {
             auto &comp = static_cast<const Compute &>(msg);
             handlePriv(comp);
+            break;
+         }
+
+         case Message::BARRIER: {
+            auto &barr = static_cast<const Barrier &>(msg);
+            handlePriv(barr);
+            break;
+         }
+
+         case Message::BARRIERREACHED: {
+            auto &reached = static_cast<const BarrierReached &>(msg);
+            handlePriv(reached);
             break;
          }
 
@@ -809,6 +820,33 @@ bool Hub::handlePriv(const message::Compute &compute) {
    return true;
 }
 
+bool Hub::handlePriv(const message::Barrier &barrier) {
+
+   CERR << "Barrier request: " << barrier.uuid() << " by " << barrier.senderId() << std::endl;
+   vassert(!m_barrierActive);
+   vassert(m_barrierReached == 0);
+   m_barrierActive = true;
+   m_barrierUuid = barrier.uuid();
+   sendSlaves(barrier);
+   sendManager(barrier);
+   return true;
+}
+
+bool Hub::handlePriv(const message::BarrierReached &reached) {
+
+   ++m_barrierReached;
+   CERR << "Barrier " << reached.uuid() << " reached by " << reached.senderId() << " (now " << m_barrierReached << ")" << std::endl;
+   vassert(m_barrierActive);
+   vassert(m_barrierUuid == reached.uuid());
+   // message must be received from local manager and each slave
+   if (m_barrierReached == m_slaveSockets.size()+1) {
+      m_barrierActive = false;
+      m_barrierReached = 0;
+      sendSlaves(reached);
+      sendManager(reached);
+   }
+   return true;
+}
 
 int main(int argc, char *argv[]) {
 

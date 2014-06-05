@@ -35,7 +35,8 @@ class V_CONTROLEXPORT ClusterManager {
 
    bool sendMessage(int receiver, const message::Message &message) const;
    bool sendAll(const message::Message &message) const;
-   bool sendAllOthers(int excluded, const message::Message &message) const;
+   bool sendAllLocal(const message::Message &message) const;
+   bool sendAllOthers(int excluded, const message::Message &message, bool localOnly=false) const;
    bool sendUi(const message::Message &message) const;
    bool sendHub(const message::Message &message) const;
 

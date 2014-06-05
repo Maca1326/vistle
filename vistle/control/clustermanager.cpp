@@ -107,10 +107,9 @@ void ClusterManager::barrierReached(const message::uuid_t &uuid) {
    vassert(m_barrierActive);
    MPI_Barrier(MPI_COMM_WORLD);
    reachedSet.clear();
-   m_barrierActive = false;
    CERR << "Barrier [" << uuid << "] reached" << std::endl;
-   message::BarrierReached m;
-   m.setUuid(uuid);
+   message::BarrierReached m(uuid);
+   m.setDestId(message::Id::MasterHub);
    sendHub(m);
 }
 
@@ -178,26 +177,29 @@ bool ClusterManager::sendAll(const message::Message &message) const {
    return sendAllOthers(message::Id::Invalid, message);
 }
 
-bool ClusterManager::sendAllOthers(int excluded, const message::Message &message) const {
+bool ClusterManager::sendAllLocal(const message::Message &message) const {
 
-#if 1
+   // no module has id Invalid
+   return sendAllOthers(message::Id::Invalid, message, true);
+}
+
+bool ClusterManager::sendAllOthers(int excluded, const message::Message &message, bool localOnly) const {
+
    message::Buffer buf(message);
-   if (Communicator::the().isMaster()) {
-      buf.msg.setDestId(Id::Broadcast);
-      sendHub(buf.msg);
-   } else {
-      int senderHub = message.senderId();
-      if (senderHub >= Id::ModuleBase)
-         senderHub = m_stateTracker.getHub(senderHub);
-      if (senderHub == Communicator::the().hubId()) {
-         buf.msg.setDestId(Id::ForBroadcast);
+   if (!localOnly) {
+      if (Communicator::the().isMaster()) {
+         buf.msg.setDestId(Id::Broadcast);
          sendHub(buf.msg);
+      } else {
+         int senderHub = message.senderId();
+         if (senderHub >= Id::ModuleBase)
+            senderHub = m_stateTracker.getHub(senderHub);
+         if (senderHub == Communicator::the().hubId()) {
+            buf.msg.setDestId(Id::Broadcast);
+            sendHub(buf.msg);
+         }
       }
    }
-#else
-   if (message.senderId() != Communicator::the().hubId())
-      sendHub(message);
-#endif
 
    // handle messages to modules
    for(auto it = runningMap.begin(), next = it;
@@ -273,6 +275,9 @@ bool ClusterManager::handle(const message::Message &message) {
       if (message.senderId() != hubId && senderHub == hubId) {
          //CERR << "BC: " << message << std::endl;
          sendHub(message);
+      }
+      if (message.typeFlags() & BroadcastModule) {
+         sendAllLocal(message);
       }
    }
    if (message.destId() >= Id::ModuleBase) {
@@ -901,7 +906,7 @@ bool ClusterManager::handlePriv(const message::Barrier &barrier) {
    if (checkBarrier(m_barrierUuid)) {
       barrierReached(m_barrierUuid);
    } else {
-      sendAll(barrier);
+      sendAllLocal(barrier);
    }
    return true;
 }
@@ -914,12 +919,19 @@ bool ClusterManager::handlePriv(const message::BarrierReached &barrReached) {
 #endif
    reachedSet.insert(barrReached.senderId());
 
-   if (checkBarrier(m_barrierUuid)) {
-      barrierReached(m_barrierUuid);
+   if (barrReached.senderId() >= Id::ModuleBase) {
+      if (checkBarrier(m_barrierUuid)) {
+         barrierReached(m_barrierUuid);
 #ifdef DEBUG
-   } else {
-      CERR << "BARRIER: reached by " << reachedSet.size() << "/" << numRunning() << std::endl;
+      } else {
+         CERR << "BARRIER: reached by " << reachedSet.size() << "/" << numRunning() << std::endl;
 #endif
+      }
+   } else if (barrReached.senderId() == Id::MasterHub) {
+
+      m_barrierActive = false;
+   } else {
+      CERR << "BARRIER: BarrierReached message from invalid sender " << barrReached.senderId() << std::endl;
    }
 
    return true;
@@ -944,7 +956,7 @@ bool ClusterManager::handlePriv(const message::SendText &text) {
 bool ClusterManager::quit() {
 
    if (!m_quitFlag)
-      sendAll(message::Kill(message::Id::Broadcast));
+      sendAllLocal(message::Kill(message::Id::Broadcast));
 
    // receive all ModuleExit messages from modules
    // retry for some time, modules that don't answer might have crashed

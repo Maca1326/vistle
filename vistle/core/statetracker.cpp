@@ -391,7 +391,7 @@ bool StateTracker::handle(const message::Message &msg, bool track) {
       }
 
       default:
-         CERR << "message type not handled: type=" << msg.type() << std::endl;
+         CERR << "message type not handled: " << msg << std::endl;
          assert("message type not handled" == 0);
          break;
    }

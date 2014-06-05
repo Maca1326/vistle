@@ -27,7 +27,7 @@ static T min(T a, T b) { return a<b ? a : b; }
 DefaultSender DefaultSender::s_instance;
 
 DefaultSender::DefaultSender()
-: m_id(Id::Default)
+: m_id(Id::Invalid)
 , m_rank(-1)
 {
    Router::the();
@@ -58,15 +58,17 @@ static boost::uuids::random_generator s_uuidGenerator = boost::uuids::random_gen
 
 Message::Message(const Type t, const unsigned int s)
 : m_broadcast(false)
-, m_uuid(t == Message::INVALID ? boost::uuids::nil_generator()() : s_uuidGenerator())
+, m_uuid(t == Message::ANY ? boost::uuids::nil_generator()() : s_uuidGenerator())
 , m_size(s)
 , m_type(t)
 , m_senderId(DefaultSender::id())
 , m_rank(DefaultSender::rank())
-, m_destId(Id::Default)
+, m_destId(Id::NextHop)
 {
 
    assert(m_size <= MESSAGE_SIZE);
+   assert(m_type > INVALID);
+   assert(m_type < NumMessageTypes);
 
    assert(m_rank >= 0);
 }
@@ -839,9 +841,10 @@ Barrier::Barrier()
 {
 }
 
-BarrierReached::BarrierReached()
+BarrierReached::BarrierReached(const vistle::message::uuid_t &uuid)
 : Message(Message::BARRIERREACHED, sizeof(BarrierReached))
 {
+   setUuid(uuid);
 }
 
 SetId::SetId(const int id)
@@ -1098,10 +1101,10 @@ void Router::initRoutingTable() {
    rt[M::ADDPARAMETER]          = Broadcast|Track|DestUi|TriggerQueue;
    rt[M::CONNECT]               = Track|Broadcast|QueueIfUnhandled|DestManager;
    rt[M::DISCONNECT]            = Track|Broadcast|QueueIfUnhandled|DestManager;
-   rt[M::SETPARAMETER]          = Track|Broadcast|QueueIfUnhandled|DestManager;
-   rt[M::SETPARAMETERCHOICES]   = Track|Broadcast|QueueIfUnhandled|DestManager;
+   rt[M::SETPARAMETER]          = Track|QueueIfUnhandled|DestManager;
+   rt[M::SETPARAMETERCHOICES]   = Track|QueueIfUnhandled|DestManager;
    rt[M::PING]                  = DestModules|HandleOnDest;
-   rt[M::PONG]                  = HandleOnDest;
+   rt[M::PONG]                  = DestUi|HandleOnDest;
    rt[M::BUSY]                  = DestUi|DestMasterHub;
    rt[M::IDLE]                  = DestUi|DestMasterHub;
    rt[M::LOCKUI]                = DestUi;
@@ -1114,8 +1117,8 @@ void Router::initRoutingTable() {
 
    rt[M::ADDOBJECT]             = DestLocalManager|HandleOnNode;
 
-   rt[M::BARRIER]               = Broadcast|HandleOnMaster;
-   rt[M::BARRIERREACHED]        = Broadcast|HandleOnMaster;
+   rt[M::BARRIER]               = Broadcast|HandleOnDest;
+   rt[M::BARRIERREACHED]        = HandleOnDest|DestUi;
    rt[M::OBJECTRECEIVED]        = HandleOnRank0;
 
    for (int i=M::ANY+1; i<M::NumMessageTypes; ++i) {
@@ -1280,7 +1283,7 @@ bool Router::toTracker(const Message &msg, Identify::Identity senderType) {
 bool Router::toHandler(const Message &msg, Identify::Identity senderType) {
 
    const int t = msg.type();
-   if (msg.destId() == Id::Default || msg.destId() == Id::Broadcast || msg.destId() == m_id) {
+   if (msg.destId() == Id::NextHop || msg.destId() == Id::Broadcast || msg.destId() == m_id) {
       return true;
    }
    if (m_identity == Identify::HUB) {

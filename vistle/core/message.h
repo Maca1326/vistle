@@ -27,13 +27,14 @@ struct Id {
 
    enum Reserved {
       ModuleBase = 1, //< >= ModuleBase: modules
-      Default = 0,
+      Invalid = 0,
       Broadcast = -1, //< master is broadcasting
-      ForBroadcast = -2, //< to master for broadcasting
-      Invalid = -3,
-      LocalManager = -4,
-      LocalHub = -5,
-      MasterHub = -6, //< < MasterHub: slave hubs
+      NextHop = -2,
+      UI = -3,
+      ForBroadcast = -4, //< to master for broadcasting
+      LocalManager = -5,
+      LocalHub = -6,
+      MasterHub = -7, //< < MasterHub: slave hubs
    };
 };
 
@@ -574,7 +575,7 @@ BOOST_STATIC_ASSERT(sizeof(Barrier) <= Message::MESSAGE_SIZE);
 class V_COREEXPORT BarrierReached: public Message {
 
  public:
-   BarrierReached();
+   BarrierReached(const uuid_t &uuid);
 };
 BOOST_STATIC_ASSERT(sizeof(BarrierReached) <= Message::MESSAGE_SIZE);
 
@@ -748,7 +749,7 @@ BOOST_STATIC_ASSERT(sizeof(LockUi) <= Message::MESSAGE_SIZE);
 
 union V_COREEXPORT Buffer {
 
-   Buffer(): msg(Message::INVALID, Message::MESSAGE_SIZE) {}
+   Buffer(): msg(Message::ANY, Message::MESSAGE_SIZE) {}
 
    Buffer(const Message &msg) {
 
