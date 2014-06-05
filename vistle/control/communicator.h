@@ -47,7 +47,7 @@ class V_CONTROLEXPORT Communicator {
  private:
    bool sendHub(const message::Message &message);
 
-   ClusterManager *m_moduleManager;
+   ClusterManager *m_clusterManager;
 
    bool isMaster() const;
    int m_hubId;

@@ -198,7 +198,7 @@ BOOST_STATIC_ASSERT(sizeof(Ping) <= Message::MESSAGE_SIZE);
 class V_COREEXPORT Pong: public Message {
 
  public:
-   Pong(const char c, const int module);
+   Pong(const Ping &ping);
 
    char getCharacter() const;
    int getDestination() const;

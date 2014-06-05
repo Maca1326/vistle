@@ -159,9 +159,10 @@ char Ping::getCharacter() const {
    return character;
 }
 
-Pong::Pong(const char c, const int module)
-   : Message(Message::PONG, sizeof(Pong)), character(c), module(module) {
+Pong::Pong(const Ping &ping)
+   : Message(Message::PONG, sizeof(Pong)), character(ping.getCharacter()), module(ping.senderId()) {
 
+   setUuid(ping.uuid());
 }
 
 char Pong::getCharacter() const {
@@ -1099,8 +1100,8 @@ void Router::initRoutingTable() {
    rt[M::DISCONNECT]            = Track|Broadcast|QueueIfUnhandled|DestManager;
    rt[M::SETPARAMETER]          = Track|Broadcast|QueueIfUnhandled|DestManager;
    rt[M::SETPARAMETERCHOICES]   = Track|Broadcast|QueueIfUnhandled|DestManager;
-   rt[M::PING]                  = Broadcast;
-   rt[M::PONG]                  = Broadcast;
+   rt[M::PING]                  = DestModules|HandleOnDest;
+   rt[M::PONG]                  = HandleOnDest;
    rt[M::BUSY]                  = DestUi|DestMasterHub;
    rt[M::IDLE]                  = DestUi|DestMasterHub;
    rt[M::LOCKUI]                = DestUi;

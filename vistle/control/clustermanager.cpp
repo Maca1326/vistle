@@ -22,7 +22,7 @@
 #include <core/parameter.h>
 #include <util/findself.h>
 
-#include "modulemanager.h"
+#include "clustermanager.h"
 #include "communicator.h"
 
 #ifdef NOHUB
@@ -261,7 +261,6 @@ bool ClusterManager::handle(const message::Message &message) {
    m_stateTracker.handle(message);
 
    bool result = true;
-   const Message::Type t = message.type();
    const int hubId = Communicator::the().hubId();
 
    int senderHub = message.senderId();
@@ -421,6 +420,8 @@ bool ClusterManager::handle(const message::Message &message) {
       case Message::REPLAYFINISHED:
       case Message::REDUCEPOLICY:
       case Message::OBJECTRECEIVEPOLICY:
+      case Message::PING:
+      case Message::PONG:
          break;
 
       default:
@@ -894,7 +895,7 @@ bool ClusterManager::handlePriv(const message::AddObject &addObj) {
 bool ClusterManager::handlePriv(const message::Barrier &barrier) {
 
    m_barrierActive = true;
-   sendHub(barrier);
+   //sendHub(barrier);
    CERR << "Barrier [" << barrier.uuid() << "]" << std::endl;
    m_barrierUuid = barrier.uuid();
    if (checkBarrier(m_barrierUuid)) {

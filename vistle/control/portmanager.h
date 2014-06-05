@@ -22,7 +22,7 @@ class V_CONTROLEXPORT PortManager: public PortTracker {
 
  private:
 
-   ClusterManager *m_moduleManager;
+   ClusterManager *m_clusterManager;
 };
 } // namespace vistle
 

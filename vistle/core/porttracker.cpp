@@ -94,7 +94,7 @@ Port * PortTracker::getPort(const int moduleID,
          size_t idx=0;
          idxstr >> idx;
          Port *port = parent->child(idx);
-         m_moduleManager->sendMessage(moduleID, message::CreatePort(port));
+         m_clusterManager->sendMessage(moduleID, message::CreatePort(port));
          return port;
       }
    }

@@ -907,8 +907,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          std::cerr << "    module [" << name() << "] [" << id() << "] ["
                    << rank() << "/" << size() << "] ping ["
                    << ping->getCharacter() << "]" << std::endl;
-         vistle::message::Pong m(ping->getCharacter(), ping->senderId());
-         m.setUuid(ping->uuid());
+         vistle::message::Pong m(*ping);
          m.setDestId(ping->senderId());
          sendMessage(m);
          break;

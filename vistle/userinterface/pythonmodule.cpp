@@ -75,14 +75,16 @@ static void quit() {
    sendMessage(m);
 }
 
-static void ping(char c) {
+static void ping(int dest=message::Id::Broadcast, char c='.') {
 
 #ifdef DEBUG
    std::cerr << "Python: ping: " << c << std::endl;
 #endif
    message::Ping m(c);
+   m.setDestId(dest);
    sendMessage(m);
 }
+BOOST_PYTHON_FUNCTION_OVERLOADS(ping_overloads, ping, 0, 2)
 
 static void trace(int id=message::Id::Broadcast, message::Message::Type type=message::Message::ANY, bool onoff = true) {
 
@@ -403,7 +405,7 @@ BOOST_PYTHON_MODULE(_vistle)
     def("disconnect", disconnect, "disconnect output `arg2` of module with ID `arg1` to input `arg4` of module with ID `arg3`");
     def("compute", compute, compute_overloads(args("module id"), "trigger execution of module with ID `arg1`"));
     def("quit", quit, "quit vistle session");
-    def("ping", ping, "send first character of `arg1` to every vistle process");
+    def("ping", ping, ping_overloads(args("id", "data"), "send first character of `arg2` to destination `arg1`"));
     def("trace", trace, trace_overloads(args("id", "enable"), "enable/disable message tracing for module `arg1`"));
     def("barrier", barrier, "wait until all modules reply");
     //def("checkMessageQueue", checkMessageQueue, "check whether all messages have been processed");

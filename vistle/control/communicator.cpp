@@ -20,7 +20,7 @@
 #include <util/sleep.h>
 
 #include "communicator.h"
-#include "modulemanager.h"
+#include "clustermanager.h"
 
 #define CERR \
    std::cerr << "comm [" << m_rank << "/" << m_size << "] "
@@ -41,7 +41,7 @@ enum MpiTags {
 Communicator *Communicator::s_singleton = NULL;
 
 Communicator::Communicator(int argc, char *argv[], int r, const std::vector<std::string> &hosts)
-: m_moduleManager(new ClusterManager(argc, argv, r, hosts))
+: m_clusterManager(new ClusterManager(argc, argv, r, hosts))
 , m_hubId(message::Id::Invalid)
 , m_rank(r)
 , m_size(hosts.size())
@@ -133,7 +133,7 @@ bool Communicator::sendHub(const message::Message &message) {
 
 bool Communicator::scanModules(const std::string &dir) {
 
-    return m_moduleManager->scanModules(dir);
+    return m_clusterManager->scanModules(dir);
 }
 
 void Communicator::setQuitFlag() {
@@ -230,21 +230,21 @@ bool Communicator::dispatch(bool *work) {
 
    // test for messages from modules
    if (done) {
-      if (m_moduleManager) {
-         m_moduleManager->quit();
+      if (m_clusterManager) {
+         m_clusterManager->quit();
          m_quitFlag = false;
          done = false;
       }
    }
-   if (m_moduleManager->quitOk()) {
+   if (m_clusterManager->quitOk()) {
       done = true;
    }
-   if (!done && m_moduleManager) {
-      done = !m_moduleManager->dispatch(received);
+   if (!done && m_clusterManager) {
+      done = !m_clusterManager->dispatch(received);
    }
    if (done) {
-      delete m_moduleManager;
-      m_moduleManager = nullptr;
+      delete m_clusterManager;
+      m_clusterManager = nullptr;
    }
 
    if (work)
@@ -314,7 +314,7 @@ bool Communicator::handleMessage(const message::Message &message) {
          break;
       }
       default:
-         return m_moduleManager->handle(message);
+         return m_clusterManager->handle(message);
    }
 
    return true;
@@ -322,8 +322,8 @@ bool Communicator::handleMessage(const message::Message &message) {
 
 Communicator::~Communicator() {
 
-   delete m_moduleManager;
-   m_moduleManager = NULL;
+   delete m_clusterManager;
+   m_clusterManager = NULL;
 
    if (m_size > 1) {
       int dummy = 0;
@@ -342,7 +342,7 @@ Communicator::~Communicator() {
 
 ClusterManager &Communicator::clusterManager() const {
 
-   return *m_moduleManager;
+   return *m_clusterManager;
 }
 
 } // namespace vistle
