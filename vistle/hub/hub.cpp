@@ -229,6 +229,20 @@ bool Hub::dispatch() {
       } else {
          CERR << "process with id " << it->second << " (PID " << pid << ") exited" << std::endl;
          m_processMap.erase(it);
+         if (it->second == 0) {
+            // manager died
+            if (!m_quitting) {
+               CERR << "manager died - cannot continue" << std::endl;
+               for (auto ent: m_processMap) {
+                  vistle::kill_process(ent.first);
+               }
+               if (startCleaner()) {
+                  m_quitting = true;
+               } else {
+                  exit(1);
+               }
+            }
+         }
       }
    }
 
@@ -721,6 +735,24 @@ bool Hub::init(int argc, char *argv[]) {
    }
    m_processMap[pid] = 0;
 
+   return true;
+}
+
+bool Hub::startCleaner() {
+
+   // run clean_vistle on cluster
+   std::string cmd = m_bindir + "/clean_vistle";
+   std::vector<std::string> args;
+   args.push_back("spawn_vistle.sh");
+   args.push_back(cmd);
+   std::string shmname = Shm::instanceName(hostname(), m_port);
+   args.push_back(shmname);
+   auto pid = vistle::spawn_process("spawn_vistle.sh", args);
+   if (!pid) {
+      CERR << "failed to spawn clean_vistle" << std::endl;
+      return false;
+   }
+   m_processMap[pid] = -1;
    return true;
 }
 

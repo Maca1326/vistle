@@ -50,6 +50,7 @@ private:
    bool removeSocket(boost::shared_ptr<boost::asio::ip::tcp::socket> sock);
    void addClient(boost::shared_ptr<boost::asio::ip::tcp::socket> sock);
    void addSlave(int id, boost::shared_ptr<boost::asio::ip::tcp::socket> sock);
+   bool startCleaner();
 
    int idToHub(int id) const;
 

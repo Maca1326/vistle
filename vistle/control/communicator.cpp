@@ -146,6 +146,9 @@ void Communicator::run() {
    bool work = false;
    while (dispatch(&work)) {
 
+      if (parentProcessDied())
+         throw(except::parent_died());
+
       vistle::adaptive_wait(work);
    }
 }

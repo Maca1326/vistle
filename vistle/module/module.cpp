@@ -832,26 +832,18 @@ bool Module::parameterChanged(const int senderId, const std::string &name, const
 
 bool Module::dispatch() {
 
-
-   message::Buffer buf;
-   receiveMessageQueue->receive(buf.msg);
-
    bool again = true;
-   if (syncMessageProcessing()) {
-      int sync = 0, allsync = 0;
 
-      switch (buf.msg.type()) {
-         case vistle::message::Message::OBJECTRECEIVED:
-         case vistle::message::Message::QUIT:
-            sync = 1;
-            break;
-         default:
-            break;
-      }
+   try {
+      if (parentProcessDied())
+         throw(except::parent_died());
 
-      MPI_Allreduce(&sync, &allsync, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+      message::Buffer buf;
+      receiveMessageQueue->receive(buf.msg);
 
-      do {
+      if (syncMessageProcessing()) {
+         int sync = 0, allsync = 0;
+
          switch (buf.msg.type()) {
             case vistle::message::Message::OBJECTRECEIVED:
             case vistle::message::Message::QUIT:
@@ -861,18 +853,36 @@ bool Module::dispatch() {
                break;
          }
 
+         MPI_Allreduce(&sync, &allsync, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+
+         do {
+            switch (buf.msg.type()) {
+               case vistle::message::Message::OBJECTRECEIVED:
+               case vistle::message::Message::QUIT:
+                  sync = 1;
+                  break;
+               default:
+                  break;
+            }
+
+            m_stateTracker->handle(buf.msg);
+            again &= handleMessage(&buf.msg);
+
+            if (allsync && !sync) {
+               receiveMessageQueue->receive(buf.msg);
+            }
+
+         } while(allsync && !sync);
+      } else {
+
          m_stateTracker->handle(buf.msg);
          again &= handleMessage(&buf.msg);
+      }
+   } catch (vistle::except::parent_died &e) {
 
-         if (allsync && !sync) {
-            receiveMessageQueue->receive(buf.msg);
-         }
-
-      } while(allsync && !sync);
-   } else {
-
-      m_stateTracker->handle(buf.msg);
-      again &= handleMessage(&buf.msg);
+      // if parent died something is wrong - make sure that shm get cleaned up
+      Shm::the().setRemoveOnDetach();
+      throw(e);
    }
 
    return again;

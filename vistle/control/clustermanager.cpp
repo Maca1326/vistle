@@ -629,10 +629,16 @@ bool ClusterManager::handlePriv(const message::ModuleExit &moduleExit) {
 
 bool ClusterManager::handlePriv(const message::Compute &compute) {
 
-   vassert (compute.getModule() >= Id::ModuleBase);
-   RunningMap::iterator i = runningMap.find(compute.getModule());
-   if (i != runningMap.end()) {
-      i->second.sendQueue->send(compute);
+   if (compute.senderId() >= Id::ModuleBase) {
+
+      sendHub(compute);
+   } else {
+
+      vassert (compute.getModule() >= Id::ModuleBase);
+      RunningMap::iterator i = runningMap.find(compute.getModule());
+      if (i != runningMap.end()) {
+         i->second.sendQueue->send(compute);
+      }
    }
 
    return true;

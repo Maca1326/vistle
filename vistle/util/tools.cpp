@@ -88,4 +88,13 @@ bool attach_debugger() {
 #endif
 }
 
+bool parentProcessDied() {
+
+#ifdef _WIN32
+   return false;
+#else
+   return kill(getppid(), 0) == -1;
+#endif
+}
+
 } // namespace vistle
