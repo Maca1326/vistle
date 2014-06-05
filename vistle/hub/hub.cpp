@@ -839,11 +839,22 @@ bool Hub::handlePriv(const message::BarrierReached &reached) {
    vassert(m_barrierActive);
    vassert(m_barrierUuid == reached.uuid());
    // message must be received from local manager and each slave
-   if (m_barrierReached == m_slaveSockets.size()+1) {
-      m_barrierActive = false;
-      m_barrierReached = 0;
-      sendSlaves(reached);
-      sendManager(reached);
+   if (m_isMaster) {
+      if (m_barrierReached == m_slaveSockets.size()+1) {
+         m_barrierActive = false;
+         m_barrierReached = 0;
+         message::BarrierReached r(reached.uuid());
+         r.setDestId(Id::NextHop);
+         m_stateTracker.handle(r);
+         sendUi(r);
+         sendSlaves(r);
+         sendManager(r);
+      }
+   } else {
+      if (reached.senderId() == Id::MasterHub) {
+         sendUi(reached);
+         sendManager(reached);
+      }
    }
    return true;
 }

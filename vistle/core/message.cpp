@@ -1117,8 +1117,8 @@ void Router::initRoutingTable() {
 
    rt[M::ADDOBJECT]             = DestLocalManager|HandleOnNode;
 
-   rt[M::BARRIER]               = Broadcast|HandleOnDest;
-   rt[M::BARRIERREACHED]        = HandleOnDest|DestUi;
+   rt[M::BARRIER]               = HandleOnDest;
+   rt[M::BARRIERREACHED]        = HandleOnDest;
    rt[M::OBJECTRECEIVED]        = HandleOnRank0;
 
    for (int i=M::ANY+1; i<M::NumMessageTypes; ++i) {

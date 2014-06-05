@@ -95,7 +95,7 @@ bool ClusterManager::checkBarrier(const message::uuid_t &uuid) const {
       if (m.second.hub == Communicator::the().hubId())
          ++numLocal;
    }
-   //CERR << "checkBarrier " << uuid << ": #local=" << numLocal << ", #reached=" << reachedSet.size() << std::endl;
+   CERR << "checkBarrier " << uuid << ": #local=" << numLocal << ", #reached=" << reachedSet.size() << std::endl;
    if (reachedSet.size() == numLocal)
       return true;
 
@@ -917,9 +917,9 @@ bool ClusterManager::handlePriv(const message::BarrierReached &barrReached) {
 #ifdef DEBUG
    CERR << "BarrierReached [barrier " << barrReached.uuid() << ", module " << barrReached.senderId() << "]" << std::endl;
 #endif
-   reachedSet.insert(barrReached.senderId());
 
    if (barrReached.senderId() >= Id::ModuleBase) {
+      reachedSet.insert(barrReached.senderId());
       if (checkBarrier(m_barrierUuid)) {
          barrierReached(m_barrierUuid);
 #ifdef DEBUG
