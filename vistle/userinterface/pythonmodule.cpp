@@ -236,7 +236,7 @@ static std::vector<std::string> getParameters(int id) {
 static std::string getParameterType(int id, const std::string &name) {
 
    LOCKED();
-   const Parameter *param = MODULEMANAGER.getParameter(id, name);
+   const auto param = MODULEMANAGER.getParameter(id, name);
    if (!param) {
       std::cerr << "Python: getParameterType: no such parameter" << std::endl;
       return "None";
@@ -257,7 +257,7 @@ static std::string getParameterType(int id, const std::string &name) {
 static bool isParameterDefault(int id, const std::string &name) {
 
    LOCKED();
-   const Parameter *param = MODULEMANAGER.getParameter(id, name);
+   const auto param = MODULEMANAGER.getParameter(id, name);
    if (!param) {
       std::cerr << "Python: getParameterType: no such parameter" << std::endl;
       return false;
@@ -270,13 +270,13 @@ template<typename T>
 static T getParameterValue(int id, const std::string &name) {
 
    LOCKED();
-   const Parameter *param = MODULEMANAGER.getParameter(id, name);
+   const auto param = MODULEMANAGER.getParameter(id, name);
    if (!param) {
       std::cerr << "Python: getParameterValue: no such parameter" << std::endl;
       return T();
    }
 
-   const ParameterBase<T> *tparam = dynamic_cast<const ParameterBase<T> *>(param);
+   const auto tparam = boost::dynamic_pointer_cast<const ParameterBase<T>>(param);
    if (!tparam) {
       std::cerr << "Python: getParameterValue: type mismatch" << std::endl;
       return T();

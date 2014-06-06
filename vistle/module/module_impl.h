@@ -6,7 +6,7 @@ namespace vistle {
 template<class T>
 bool Module::setParameter(const std::string &name, const T &value, const message::SetParameter *inResponseTo) {
 
-   ParameterBase<T> *p = dynamic_cast<ParameterBase<T> *>(findParameter(name));
+   auto p = boost::dynamic_pointer_cast<ParameterBase<T>>(findParameter(name));
    if (!p)
       return false;
 
@@ -14,21 +14,21 @@ bool Module::setParameter(const std::string &name, const T &value, const message
 }
 
 template<class T>
-bool Module::setParameter(ParameterBase<T> *param, const T &value, const message::SetParameter *inResponseTo) {
+bool Module::setParameter(boost::shared_ptr<ParameterBase<T>> param, const T &value, const message::SetParameter *inResponseTo) {
 
    param->setValue(value);
-   parameterChanged(param);
+   parameterChanged(*param);
    return updateParameter(param->getName(), param, inResponseTo);
 }
 
 template<class T>
-bool Module::setParameterMinimum(ParameterBase<T> *param, const T &minimum) {
+bool Module::setParameterMinimum(boost::shared_ptr<ParameterBase<T>> param, const T &minimum) {
 
    return Module::setParameterRange(param, minimum, param->maximum());
 }
 
 template<class T>
-bool Module::setParameterMaximum(ParameterBase<T> *param, const T &maximum) {
+bool Module::setParameterMaximum(boost::shared_ptr<ParameterBase<T>> param, const T &maximum) {
 
    return Module::setParameterRange(param, param->minimum(), maximum);
 }
@@ -36,7 +36,7 @@ bool Module::setParameterMaximum(ParameterBase<T> *param, const T &maximum) {
 template<class T>
 bool Module::setParameterRange(const std::string &name, const T &minimum, const T &maximum) {
 
-   ParameterBase<T> *p = dynamic_cast<ParameterBase<T> *>(findParameter(name));
+   auto p = boost::dynamic_pointer_cast<ParameterBase<T>>(findParameter(name));
    if (!p)
       return false;
 
@@ -44,7 +44,7 @@ bool Module::setParameterRange(const std::string &name, const T &minimum, const 
 }
 
 template<class T>
-bool Module::setParameterRange(ParameterBase<T> *param, const T &minimum, const T &maximum) {
+bool Module::setParameterRange(boost::shared_ptr<ParameterBase<T>> param, const T &minimum, const T &maximum) {
 
    bool ok = true;
 
@@ -75,7 +75,7 @@ bool Module::setParameterRange(ParameterBase<T> *param, const T &minimum, const 
 template<class T>
 bool Module::getParameter(const std::string &name, T &value) const {
 
-   if (ParameterBase<T> *p = dynamic_cast<ParameterBase<T> *>(findParameter(name))) {
+   if (auto p = boost::dynamic_pointer_cast<ParameterBase<T>>(findParameter(name))) {
       value = p->getValue();
    } else {
       std::cerr << "Module::getParameter(" << name << "): type failure" << std::endl;

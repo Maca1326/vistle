@@ -18,7 +18,7 @@
 namespace vistle {
 
 class Parameter;
-typedef std::set<Parameter *> ParameterSet;
+typedef std::set<boost::shared_ptr<Parameter>> ParameterSet;
 class PortTracker;
 
 class V_COREEXPORT StateObserver {
@@ -85,7 +85,7 @@ class V_COREEXPORT StateTracker {
    int getModuleState(int id) const;
 
    std::vector<std::string> getParameters(int id) const;
-   Parameter *getParameter(int id, const std::string &name) const;
+   boost::shared_ptr<Parameter> getParameter(int id, const std::string &name) const;
 
    ParameterSet getConnectedParameters(const Parameter &param) const;
 
@@ -106,7 +106,7 @@ class V_COREEXPORT StateTracker {
    boost::shared_ptr<message::Buffer> removeRequest(const message::uuid_t &uuid);
    bool registerReply(const message::uuid_t &uuid, const message::Message &msg);
 
-   typedef std::map<std::string, Parameter *> ParameterMap;
+   typedef std::map<std::string, boost::shared_ptr<Parameter>> ParameterMap;
    typedef std::map<int, std::string> ParameterOrder;
    struct Module {
       int hub;

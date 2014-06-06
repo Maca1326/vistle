@@ -148,9 +148,9 @@ std::vector<message::Buffer> StateTracker::getState() const {
          const std::string &name = it2.second;
          const auto &it3 = pmap.find(name);
          assert(it3 != pmap.end());
-         const Parameter *param = it3->second;
+         const auto param = it3->second;
 
-         AddParameter add(param, getModuleName(id));
+         AddParameter add(*param, getModuleName(id));
          add.setSenderId(id);
          appendMessage(state, add);
 
@@ -649,7 +649,7 @@ bool StateTracker::handlePriv(const message::SetParameter &setParam) {
 
    bool handled = false;
 
-   Parameter *param = getParameter(setParam.getModule(), setParam.getName());
+   auto param = getParameter(setParam.getModule(), setParam.getName());
    if (param) {
       setParam.apply(param);
       handled = true;
@@ -667,7 +667,7 @@ bool StateTracker::handlePriv(const message::SetParameter &setParam) {
 
 bool StateTracker::handlePriv(const message::SetParameterChoices &choices) {
 
-   Parameter *p = getParameter(choices.getModule(), choices.getName());
+   auto p = getParameter(choices.getModule(), choices.getName());
    if (!p)
       return false;
 
@@ -837,7 +837,7 @@ std::vector<std::string> StateTracker::getParameters(int id) const {
    return result;
 }
 
-Parameter *StateTracker::getParameter(int id, const std::string &name) const {
+boost::shared_ptr<Parameter> StateTracker::getParameter(int id, const std::string &name) const {
 
    RunningMap::const_iterator rit = runningMap.find(id);
    if (rit == runningMap.end())
@@ -922,7 +922,7 @@ ParameterSet StateTracker::getConnectedParameters(const Parameter &param) const 
    findAllConnectedPorts = [this, &findAllConnectedPorts] (const Port *port, ParameterSet conn) -> ParameterSet {
       if (const Port::PortSet *list = portTracker()->getConnectionList(port)) {
          for (auto port: *list) {
-            Parameter *param = getParameter(port->getModuleID(), port->getName());
+            auto param = getParameter(port->getModuleID(), port->getName());
             if (param && conn.find(param) == conn.end()) {
                conn.insert(param);
                const Port *port = portTracker()->getPort(param->module(), param->getName());

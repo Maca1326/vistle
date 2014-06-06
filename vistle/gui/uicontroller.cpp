@@ -249,8 +249,8 @@ void UiController::newParameter(int moduleId, QString parameterName)
 #if 1
     if (parameterName == "_position") {
        if (Module *m = m_scene->findModule(moduleId)) {
-          vistle::Parameter *p = vistle::VistleConnection::the().getParameter(moduleId, "_position");
-          vistle::VectorParameter *vp = dynamic_cast<vistle::VectorParameter *>(p);
+          auto p = vistle::VistleConnection::the().getParameter(moduleId, "_position");
+          auto vp = boost::dynamic_pointer_cast<vistle::VectorParameter>(p);
           if (vp && vp->isDefault() && m->isPositionValid()) {
              m->sendPosition();
           }
@@ -267,8 +267,8 @@ void UiController::parameterValueChanged(int moduleId, QString parameterName)
 #endif
    if (parameterName == "_position") {
       if (Module *m = m_scene->findModule(moduleId)) {
-         vistle::Parameter *p = vistle::VistleConnection::the().getParameter(moduleId, "_position");
-         vistle::VectorParameter *vp = dynamic_cast<vistle::VectorParameter *>(p);
+         auto p = vistle::VistleConnection::the().getParameter(moduleId, "_position");
+         auto vp = boost::dynamic_pointer_cast<vistle::VectorParameter>(p);
          if (vp && !vp->isDefault()) {
             vistle::ParamVector pos = vp->getValue();
             m->setPos(pos[0], pos[1]);

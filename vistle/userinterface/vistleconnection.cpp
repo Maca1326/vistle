@@ -123,17 +123,17 @@ void VistleConnection::sendMessage(const vistle::message::Message &msg) const
    ui().sendMessage(msg);
 }
 
-vistle::Parameter *VistleConnection::getParameter(int id, const std::string &name) const
+boost::shared_ptr<vistle::Parameter> VistleConnection::getParameter(int id, const std::string &name) const
 {
    mutex_lock lock(m_mutex);
-   vistle::Parameter *p = ui().state().getParameter(id, name);
+   auto p = ui().state().getParameter(id, name);
    if (!p) {
       std::cerr << "no such parameter: " << id << ":" << name << std::endl;
    }
    return p;
 }
 
-void vistle::VistleConnection::sendParameter(const Parameter *p) const
+void vistle::VistleConnection::sendParameter(const boost::shared_ptr<Parameter> p) const
 {
    mutex_lock lock(m_mutex);
    vistle::message::SetParameter set(p->module(), p->getName(), p);

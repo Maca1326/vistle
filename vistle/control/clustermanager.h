@@ -50,7 +50,7 @@ class V_CONTROLEXPORT ClusterManager {
 
    std::string getModuleName(int id) const;
    std::vector<std::string> getParameters(int id) const;
-   Parameter *getParameter(int id, const std::string &name) const;
+   boost::shared_ptr<Parameter> getParameter(int id, const std::string &name) const;
 
    PortManager &portManager() const;
 

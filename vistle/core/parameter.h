@@ -115,7 +115,7 @@ class ParameterBase: public Parameter {
    {}
    virtual ~ParameterBase() {}
 
-   ParameterBase<T> *clone() const {
+   virtual ParameterBase<T> *clone() const {
       return new ParameterBase<T>(*this);
    }
 

@@ -12,8 +12,8 @@ class GenIsoDat: public vistle::Module {
  private:
    virtual bool compute();
 
-   vistle::IntParameter *m_cellTypeParam;
-   vistle::IntParameter *m_caseNumParam;
+   boost::shared_ptr<vistle::IntParameter> m_cellTypeParam;
+   boost::shared_ptr<vistle::IntParameter> m_caseNumParam;
 };
 
 #endif

@@ -769,10 +769,10 @@ bool ClusterManager::handlePriv(const message::SetParameter &setParam) {
 #endif
 
    bool handled = true;
-   Parameter *param = getParameter(setParam.getModule(), setParam.getName());
-   Parameter *applied = NULL;
+   auto param = getParameter(setParam.getModule(), setParam.getName());
+   boost::shared_ptr<Parameter> applied;
    if (param) {
-      applied = param->clone();
+      applied.reset(param->clone());
       setParam.apply(applied);
    }
    if (setParam.senderId() != setParam.getModule()) {
@@ -805,7 +805,7 @@ bool ClusterManager::handlePriv(const message::SetParameter &setParam) {
             for (ParameterSet::iterator it = conn.begin();
                   it != conn.end();
                   ++it) {
-               const Parameter *p = *it;
+               const auto p = *it;
                if (p->module()==setParam.getModule() && p->getName()==setParam.getName()) {
                   // don't update parameter which was set originally again
                   continue;
@@ -823,7 +823,6 @@ bool ClusterManager::handlePriv(const message::SetParameter &setParam) {
          }
       }
    }
-   delete applied;
 
    return handled;
 }
@@ -995,7 +994,7 @@ std::vector<std::string> ClusterManager::getParameters(int id) const {
    return m_stateTracker.getParameters(id);
 }
 
-Parameter *ClusterManager::getParameter(int id, const std::string &name) const {
+boost::shared_ptr<Parameter> ClusterManager::getParameter(int id, const std::string &name) const {
 
    return m_stateTracker.getParameter(id, name);
 }

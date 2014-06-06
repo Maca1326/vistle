@@ -519,10 +519,10 @@ void Disconnect::reverse() {
    std::swap(portAName, portBName);
 }
 
-AddParameter::AddParameter(const Parameter *param, const std::string &modname)
+AddParameter::AddParameter(const Parameter &param, const std::string &modname)
 : Message(Message::ADDPARAMETER, sizeof(AddParameter))
-, paramtype(param->type())
-, presentation(param->presentation())
+, paramtype(param.type())
+, presentation(param.presentation())
 {
    assert(paramtype > Parameter::Unknown);
    assert(paramtype < Parameter::Invalid);
@@ -530,10 +530,10 @@ AddParameter::AddParameter(const Parameter *param, const std::string &modname)
    assert(presentation >= Parameter::Generic);
    assert(presentation <= Parameter::InvalidPresentation);
 
-   COPY_STRING(name, param->getName());
-   COPY_STRING(m_group, param->group());
+   COPY_STRING(name, param.getName());
+   COPY_STRING(m_group, param.group());
    COPY_STRING(module, modname);
-   COPY_STRING(m_description, param->description());
+   COPY_STRING(m_description, param.description());
 }
 
 const char *AddParameter::getName() const {
@@ -566,21 +566,21 @@ const char *AddParameter::group() const {
    return m_group.data();
 }
 
-Parameter *AddParameter::getParameter() const {
+boost::shared_ptr<Parameter> AddParameter::getParameter() const {
 
-   Parameter *p = nullptr;
+   boost::shared_ptr<Parameter> p;
    switch (getParameterType()) {
       case Parameter::Integer:
-         p = new IntParameter(senderId(), getName());
+         p.reset(new IntParameter(senderId(), getName()));
          break;
       case Parameter::Float:
-         p = new FloatParameter(senderId(), getName());
+         p.reset(new FloatParameter(senderId(), getName()));
          break;
       case Parameter::Vector:
-         p = new VectorParameter(senderId(), getName());
+         p.reset(new VectorParameter(senderId(), getName()));
          break;
       case Parameter::String:
-         p = new StringParameter(senderId(), getName());
+         p.reset(new StringParameter(senderId(), getName()));
          break;
       case Parameter::Invalid:
       case Parameter::Unknown:
@@ -588,20 +588,21 @@ Parameter *AddParameter::getParameter() const {
    }
 
    if (p) {
+
       p->setDescription(description());
       p->setGroup(group());
       p->setPresentation(Parameter::Presentation(getPresentation()));
-      return p;
+   } else {
+
+      std::cerr << "AddParameter::getParameter: type " << type() << " not handled" << std::endl;
+      assert("parameter type not supported" == 0);
    }
 
-   std::cerr << "AddParameter::getParameter: type " << type() << " not handled" << std::endl;
-   assert("parameter type not supported" == 0);
-
-   return NULL;
+   return p;
 }
 
 SetParameter::SetParameter(const int module,
-      const std::string &n, const Parameter *param, Parameter::RangeType rt)
+      const std::string &n, const boost::shared_ptr<Parameter> param, Parameter::RangeType rt)
 : Message(Message::SETPARAMETER, sizeof(SetParameter))
 , module(module)
 , paramtype(param->type())
@@ -611,16 +612,16 @@ SetParameter::SetParameter(const int module,
 {
 
    COPY_STRING(name, n);
-   if (const IntParameter *pint = dynamic_cast<const IntParameter *>(param)) {
+   if (const auto pint = boost::dynamic_pointer_cast<const IntParameter>(param)) {
       v_int = pint->getValue(rt);
-   } else if (const FloatParameter *pfloat = dynamic_cast<const FloatParameter *>(param)) {
+   } else if (const auto pfloat = boost::dynamic_pointer_cast<const FloatParameter>(param)) {
       v_scalar = pfloat->getValue(rt);
-   } else if (const VectorParameter *pvec = dynamic_cast<const VectorParameter *>(param)) {
+   } else if (const auto pvec = boost::dynamic_pointer_cast<const VectorParameter>(param)) {
       ParamVector v = pvec->getValue(rt);
       dim = v.dim;
       for (int i=0; i<MaxDimension; ++i)
          v_vector[i] = v[i];
-   } else if (const StringParameter *pstring = dynamic_cast<const StringParameter *>(param)) {
+   } else if (const auto pstring = boost::dynamic_pointer_cast<const StringParameter>(param)) {
       COPY_STRING(v_string, pstring->getValue(rt));
    } else {
       std::cerr << "SetParameter: type " << param->type() << " not handled" << std::endl;
@@ -757,7 +758,7 @@ std::string SetParameter::getString() const {
    return v_string.data();
 }
 
-bool SetParameter::apply(Parameter *param) const {
+bool SetParameter::apply(boost::shared_ptr<vistle::Parameter> param) const {
 
    if (paramtype != param->type()) {
       std::cerr << "SetParameter::apply(): type mismatch for " << param->module() << ":" << param->getName() << std::endl;
@@ -765,19 +766,19 @@ bool SetParameter::apply(Parameter *param) const {
    }
 
    const int rt = rangeType();
-   if (IntParameter *pint = dynamic_cast<IntParameter *>(param)) {
+   if (auto pint = boost::dynamic_pointer_cast<IntParameter>(param)) {
       if (rt == Parameter::Value) pint->setValue(v_int, initialize);
       if (rt == Parameter::Minimum) pint->setMinimum(v_int);
       if (rt == Parameter::Maximum) pint->setMaximum(v_int);
-   } else if (FloatParameter *pfloat = dynamic_cast<FloatParameter *>(param)) {
+   } else if (auto pfloat = boost::dynamic_pointer_cast<FloatParameter>(param)) {
       if (rt == Parameter::Value) pfloat->setValue(v_scalar, initialize);
       if (rt == Parameter::Minimum) pfloat->setMinimum(v_scalar);
       if (rt == Parameter::Maximum) pfloat->setMaximum(v_scalar);
-   } else if (VectorParameter *pvec = dynamic_cast<VectorParameter *>(param)) {
+   } else if (auto pvec = boost::dynamic_pointer_cast<VectorParameter>(param)) {
       if (rt == Parameter::Value) pvec->setValue(ParamVector(dim, &v_vector[0]), initialize);
       if (rt == Parameter::Minimum) pvec->setMinimum(ParamVector(dim, &v_vector[0]));
       if (rt == Parameter::Maximum) pvec->setMaximum(ParamVector(dim, &v_vector[0]));
-   } else if (StringParameter *pstring = dynamic_cast<StringParameter *>(param)) {
+   } else if (auto pstring = boost::dynamic_pointer_cast<StringParameter>(param)) {
       if (rt == Parameter::Value) pstring->setValue(v_string.data(), initialize);
    } else {
       std::cerr << "SetParameter::apply(): type " << param->type() << " not handled" << std::endl;
@@ -813,7 +814,7 @@ const char *SetParameterChoices::getName() const
    return name.data();
 }
 
-bool SetParameterChoices::apply(Parameter *param) const {
+bool SetParameterChoices::apply(boost::shared_ptr<vistle::Parameter> param) const {
 
    if (param->type() != Parameter::Integer
          && param->type() != Parameter::String) {

@@ -74,7 +74,7 @@ ReadFOAM::ReadFOAM(const std::string &shmname, int rank, int size, int moduleId)
       {// Date Choice Parameters
          std::stringstream s;
          s << "Data" << i;
-         StringParameter *p =  addStringParameter(s.str(), "name of field", "(NONE)", Parameter::Choice);
+         auto p =  addStringParameter(s.str(), "name of field", "(NONE)", Parameter::Choice);
          std::vector<std::string> choices;
          choices.push_back("(NONE)");
          setParameterChoices(p, choices);
@@ -92,7 +92,7 @@ ReadFOAM::ReadFOAM(const std::string &shmname, int rank, int size, int moduleId)
       {// 2d Data Choice Parameters
          std::stringstream s;
          s << "Data2d" << i;
-         StringParameter *p =  addStringParameter(s.str(), "name of field", "(NONE)", Parameter::Choice);
+         auto p =  addStringParameter(s.str(), "name of field", "(NONE)", Parameter::Choice);
          std::vector<std::string> choices;
          choices.push_back("(NONE)");
          setParameterChoices(p, choices);
@@ -121,10 +121,10 @@ std::vector<std::string> ReadFOAM::getFieldList() const {
    return choices;
 }
 
-bool ReadFOAM::parameterChanged(Parameter *p)
+bool ReadFOAM::parameterChanged(const Parameter &p)
 {
-   StringParameter *sp = dynamic_cast<StringParameter *>(p);
-   if (sp == m_casedir) {
+   auto sp = dynamic_cast<const StringParameter *>(&p);
+   if (sp == &*m_casedir) {
       sendMessage(message::Busy());
       std::string casedir = sp->getValue();
 
@@ -159,10 +159,10 @@ bool ReadFOAM::parameterChanged(Parameter *p)
 
       //fill choice parameters
       std::vector<std::string> choices = getFieldList();
-      for (StringParameter *out: m_fieldOut) {
+      for (auto out: m_fieldOut) {
          setParameterChoices(out, choices);
       }
-      for (StringParameter *out: m_boundaryOut) {
+      for (auto out: m_boundaryOut) {
          setParameterChoices(out, choices);
       }
       sendMessage(message::Idle());

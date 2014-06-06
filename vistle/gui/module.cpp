@@ -321,7 +321,7 @@ void Module::mousePressEvent(QGraphicsSceneMouseEvent *event) {
 
 void Module::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
 
-   vistle::VectorParameter *p = getParameter<vistle::ParamVector>("_position");
+   auto p = getParameter<vistle::ParamVector>("_position");
    if (p) {
       vistle::ParamVector v = p->getValue();
       if (v[0] != pos().x() || v[1] != pos().y())

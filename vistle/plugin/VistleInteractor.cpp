@@ -16,20 +16,14 @@ VistleInteractor::VistleInteractor(const Module *owner, const std::string &modul
 VistleInteractor::~VistleInteractor()
 {
    delete m_object;
-
-   for (ParameterMap::iterator it = m_parameterMap.begin();
-         it != m_parameterMap.end();
-         ++it) {
-      delete it->second;
-   }
    m_parameterMap.clear();
 }
 
-vistle::Parameter *VistleInteractor::findParam(const std::string &name) const
+boost::shared_ptr<vistle::Parameter> VistleInteractor::findParam(const std::string &name) const
 {
    ParameterMap::const_iterator it = m_parameterMap.find(name);
    if (it == m_parameterMap.end())
-      return NULL;
+      return nullptr;
 
    return it->second;
 }
@@ -43,7 +37,7 @@ void VistleInteractor::addParam(const std::string &name, const vistle::message::
 
 void VistleInteractor::applyParam(const std::string &name, const vistle::message::SetParameter &msg)
 {
-   Parameter *param = findParam(name);
+   auto param = findParam(name);
    if (!param)
       return;
    msg.apply(param);
@@ -104,10 +98,10 @@ int VistleInteractor::getBooleanParam(const std::string &paraName, int &value) c
 
 int VistleInteractor::getIntScalarParam(const std::string &paraName, int &value) const
 {
-   Parameter *param = findParam(paraName);
+   auto param = findParam(paraName);
    if (!param)
       return -1;
-   IntParameter *iparam = dynamic_cast<IntParameter *>(param);
+   auto iparam = boost::dynamic_pointer_cast<IntParameter>(param);
    if (!iparam)
       return -1;
 
@@ -118,10 +112,10 @@ int VistleInteractor::getIntScalarParam(const std::string &paraName, int &value)
 
 int VistleInteractor::getFloatScalarParam(const std::string &paraName, float &value) const
 {
-   Parameter *param = findParam(paraName);
+   auto param = findParam(paraName);
    if (!param)
       return -1;
-   FloatParameter *fparam = dynamic_cast<FloatParameter *>(param);
+   auto fparam = boost::dynamic_pointer_cast<FloatParameter>(param);
    if (!fparam)
       return -1;
 
@@ -137,10 +131,10 @@ int VistleInteractor::getIntSliderParam(const std::string &paraName, int &min, i
 
 int VistleInteractor::getFloatSliderParam(const std::string &paraName, float &min, float &max, float &val) const
 {
-   Parameter *param = findParam(paraName);
+   auto param = findParam(paraName);
    if (!param)
       return -1;
-   FloatParameter *fparam = dynamic_cast<FloatParameter *>(param);
+   auto fparam = boost::dynamic_pointer_cast<FloatParameter>(param);
    if (!fparam)
       return -1;
 
@@ -165,10 +159,10 @@ int VistleInteractor::getIntVectorParam(const std::string &paraName, int &numEle
 
 int VistleInteractor::getFloatVectorParam(const std::string &paraName, int &numElem, float *&val) const
 {
-   Parameter *param = findParam(paraName);
+   auto param = findParam(paraName);
    if (!param)
       return -1;
-   VectorParameter *vparam = dynamic_cast<VectorParameter *>(param);
+   auto vparam = boost::dynamic_pointer_cast<VectorParameter>(param);
    if (!vparam)
       return -1;
 
@@ -183,11 +177,11 @@ int VistleInteractor::getFloatVectorParam(const std::string &paraName, int &numE
 
 int VistleInteractor::VistleInteractor::getStringParam(const std::string &paraName, const char *&val) const
 {
-   Parameter *param = findParam(paraName);
+   auto param = findParam(paraName);
    if (!param)
       return -1;
 
-   StringParameter *sparam = dynamic_cast<StringParameter *>(param);
+   auto sparam = boost::dynamic_pointer_cast<StringParameter>(param);
    if (!sparam)
       return -1;
 
@@ -214,7 +208,7 @@ void VistleInteractor::sendMessage(const message::Message &msg) const
    m_owner->sendMessage(msg);
 }
 
-void VistleInteractor::sendParamMessage(const Parameter *param) const
+void VistleInteractor::sendParamMessage(const boost::shared_ptr<Parameter> param) const
 {
    message::SetParameter m(m_moduleId, param->getName(), param);
    sendMessage(m);
@@ -232,8 +226,8 @@ void VistleInteractor::setBooleanParam(const char *name, int val)
 /// set float scalar parameter
 void VistleInteractor::setScalarParam(const char *name, float val)
 {
-   Parameter *param = findParam(name);
-   FloatParameter *fparam = dynamic_cast<FloatParameter *>(param);
+   auto param = findParam(name);
+   auto fparam = boost::dynamic_pointer_cast<FloatParameter>(param);
    if (!fparam)
       return;
    fparam->setValue(val);
@@ -243,8 +237,8 @@ void VistleInteractor::setScalarParam(const char *name, float val)
 /// set int scalar parameter
 void VistleInteractor::setScalarParam(const char *name, int val)
 {
-   Parameter *param = findParam(name);
-   IntParameter *iparam = dynamic_cast<IntParameter *>(param);
+   auto param = findParam(name);
+   auto iparam = boost::dynamic_pointer_cast<IntParameter>(param);
    if (!iparam)
       return;
    iparam->setValue(val);
@@ -254,8 +248,8 @@ void VistleInteractor::setScalarParam(const char *name, int val)
 /// set float slider parameter
 void VistleInteractor::setSliderParam(const char *name,float min,float max, float value)
 {
-   Parameter *param = findParam(name);
-   FloatParameter *fparam = dynamic_cast<FloatParameter *>(param);
+   auto param = findParam(name);
+   auto fparam = boost::dynamic_pointer_cast<FloatParameter>(param);
    if (!fparam)
       return;
    fparam->setValue(value);
@@ -270,8 +264,8 @@ void VistleInteractor::setSliderParam(const char *name, int min, int max, int va
 /// set float Vector Param
 void VistleInteractor::setVectorParam(const char *name, int numElem, float *field)
 {
-   Parameter *param = findParam(name);
-   VectorParameter *vparam = dynamic_cast<VectorParameter *>(param);
+   auto param = findParam(name);
+   auto vparam = boost::dynamic_pointer_cast<VectorParameter>(param);
    if (!vparam)
       return;
    assert(vparam->getValue().dim == numElem);

@@ -12,7 +12,7 @@ class ToSpheres: public vistle::Module {
  private:
    virtual bool compute();
 
-   vistle::FloatParameter *m_radius;
+   boost::shared_ptr<vistle::FloatParameter> m_radius;
 };
 
 #endif

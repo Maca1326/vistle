@@ -302,7 +302,7 @@ bool Hub::sendManager(const message::Message &msg, int hub) {
    return true;
 }
 
-bool Hub::sendSlaves(const message::Message &msg) {
+bool Hub::sendSlaves(const message::Message &msg, bool returnToSender) {
 
    vassert(m_isMaster);
    if (!m_isMaster)
@@ -316,7 +316,7 @@ bool Hub::sendSlaves(const message::Message &msg) {
    }
 
    for (auto &sock: m_slaveSockets) {
-      if (sock.first != senderHub) {
+      if (sock.first != senderHub || returnToSender) {
          std::cerr << "to slave id: " << sock.first << " (!= " << senderHub << ")" << std::endl;
          sendMessage(sock.second, msg);
       }
@@ -582,7 +582,15 @@ bool Hub::handleMessage(const message::Message &recv, shared_ptr<asio::ip::tcp::
                sendManager(quit);
                m_quitting = true;
                return true;
+            } else if (senderType == message::Identify::UI) {
+               m_uiManager.requestQuit();
+               if (m_isMaster)
+                  sendSlaves(quit);
+               else
+                  sendMaster(quit);
+               m_quitting = true;
             } else {
+               m_uiManager.requestQuit();
                sendSlaves(quit);
                m_quitting = true;
             }
@@ -860,8 +868,11 @@ bool Hub::handlePriv(const message::Barrier &barrier) {
    vassert(m_barrierReached == 0);
    m_barrierActive = true;
    m_barrierUuid = barrier.uuid();
-   sendSlaves(barrier);
-   sendManager(barrier);
+   message::Buffer buf(barrier);
+   buf.msg.setDestId(Id::Broadcast);
+   if (m_isMaster)
+      sendSlaves(buf.msg, true);
+   sendManager(buf.msg);
    return true;
 }
 
@@ -885,6 +896,8 @@ bool Hub::handlePriv(const message::BarrierReached &reached) {
       }
    } else {
       if (reached.senderId() == Id::MasterHub) {
+         m_barrierActive = false;
+         m_barrierReached = 0;
          sendUi(reached);
          sendManager(reached);
       }

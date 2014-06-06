@@ -32,7 +32,7 @@ class Hub {
 
    bool sendManager(const message::Message &msg, int hub = message::Id::LocalHub);
    bool sendMaster(const message::Message &msg);
-   bool sendSlaves(const message::Message &msg);
+   bool sendSlaves(const message::Message &msg, bool returnToSender=false);
    bool sendSlave(const message::Message &msg, int id);
    bool sendHub(const message::Message &msg, int id);
    bool sendUi(const message::Message &msg);

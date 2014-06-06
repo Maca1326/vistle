@@ -475,7 +475,7 @@ BOOST_STATIC_ASSERT(sizeof(Disconnect) <= Message::MESSAGE_SIZE);
 
 class V_COREEXPORT AddParameter: public Message {
    public:
-      AddParameter(const Parameter *param, const std::string &moduleName);
+      AddParameter(const Parameter &param, const std::string &moduleName);
 
       const char *getName() const;
       const char *moduleName() const;
@@ -483,7 +483,7 @@ class V_COREEXPORT AddParameter: public Message {
       const char *group() const;
       int getParameterType() const;
       int getPresentation() const;
-      Parameter *getParameter() const; //< allocates a new Parameter object, caller is responsible for deletion
+      boost::shared_ptr<Parameter> getParameter() const; //< allocates a new Parameter object, caller is responsible for deletion
 
    private:
       param_name_t name;
@@ -498,7 +498,7 @@ BOOST_STATIC_ASSERT(sizeof(AddParameter) <= Message::MESSAGE_SIZE);
 class V_COREEXPORT SetParameter: public Message {
    public:
       SetParameter(const int module,
-            const std::string & name, const Parameter *param, Parameter::RangeType rt=Parameter::Value);
+            const std::string & name, const boost::shared_ptr<Parameter> param, Parameter::RangeType rt=Parameter::Value);
       SetParameter(const int module,
             const std::string & name, const Integer value);
       SetParameter(const int module,
@@ -526,7 +526,7 @@ class V_COREEXPORT SetParameter: public Message {
       Float getFloat() const;
       ParamVector getVector() const;
 
-      bool apply(Parameter *param) const;
+      bool apply(boost::shared_ptr<Parameter> param) const;
 
    private:
       const int module;
@@ -555,7 +555,7 @@ class V_COREEXPORT SetParameterChoices: public Message {
       int getNumChoices() const;
       const char *getChoice(int idx) const;
 
-      bool apply(Parameter *param) const;
+      bool apply(boost::shared_ptr<Parameter> param) const;
 
    private:
       const int module;
