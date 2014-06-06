@@ -1,5 +1,7 @@
 #! /bin/bash
 
+exec "$@"
+
 case $(hostname) in
    viscluster*)
       echo spawn_vistle.sh "$@"
