@@ -228,8 +228,9 @@ bool Hub::dispatch() {
          CERR << "unknown process with PID " << pid << " exited" << std::endl;
       } else {
          CERR << "process with id " << it->second << " (PID " << pid << ") exited" << std::endl;
+         const int id = it->second;
          m_processMap.erase(it);
-         if (it->second == 0) {
+         if (id == 0) {
             // manager died
             if (!m_quitting) {
                CERR << "manager died - cannot continue" << std::endl;
