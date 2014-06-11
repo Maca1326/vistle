@@ -125,7 +125,6 @@ bool ReadFOAM::parameterChanged(const Parameter &p)
 {
    auto sp = dynamic_cast<const StringParameter *>(&p);
    if (sp == &*m_casedir) {
-      sendMessage(message::Busy());
       std::string casedir = sp->getValue();
 
       m_case = getCaseInfo(casedir, m_starttime->getValue(), m_stoptime->getValue());
@@ -165,7 +164,6 @@ bool ReadFOAM::parameterChanged(const Parameter &p)
       for (auto out: m_boundaryOut) {
          setParameterChoices(out, choices);
       }
-      sendMessage(message::Idle());
    }
 
    return Module::parameterChanged(p);
