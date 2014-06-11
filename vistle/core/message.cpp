@@ -69,8 +69,6 @@ Message::Message(const Type t, const unsigned int s)
    assert(m_size <= MESSAGE_SIZE);
    assert(m_type > INVALID);
    assert(m_type < NumMessageTypes);
-
-   assert(m_rank >= 0);
 }
 
 unsigned long Message::typeFlags() const {
@@ -1106,8 +1104,8 @@ void Router::initRoutingTable() {
    rt[M::SETPARAMETERCHOICES]   = Track|QueueIfUnhandled|DestManager;
    rt[M::PING]                  = DestModules|HandleOnDest;
    rt[M::PONG]                  = DestUi|HandleOnDest;
-   rt[M::BUSY]                  = DestUi|DestMasterHub;
-   rt[M::IDLE]                  = DestUi|DestMasterHub;
+   rt[M::BUSY]                  = Special;
+   rt[M::IDLE]                  = Special;
    rt[M::LOCKUI]                = DestUi;
    rt[M::SENDTEXT]              = DestUi|DestMasterHub;
 
@@ -1156,6 +1154,8 @@ bool Router::toUi(const Message &msg, Identify::Identity senderType) {
    if (msg.destId() >= Id::ModuleBase)
       return false;
    if (msg.destId() == Id::Broadcast)
+      return true;
+   if (msg.destId() == Id::UI)
       return true;
    const int t = msg.type();
    if (rt[t] & DestUi)

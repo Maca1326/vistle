@@ -210,13 +210,16 @@ bool Hub::dispatch() {
          bool received = false;
          if (message::recv(*sock, msg, received) && received) {
             work = true;
+            bool ok = true;
             if (senderType == message::Identify::UI) {
-               ret = m_uiManager.handleMessage(msg, sock);
+               ok = m_uiManager.handleMessage(msg, sock);
             } else {
-               ret = handleMessage(msg, sock);
+               ok = handleMessage(msg, sock);
             }
-            if (!ret)
+            if (!ok) {
+               m_quitting = true;
                break;
+            }
          }
       }
    }

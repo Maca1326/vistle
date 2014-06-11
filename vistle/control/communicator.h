@@ -57,7 +57,7 @@ class V_CONTROLEXPORT Communicator {
    bool m_quitFlag;
 
    int m_recvSize;
-   std::vector<char> m_recvBufTo0, m_recvBufToAny;
+   message::Buffer m_recvBufTo0, m_recvBufToAny;
    MPI_Request m_reqAny, m_reqToRank0;
 
    message::Message::Type m_traceMessages;

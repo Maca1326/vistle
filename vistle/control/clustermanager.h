@@ -90,7 +90,8 @@ class V_CONTROLEXPORT ClusterManager {
       message::MessageQueue *recvQueue;
 
       Module(): sendQueue(nullptr), recvQueue(nullptr),
-         ranksStarted(0), ranksFinished(0), reducing(false)
+         ranksStarted(0), ranksFinished(0), reducing(false),
+         busyCount(0)
          {}
       ~Module() {
          delete sendQueue;
@@ -98,6 +99,7 @@ class V_CONTROLEXPORT ClusterManager {
       }
       int ranksStarted, ranksFinished;
       bool reducing;
+      int busyCount;
    };
    typedef std::map<int, Module> RunningMap;
    RunningMap runningMap;

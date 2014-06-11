@@ -741,17 +741,35 @@ bool ClusterManager::handlePriv(const message::Reduce &reduce) {
 
 bool ClusterManager::handlePriv(const message::Busy &busy) {
 
-   message::Buffer buf(busy);
-   buf.msg.setDestId(Id::MasterHub);
-   sendHub(buf.msg);
+   if (getRank() == 0) {
+      int id = busy.senderId();
+      auto &mod = runningMap[id];
+      if (mod.busyCount == 0) {
+         message::Buffer buf(busy);
+         buf.msg.setDestId(Id::UI);
+         sendHub(buf.msg);
+      }
+      ++mod.busyCount;
+   } else {
+      Communicator::the().forwardToMaster(busy);
+   }
    return true;
 }
 
 bool ClusterManager::handlePriv(const message::Idle &idle) {
 
-   message::Buffer buf(idle);
-   buf.msg.setDestId(Id::MasterHub);
-   sendHub(buf.msg);
+   if (getRank() == 0) {
+      int id = idle.senderId();
+      auto &mod = runningMap[id];
+      --mod.busyCount;
+      if (mod.busyCount == 0) {
+         message::Buffer buf(idle);
+         buf.msg.setDestId(Id::UI);
+         sendHub(buf.msg);
+      }
+   } else {
+      Communicator::the().forwardToMaster(idle);
+   }
    return true;
 }
 

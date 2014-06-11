@@ -57,14 +57,13 @@ Communicator::Communicator(int argc, char *argv[], int r, const std::vector<std:
 
    message::DefaultSender::init(m_hubId, m_rank);
 
-   m_recvBufToAny.resize(message::Message::MESSAGE_SIZE);
-
    // post requests for length of next MPI message
-   MPI_Irecv(&m_recvSize, 1, MPI_INT, MPI_ANY_SOURCE, TagToAny, MPI_COMM_WORLD, &m_reqAny);
+   if (m_size > 1) {
+      MPI_Irecv(&m_recvSize, 1, MPI_INT, MPI_ANY_SOURCE, TagToAny, MPI_COMM_WORLD, &m_reqAny);
 
-   if (m_rank == 0) {
-      m_recvBufTo0.resize(message::Message::MESSAGE_SIZE);
-      MPI_Irecv(m_recvBufTo0.data(), m_recvBufTo0.size(), MPI_BYTE, MPI_ANY_SOURCE, TagToRank0, MPI_COMM_WORLD, &m_reqToRank0);
+      if (m_rank == 0) {
+         MPI_Irecv(m_recvBufTo0.buf.data(), m_recvBufTo0.buf.size(), MPI_BYTE, MPI_ANY_SOURCE, TagToRank0, MPI_COMM_WORLD, &m_reqToRank0);
+      }
    }
 }
 
@@ -180,7 +179,7 @@ bool Communicator::dispatch(bool *work) {
 
          vassert(m_rank == 0);
          received = true;
-         message::Message *message = (message::Message *) m_recvBufTo0.data();
+         message::Message *message = &m_recvBufTo0.msg;
          if (message->broadcast()) {
             if (!broadcastAndHandleMessage(*message))
                done = true;
@@ -188,7 +187,7 @@ bool Communicator::dispatch(bool *work) {
             if (!handleMessage(*message))
                done = true;
          }
-         MPI_Irecv(m_recvBufTo0.data(), m_recvBufTo0.size(), MPI_BYTE, MPI_ANY_SOURCE, TagToRank0, MPI_COMM_WORLD, &m_reqToRank0);
+         MPI_Irecv(m_recvBufTo0.buf.data(), m_recvBufTo0.buf.size(), MPI_BYTE, MPI_ANY_SOURCE, TagToRank0, MPI_COMM_WORLD, &m_reqToRank0);
       }
    }
 
@@ -202,17 +201,20 @@ bool Communicator::dispatch(bool *work) {
    MPI_Test(&m_reqAny, &flag, &status);
    if (flag && status.MPI_TAG == TagToAny) {
 
-      received = true;
-      MPI_Bcast(m_recvBufToAny.data(), m_recvSize, MPI_BYTE,
+      vassert(m_recvSize <= m_recvBufToAny.buf.size());
+      MPI_Bcast(m_recvBufToAny.buf.data(), m_recvSize, MPI_BYTE,
             status.MPI_SOURCE, MPI_COMM_WORLD);
+      if (m_recvSize > 0) {
+         received = true;
 
-      message::Message *message = (message::Message *) m_recvBufToAny.data();
+         message::Message *message = &m_recvBufToAny.msg;
 #if 0
-      printf("[%02d] message from [%02d] message type %d m_size %d\n",
-            m_rank, status.MPI_SOURCE, message->getType(), mpiMessageSize);
+         printf("[%02d] message from [%02d] message type %d m_size %d\n",
+                m_rank, status.MPI_SOURCE, message->getType(), mpiMessageSize);
 #endif
-      if (!handleMessage(*message))
-         done = true;
+         if (!handleMessage(*message))
+            done = true;
+      }
 
       MPI_Irecv(&m_recvSize, 1, MPI_INT, MPI_ANY_SOURCE, TagToAny, MPI_COMM_WORLD, &m_reqAny);
    }
