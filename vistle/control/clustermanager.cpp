@@ -46,7 +46,7 @@ using message::Id;
 
 ClusterManager::ClusterManager(int argc, char *argv[], int r, const std::vector<std::string> &hosts)
 : m_portManager(new PortManager(this))
-, m_stateTracker("ClusterManager state", m_portManager)
+, m_stateTracker(std::string("ClusterManager state rk")+boost::lexical_cast<std::string>(r), m_portManager)
 , m_quitFlag(false)
 , m_rank(r)
 , m_size(hosts.size())
@@ -667,9 +667,9 @@ bool ClusterManager::handlePriv(const message::ExecutionProgress &prog) {
       forward = false;
    }
 
-   //std::cerr << "ExecutionProgress " << prog.stage() << " received from " << prog.senderId() << std::endl;
    bool result = true;
    if (m_rank == 0) {
+      std::cerr << "ExecutionProgress " << prog.stage() << " received from " << prog.senderId() << "/" << prog.rank() << std::endl;
       switch (prog.stage()) {
          case message::ExecutionProgress::Start: {
             vassert(mod.ranksFinished < m_size);
@@ -677,21 +677,29 @@ bool ClusterManager::handlePriv(const message::ExecutionProgress &prog) {
             break;
          }
 
-         case message::ExecutionProgress::Finish: {
+         case message::ExecutionProgress::StartCompute: {
+            break;
+         }
+
+         case message::ExecutionProgress::FinishCompute: {
             ++mod.ranksFinished;
             if (mod.ranksFinished == m_size) {
                vassert(mod.ranksStarted == m_size);
                mod.ranksFinished = 0;
+               mod.ranksStarted = 0;
 
-               if (!mod.reducing && mod2.reducePolicy != message::ReducePolicy::Never) {
+               vassert(!mod.reducing);
+               if (mod2.reducePolicy != message::ReducePolicy::Never) {
                   mod.reducing = true;
                   message::Reduce red(prog.senderId());
                   Communicator::the().broadcastAndHandleMessage(red);
-               } else {
-                  mod.ranksStarted = 0;
-                  mod.reducing = false;
                }
             }
+            break;
+         }
+
+         case message::ExecutionProgress::Finish: {
+            mod.reducing = false;
             break;
          }
 
@@ -707,7 +715,7 @@ bool ClusterManager::handlePriv(const message::ExecutionProgress &prog) {
       result = Communicator::the().forwardToMaster(prog);
    }
 
-   // forward message to all directly connected down-stream modules, but only once
+   // forward message to all directly connected down-stream modules, but only once - even if there are several connections
    if (forward) {
       std::set<int> connectedIds;
       auto out = portManager().getOutputPorts(prog.senderId());

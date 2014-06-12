@@ -957,6 +957,11 @@ ExecutionProgress::Progress ExecutionProgress::stage() const {
    return m_stage;
 }
 
+void ExecutionProgress::setStage(ExecutionProgress::Progress stage) {
+
+   m_stage = stage;
+}
+
 int ExecutionProgress::step() const {
 
    return m_step;

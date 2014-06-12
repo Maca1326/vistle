@@ -667,6 +667,7 @@ private:
 BOOST_STATIC_ASSERT(sizeof(SchedulingPolicy) <= Message::MESSAGE_SIZE);
 V_ENUM_OUTPUT_OP(Schedule, SchedulingPolicy)
 
+//! control whether/when prepare() and reduce() are called
 class V_COREEXPORT ReducePolicy: public Message {
 
  public:
@@ -683,17 +684,26 @@ class V_COREEXPORT ReducePolicy: public Message {
 BOOST_STATIC_ASSERT(sizeof(ReducePolicy) <= Message::MESSAGE_SIZE);
 V_ENUM_OUTPUT_OP(Reduce, ReducePolicy)
 
+//! steer execution stages
+/*!
+ * module ranks notify the cluster manager about their execution stage
+ *
+ *
+ */
 class V_COREEXPORT ExecutionProgress: public Message {
 
  public:
    DEFINE_ENUM_WITH_STRING_CONVERSIONS(Progress,
-      (Start)
+      (Start) //< execution starts
+      (StartCompute) //< compute() will be called for first timestep/iteration
+      (FinishCompute) //< compute() has been called for final timestep/iteration
       (Iteration)
       (Timestep)
-      (Finish)
+      (Finish) //< compute() or - if applicable, reduce() - has finished
    )
    ExecutionProgress(Progress stage, int step=-1);
    Progress stage() const;
+   void setStage(Progress stage);
    int step() const;
 
  private:

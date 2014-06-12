@@ -1103,16 +1103,21 @@ bool Module::handleMessage(const vistle::message::Message *message) {
             static_cast<const message::Compute *>(message);
 
          if (comp->reason() == message::Compute::Execute) {
-            if (reducePolicy() != message::ReducePolicy::Never) {
-               prepare();
-            }
             message::ExecutionProgress start(message::ExecutionProgress::Start);
             start.setUuid(comp->uuid());
             start.setDestId(Id::LocalManager);
             sendMessage(start);
-            vassert(m_executionDepth == 0);
-            ++m_executionDepth;
+            if (reducePolicy() != message::ReducePolicy::Never) {
+               m_benchmarkStart = Clock::time();
+               prepare();
+            }
          }
+         message::ExecutionProgress startc(message::ExecutionProgress::StartCompute);
+         startc.setUuid(comp->uuid());
+         startc.setDestId(Id::LocalManager);
+         sendMessage(startc);
+         vassert(m_executionDepth == 0);
+         ++m_executionDepth;
 
          if (m_executionCount < comp->getExecutionCount())
             m_executionCount = comp->getExecutionCount();
@@ -1159,13 +1164,19 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          idle.setDestId(Id::LocalManager);
          sendMessage(idle);
 
+         message::ExecutionProgress fin(message::ExecutionProgress::FinishCompute);
+         fin.setUuid(comp->uuid());
+         fin.setDestId(Id::LocalManager);
+         sendMessage(fin);
          if (comp->reason() == message::Compute::Execute) {
             --m_executionDepth;
             vassert(m_executionDepth == 0);
-            message::ExecutionProgress fin(message::ExecutionProgress::Finish);
-            fin.setUuid(comp->uuid());
-            fin.setDestId(Id::LocalManager);
-            sendMessage(fin);
+            if (reducePolicy() == message::ReducePolicy::Never) {
+               message::ExecutionProgress finc(message::ExecutionProgress::Finish);
+               finc.setUuid(comp->uuid());
+               finc.setDestId(Id::LocalManager);
+               sendMessage(finc);
+            }
          }
          return ret;
          break;
@@ -1183,6 +1194,14 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          bool ret = false;
          try {
             ret = reduce(red->timestep());
+            if (m_benchmark && red->timestep()==-1) {
+               double duration = Clock::time() - m_benchmarkStart;
+               if (rank() == 0) {
+                  sendInfo("compute() took %fs (OpenMP threads: %d)", duration, openmpThreads());
+                  printf("%s:%d: compute() took %fs (OpenMP threads: %d)",
+                         name().c_str(), id(), duration, openmpThreads());
+               }
+            }
          } catch (std::exception &e) {
             std::cout << name() << "::reduce(): exception - " << e.what() << std::endl << std::flush;
             std::cerr << name() << "::reduce(): exception - " << e.what() << std::endl;
@@ -1204,6 +1223,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          break;
       }
 
+#if 0
       case message::Message::EXECUTIONPROGRESS: {
          
          const message::ExecutionProgress *prog =
@@ -1216,16 +1236,28 @@ bool Module::handleMessage(const vistle::message::Message *message) {
             case message::ExecutionProgress::Start:
                if (m_executionDepth == 0) {
                   if (reducePolicy() != message::ReducePolicy::Never) {
+                     m_benchmarkStart = Clock::time();
                      prepare();
                   }
                   sendMessage(forward);
                }
                ++m_executionDepth;
                break;
+            case message::ExecutionProgress::StartCompute:
+               sendMessage(forward);
+               break;
+            case message::ExecutionProgress::FinishCompute:
+               break;
             case message::ExecutionProgress::Finish:
                --m_executionDepth;
-               if (m_executionDepth == 0)
+               if (m_executionDepth == 0) {
+                  forward.setStage(message::ExecutionProgress::FinishCompute);
                   sendMessage(forward);
+                  if (reducePolicy() == message::ReducePolicy::Never) {
+                     forward.setStage(message::ExecutionProgress::Finish);
+                     sendMessage(forward);
+                  }
+               }
                break;
             case message::ExecutionProgress::Iteration:
                break;
@@ -1234,6 +1266,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          }
          break;
       }
+#endif
 
       case message::Message::ADDOBJECT: {
 
@@ -1477,20 +1510,13 @@ int Module::objectReceivePolicy() const {
 
 bool Module::prepare() {
 
-   m_benchmarkStart = Clock::time();
+   MPI_Barrier(MPI_COMM_WORLD);
    return true;
 }
 
 bool Module::reduce(int timestep) {
 
-   if (m_benchmark && timestep==-1) {
-      double duration = Clock::time() - m_benchmarkStart;
-      if (rank() == 0) {
-         sendInfo("compute() took %fs (OpenMP threads: %d)", duration, openmpThreads());
-         printf("%s:%d: compute() took %fs (OpenMP threads: %d)",
-               name().c_str(), id(), duration, openmpThreads());
-      }
-   }
+   MPI_Barrier(MPI_COMM_WORLD);
    return true;
 }
 
