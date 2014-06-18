@@ -961,7 +961,7 @@ bool ReadFOAM::addGridToPorts(int processor) {
 }
 
 bool ReadFOAM::addVolumeDataToPorts(int processor) {
-   for (auto &data: m_currentvolumedata[processor]) {
+   for (auto &data: m_currentvolumedata) {
       int portnum=data.first;
       addObject(m_volumeDataOut[portnum], m_currentvolumedata[processor][portnum]);
    }
