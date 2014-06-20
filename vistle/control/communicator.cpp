@@ -18,6 +18,7 @@
 #include <core/parameter.h>
 #include <util/findself.h>
 #include <util/sleep.h>
+#include <util/tools.h>
 
 #include "communicator.h"
 #include "clustermanager.h"

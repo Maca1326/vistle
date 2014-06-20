@@ -17,7 +17,7 @@ class V_MODULEEXPORT Renderer: public Module {
 
  private:
    virtual void render() = 0;
-   boost::shared_ptr<IntParameter> m_renderMode;
+   IntParameter *m_renderMode;
 };
 
 } // namespace vistle

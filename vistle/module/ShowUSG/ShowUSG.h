@@ -12,8 +12,8 @@ class ShowUSG: public vistle::Module {
  private:
    virtual bool compute();
 
-   boost::shared_ptr<vistle::IntParameter> m_CellNrMin;
-   boost::shared_ptr<vistle::IntParameter> m_CellNrMax;
+   vistle::IntParameter *m_CellNrMin;
+   vistle::IntParameter *m_CellNrMax;
 };
 
 #endif

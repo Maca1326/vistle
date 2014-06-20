@@ -12,8 +12,8 @@ class Gendat: public vistle::Module {
  private:
    virtual bool compute();
 
-   boost::shared_ptr<vistle::IntParameter> m_geoMode;
-   boost::shared_ptr<vistle::IntParameter> m_dataMode;
+   vistle::IntParameter *m_geoMode;
+   vistle::IntParameter *m_dataMode;
 };
 
 #endif

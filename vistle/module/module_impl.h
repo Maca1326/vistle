@@ -10,25 +10,25 @@ bool Module::setParameter(const std::string &name, const T &value, const message
    if (!p)
       return false;
 
-   return setParameter(p, value, inResponseTo);
+   return setParameter(p.get(), value, inResponseTo);
 }
 
 template<class T>
-bool Module::setParameter(boost::shared_ptr<ParameterBase<T>> param, const T &value, const message::SetParameter *inResponseTo) {
+bool Module::setParameter(ParameterBase<T> *param, const T &value, const message::SetParameter *inResponseTo) {
 
    param->setValue(value);
-   parameterChanged(*param);
+   parameterChanged(param);
    return updateParameter(param->getName(), param, inResponseTo);
 }
 
 template<class T>
-bool Module::setParameterMinimum(boost::shared_ptr<ParameterBase<T>> param, const T &minimum) {
+bool Module::setParameterMinimum(ParameterBase<T> *param, const T &minimum) {
 
    return Module::setParameterRange(param, minimum, param->maximum());
 }
 
 template<class T>
-bool Module::setParameterMaximum(boost::shared_ptr<ParameterBase<T>> param, const T &maximum) {
+bool Module::setParameterMaximum(ParameterBase<T> *param, const T &maximum) {
 
    return Module::setParameterRange(param, param->minimum(), maximum);
 }
@@ -40,11 +40,11 @@ bool Module::setParameterRange(const std::string &name, const T &minimum, const 
    if (!p)
       return false;
 
-   return setParameterRange(p, minimum, maximum);
+   return setParameterRange(p.get(), minimum, maximum);
 }
 
 template<class T>
-bool Module::setParameterRange(boost::shared_ptr<ParameterBase<T>> param, const T &minimum, const T &maximum) {
+bool Module::setParameterRange(ParameterBase<T> *param, const T &minimum, const T &maximum) {
 
    bool ok = true;
 

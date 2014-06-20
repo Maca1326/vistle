@@ -121,7 +121,7 @@ std::vector<std::string> ReadFOAM::getFieldList() const {
    return choices;
 }
 
-bool ReadFOAM::parameterChanged(const Parameter &p)
+bool ReadFOAM::parameterChanged(const Parameter *p)
 {
    auto sp = dynamic_cast<const StringParameter *>(&p);
    if (sp == &*m_casedir) {

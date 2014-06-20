@@ -59,41 +59,41 @@ class V_MODULEEXPORT Module {
    void setCurrentParameterGroup(const std::string &group);
    const std::string &currentParameterGroup() const;
 
-   boost::shared_ptr<Parameter> addParameterGeneric(const std::string &name, boost::shared_ptr<Parameter> parameter);
-   bool updateParameter(const std::string &name, const boost::shared_ptr<Parameter> parameter, const message::SetParameter *inResponseTo, Parameter::RangeType rt=Parameter::Value);
+   Parameter *addParameterGeneric(const std::string &name, boost::shared_ptr<Parameter> parameter);
+   bool updateParameter(const std::string &name, const Parameter *parameter, const message::SetParameter *inResponseTo, Parameter::RangeType rt=Parameter::Value);
 
    template<class T>
-   boost::shared_ptr<Parameter> addParameter(const std::string &name, const std::string &description, const T &value, Parameter::Presentation presentation=Parameter::Generic);
+   Parameter *addParameter(const std::string &name, const std::string &description, const T &value, Parameter::Presentation presentation=Parameter::Generic);
    template<class T>
    bool setParameter(const std::string &name, const T &value, const message::SetParameter *inResponseTo);
    template<class T>
-   bool setParameter(boost::shared_ptr<ParameterBase<T>> param, const T &value, const message::SetParameter *inResponseTo);
+   bool setParameter(ParameterBase<T> *param, const T &value, const message::SetParameter *inResponseTo);
    template<class T>
-   bool setParameterMinimum(boost::shared_ptr<ParameterBase<T>> param, const T &minimum);
+   bool setParameterMinimum(ParameterBase<T> *param, const T &minimum);
    template<class T>
-   bool setParameterMaximum(boost::shared_ptr<ParameterBase<T>> param, const T &maximum);
+   bool setParameterMaximum(ParameterBase<T> *param, const T &maximum);
    template<class T>
    bool setParameterRange(const std::string &name, const T &minimum, const T &maximum);
    template<class T>
-   bool setParameterRange(boost::shared_ptr<ParameterBase<T>> param, const T &minimum, const T &maximum);
+   bool setParameterRange(ParameterBase<T> *param, const T &minimum, const T &maximum);
    template<class T>
    bool getParameter(const std::string &name, T &value) const;
    void setParameterChoices(const std::string &name, const std::vector<std::string> &choices);
-   void setParameterChoices(boost::shared_ptr<Parameter> param, const std::vector<std::string> &choices);
+   void setParameterChoices(Parameter *param, const std::vector<std::string> &choices);
 
-   boost::shared_ptr<StringParameter> addStringParameter(const std::string & name, const std::string &description, const std::string & value, Parameter::Presentation p=Parameter::Generic);
+   StringParameter *addStringParameter(const std::string & name, const std::string &description, const std::string & value, Parameter::Presentation p=Parameter::Generic);
    bool setStringParameter(const std::string & name, const std::string & value, const message::SetParameter *inResponseTo=NULL);
    std::string getStringParameter(const std::string & name) const;
 
-   boost::shared_ptr<FloatParameter> addFloatParameter(const std::string & name, const std::string &description, const Float value);
+   FloatParameter *addFloatParameter(const std::string & name, const std::string &description, const Float value);
    bool setFloatParameter(const std::string & name, const Float value, const message::SetParameter *inResponseTo=NULL);
    Float getFloatParameter(const std::string & name) const;
 
-   boost::shared_ptr<IntParameter> addIntParameter(const std::string & name, const std::string &description, const Integer value, Parameter::Presentation p=Parameter::Generic);
+   IntParameter *addIntParameter(const std::string & name, const std::string &description, const Integer value, Parameter::Presentation p=Parameter::Generic);
    bool setIntParameter(const std::string & name, const Integer value, const message::SetParameter *inResponseTo=NULL);
    Integer getIntParameter(const std::string & name) const;
 
-   boost::shared_ptr<VectorParameter> addVectorParameter(const std::string & name, const std::string &description, const ParamVector & value);
+   VectorParameter *addVectorParameter(const std::string & name, const std::string &description, const ParamVector & value);
    bool setVectorParameter(const std::string & name, const ParamVector & value, const message::SetParameter *inResponseTo=NULL);
    ParamVector getVectorParameter(const std::string & name) const;
 
@@ -183,7 +183,7 @@ protected:
 
    std::string getModuleName(int id) const;
 
-   virtual bool parameterChanged(const Parameter &p);
+   virtual bool parameterChanged(const Parameter *p);
 
    int openmpThreads() const;
    void setOpenmpThreads(int, bool updateParam=true);

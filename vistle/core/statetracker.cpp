@@ -841,11 +841,11 @@ boost::shared_ptr<Parameter> StateTracker::getParameter(int id, const std::strin
 
    RunningMap::const_iterator rit = runningMap.find(id);
    if (rit == runningMap.end())
-      return NULL;
+      return boost::shared_ptr<Parameter>();
 
    ParameterMap::const_iterator pit = rit->second.parameters.find(name);
    if (pit == rit->second.parameters.end())
-      return NULL;
+      return boost::shared_ptr<Parameter>();
 
    return pit->second;
 }

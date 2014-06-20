@@ -29,6 +29,7 @@
 #include <boost/thread/recursive_mutex.hpp>
 
 #include <util/sysdep.h>
+#include <util/tools.h>
 #include <util/stopwatch.h>
 #include <core/object.h>
 #include <core/message.h>
@@ -225,7 +226,7 @@ void Module::initDone() {
    sendMessage(start);
 
    for (auto &pair: parameters) {
-      parameterChanged(*pair.second);
+      parameterChanged(pair.second.get());
    }
 }
 
@@ -333,7 +334,7 @@ Port *Module::createInputPort(const std::string &name, const std::string &descri
       return p;
    }
 
-   return NULL;
+   return nullptr;
 }
 
 Port *Module::createOutputPort(const std::string &name, const std::string &description, const int flags) {
@@ -349,7 +350,7 @@ Port *Module::createOutputPort(const std::string &name, const std::string &descr
       sendMessage(message);
       return p;
    }
-   return NULL;
+   return nullptr;
 }
 
 void Module::setCurrentParameterGroup(const std::string &group) {
@@ -383,13 +384,13 @@ Port *Module::findOutputPort(const std::string &name) const {
 }
 
 
-boost::shared_ptr<Parameter> Module::addParameterGeneric(const std::string &name, boost::shared_ptr<Parameter> param) {
+Parameter *Module::addParameterGeneric(const std::string &name, boost::shared_ptr<Parameter> param) {
 
    auto i = parameters.find(name);
 
    vassert(i == parameters.end());
    if (i != parameters.end())
-      return boost::shared_ptr<Parameter>();
+      return nullptr;
 
    parameters[name] = param;
 
@@ -402,10 +403,10 @@ boost::shared_ptr<Parameter> Module::addParameterGeneric(const std::string &name
    set.setUuid(add.uuid());
    sendMessage(set);
 
-   return param;
+   return param.get();
 }
 
-bool Module::updateParameter(const std::string &name, const boost::shared_ptr<Parameter> param, const message::SetParameter *inResponseTo, Parameter::RangeType rt) {
+bool Module::updateParameter(const std::string &name, const Parameter *param, const message::SetParameter *inResponseTo, Parameter::RangeType rt) {
 
    auto i = parameters.find(name);
 
@@ -419,12 +420,12 @@ bool Module::updateParameter(const std::string &name, const boost::shared_ptr<Pa
       return false;
    }
 
-   if (i->second != param) {
+   if (i->second.get() != param) {
       std::cerr << "setParameter: pointer mismatch for " << name << std::endl;
       return false;
    }
 
-   message::SetParameter set(id(), name, param, rt);
+   message::SetParameter set(id(), name, i->second, rt);
    if (inResponseTo) {
       set.setReply();
       set.setUuid(inResponseTo->uuid());
@@ -439,10 +440,10 @@ void Module::setParameterChoices(const std::string &name, const std::vector<std:
 {
    auto p = findParameter(name);
    if (p)
-      setParameterChoices(p, choices);
+      setParameterChoices(p.get(), choices);
 }
 
-void Module::setParameterChoices(boost::shared_ptr<Parameter> param, const std::vector<std::string> &choices)
+void Module::setParameterChoices(Parameter *param, const std::vector<std::string> &choices)
 {
    if (choices.size() <= message::param_num_choices) {
       message::SetParameterChoices sc(id(), param->getName(), choices);
@@ -451,7 +452,7 @@ void Module::setParameterChoices(boost::shared_ptr<Parameter> param, const std::
 }
 
 template<class T>
-boost::shared_ptr<Parameter> Module::addParameter(const std::string &name, const std::string &description, const T &value, Parameter::Presentation pres) {
+Parameter *Module::addParameter(const std::string &name, const std::string &description, const T &value, Parameter::Presentation pres) {
 
    boost::shared_ptr<Parameter> p(new ParameterBase<T>(id(), name, value));
    p->setDescription(description);
@@ -466,15 +467,15 @@ boost::shared_ptr<Parameter> Module::findParameter(const std::string &name) cons
    auto i = parameters.find(name);
 
    if (i == parameters.end())
-      return NULL;
+      return boost::shared_ptr<Parameter>();
 
    return i->second;
 }
 
-boost::shared_ptr<StringParameter> Module::addStringParameter(const std::string & name, const std::string &description,
+StringParameter *Module::addStringParameter(const std::string & name, const std::string &description,
                               const std::string & value, Parameter::Presentation p) {
 
-   return boost::dynamic_pointer_cast<StringParameter>(addParameter(name, description, value, p));
+   return dynamic_cast<StringParameter *>(addParameter(name, description, value, p));
 }
 
 bool Module::setStringParameter(const std::string & name,
@@ -490,10 +491,10 @@ std::string Module::getStringParameter(const std::string & name) const {
    return value;
 }
 
-boost::shared_ptr<FloatParameter> Module::addFloatParameter(const std::string & name, const std::string &description,
+FloatParameter *Module::addFloatParameter(const std::string &name, const std::string &description,
                                const Float value) {
 
-   return boost::dynamic_pointer_cast<FloatParameter>(addParameter(name, description, value));
+   return dynamic_cast<FloatParameter *>(addParameter(name, description, value));
 }
 
 bool Module::setFloatParameter(const std::string & name,
@@ -509,10 +510,10 @@ Float Module::getFloatParameter(const std::string & name) const {
    return value;
 }
 
-boost::shared_ptr<IntParameter> Module::addIntParameter(const std::string & name, const std::string &description,
+IntParameter *Module::addIntParameter(const std::string & name, const std::string &description,
                              const Integer value, Parameter::Presentation p) {
 
-   return boost::dynamic_pointer_cast<IntParameter>(addParameter(name, description, value, p));
+   return dynamic_cast<IntParameter *>(addParameter(name, description, value, p));
 }
 
 bool Module::setIntParameter(const std::string & name,
@@ -562,10 +563,10 @@ Integer Module::getIntParameter(const std::string & name) const {
    return value;
 }
 
-boost::shared_ptr<VectorParameter> Module::addVectorParameter(const std::string & name, const std::string &description,
+VectorParameter *Module::addVectorParameter(const std::string & name, const std::string &description,
                                 const ParamVector & value) {
 
-   return boost::dynamic_pointer_cast<VectorParameter>(addParameter(name, description, value));
+   return dynamic_cast<VectorParameter *>(addParameter(name, description, value));
 }
 
 bool Module::setVectorParameter(const std::string & name,
@@ -753,9 +754,9 @@ bool Module::isConnected(const std::string &portname) const {
    return !p->connections().empty();
 }
 
-bool Module::parameterChanged(const Parameter &p) {
+bool Module::parameterChanged(const Parameter *p) {
 
-   std::string name = p.getName();
+   std::string name = p->getName();
    if (name[0] != '_')
       return true;
 
@@ -1304,7 +1305,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
             }
 
             if (auto p = findParameter(param->getName())) {
-               parameterChanged(*p);
+               parameterChanged(p.get());
             }
 
             // notification of controller about current value happens in set...Parameter
@@ -1404,7 +1405,7 @@ public:
 struct instantiator {
    template<typename P> P operator()(P) {
       InstModule m;
-      boost::shared_ptr<ParameterBase<P>> p(new ParameterBase<P>(m.id(), "param"));
+      ParameterBase<P> *p(new ParameterBase<P>(m.id(), "param"));
       m.setParameterMinimum(p, P());
       m.setParameterMaximum(p, P());
       return P();

@@ -23,7 +23,7 @@ boost::shared_ptr<vistle::Parameter> VistleInteractor::findParam(const std::stri
 {
    ParameterMap::const_iterator it = m_parameterMap.find(name);
    if (it == m_parameterMap.end())
-      return nullptr;
+      return boost::shared_ptr<vistle::Parameter>();
 
    return it->second;
 }
