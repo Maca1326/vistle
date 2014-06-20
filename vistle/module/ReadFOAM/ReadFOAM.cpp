@@ -123,8 +123,8 @@ std::vector<std::string> ReadFOAM::getFieldList() const {
 
 bool ReadFOAM::parameterChanged(const Parameter *p)
 {
-   auto sp = dynamic_cast<const StringParameter *>(&p);
-   if (sp == &*m_casedir) {
+   auto sp = dynamic_cast<const StringParameter *>(p);
+   if (sp == m_casedir) {
       std::string casedir = sp->getValue();
 
       m_case = getCaseInfo(casedir, m_starttime->getValue(), m_stoptime->getValue());
