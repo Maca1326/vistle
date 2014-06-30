@@ -1,12 +1,14 @@
 #! /bin/bash
 
-exec "$@"
+#echo SPAWN "$@"
 
 case $(hostname) in
    viscluster*)
-      echo spawn_vistle.sh "$@"
       HOSTS=$(echo viscluster{50..60} viscluster{71..75}|sed -e 's/ /,/g')
-      exec mpirun -np 16 -H ${HOSTS} "$@"
+      if [ "$MPISIZE" = "" ]; then
+         MPISIZE=16
+      fi
+      exec mpirun -np ${MPISIZE} -H ${HOSTS} "$@"
       ;;
    *)
       #echo mpirun "$@"
