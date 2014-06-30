@@ -172,52 +172,54 @@ bool Communicator::dispatch(bool *work) {
    }
 
    // handle or broadcast messages received from slaves (rank > 0)
-   if (m_rank == 0) {
+   if (m_size > 1) {
+      if (m_rank == 0) {
+         int flag;
+         MPI_Status status;
+         MPI_Test(&m_reqToRank0, &flag, &status);
+         if (flag && status.MPI_TAG == TagToRank0) {
+
+            vassert(m_rank == 0);
+            received = true;
+            message::Message *message = &m_recvBufTo0.msg;
+            if (message->broadcast()) {
+               if (!broadcastAndHandleMessage(*message))
+                  done = true;
+            }  else {
+               if (!handleMessage(*message))
+                  done = true;
+            }
+            MPI_Irecv(m_recvBufTo0.buf.data(), m_recvBufTo0.buf.size(), MPI_BYTE, MPI_ANY_SOURCE, TagToRank0, MPI_COMM_WORLD, &m_reqToRank0);
+         }
+      }
+
+      // test for message size from another MPI node
+      //    - receive actual message from broadcast (on any rank)
+      //    - receive actual message from slave rank (on rank 0) for broadcasting
+      //    - handle message
+      //    - post another MPI receive for size of next message
       int flag;
       MPI_Status status;
-      MPI_Test(&m_reqToRank0, &flag, &status);
-      if (flag && status.MPI_TAG == TagToRank0) {
+      MPI_Test(&m_reqAny, &flag, &status);
+      if (flag && status.MPI_TAG == TagToAny) {
 
-         vassert(m_rank == 0);
-         received = true;
-         message::Message *message = &m_recvBufTo0.msg;
-         if (message->broadcast()) {
-            if (!broadcastAndHandleMessage(*message))
-               done = true;
-         }  else {
+         vassert(m_recvSize <= m_recvBufToAny.buf.size());
+         MPI_Bcast(m_recvBufToAny.buf.data(), m_recvSize, MPI_BYTE,
+               status.MPI_SOURCE, MPI_COMM_WORLD);
+         if (m_recvSize > 0) {
+            received = true;
+
+            message::Message *message = &m_recvBufToAny.msg;
+#if 0
+            printf("[%02d] message from [%02d] message type %d m_size %d\n",
+                  m_rank, status.MPI_SOURCE, message->getType(), mpiMessageSize);
+#endif
             if (!handleMessage(*message))
                done = true;
          }
-         MPI_Irecv(m_recvBufTo0.buf.data(), m_recvBufTo0.buf.size(), MPI_BYTE, MPI_ANY_SOURCE, TagToRank0, MPI_COMM_WORLD, &m_reqToRank0);
+
+         MPI_Irecv(&m_recvSize, 1, MPI_INT, MPI_ANY_SOURCE, TagToAny, MPI_COMM_WORLD, &m_reqAny);
       }
-   }
-
-   // test for message size from another MPI node
-   //    - receive actual message from broadcast (on any rank)
-   //    - receive actual message from slave rank (on rank 0) for broadcasting
-   //    - handle message
-   //    - post another MPI receive for size of next message
-   int flag;
-   MPI_Status status;
-   MPI_Test(&m_reqAny, &flag, &status);
-   if (flag && status.MPI_TAG == TagToAny) {
-
-      vassert(m_recvSize <= m_recvBufToAny.buf.size());
-      MPI_Bcast(m_recvBufToAny.buf.data(), m_recvSize, MPI_BYTE,
-            status.MPI_SOURCE, MPI_COMM_WORLD);
-      if (m_recvSize > 0) {
-         received = true;
-
-         message::Message *message = &m_recvBufToAny.msg;
-#if 0
-         printf("[%02d] message from [%02d] message type %d m_size %d\n",
-                m_rank, status.MPI_SOURCE, message->getType(), mpiMessageSize);
-#endif
-         if (!handleMessage(*message))
-            done = true;
-      }
-
-      MPI_Irecv(&m_recvSize, 1, MPI_INT, MPI_ANY_SOURCE, TagToAny, MPI_COMM_WORLD, &m_reqAny);
    }
 
    if (m_rank == 0) {
