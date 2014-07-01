@@ -230,8 +230,8 @@ bool Hub::dispatch() {
       if (it == m_processMap.end()) {
          CERR << "unknown process with PID " << pid << " exited" << std::endl;
       } else {
-         CERR << "process with id " << it->second << " (PID " << pid << ") exited" << std::endl;
          const int id = it->second;
+         CERR << "process with id " << id << " (PID " << pid << ") exited" << std::endl;
          m_processMap.erase(it);
          if (id == 0) {
             // manager died
@@ -245,6 +245,16 @@ bool Hub::dispatch() {
                } else {
                   exit(1);
                }
+            }
+         }
+         if (id >= message::Id::ModuleBase) {
+            message::ModuleExit m;
+            m.setSenderId(id);
+            sendManager(m);
+            if (m_isMaster) {
+               sendSlaves(m);
+            } else {
+               sendManager(m);
             }
          }
       }
