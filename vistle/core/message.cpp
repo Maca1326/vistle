@@ -1057,6 +1057,11 @@ std::ostream &operator<<(std::ostream &s, const Message &m) {
          s << ", dest: " << mm.getModule() << ", name: " << mm.getName();
          break;
       }
+      case Message::SETPARAMETERCHOICES: {
+         auto mm = static_cast<const SetParameterChoices &>(m);
+         s << ", dest: " << mm.getModule() << ", name: " << mm.getName();
+         break;
+      }
       case Message::ADDPORT: {
          auto mm = static_cast<const AddPort &>(m);
          s << ", name: " << mm.getPort()->getName();

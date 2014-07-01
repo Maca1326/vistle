@@ -445,6 +445,7 @@ void Module::setParameterChoices(Parameter *param, const std::vector<std::string
 {
    if (choices.size() <= message::param_num_choices) {
       message::SetParameterChoices sc(id(), param->getName(), choices);
+      sc.setDestId(Id::Broadcast);
       sendMessage(sc);
    }
 }
