@@ -1117,7 +1117,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          startc.setUuid(comp->uuid());
          startc.setDestId(Id::LocalManager);
          sendMessage(startc);
-         vassert(m_executionDepth == 0);
+         //vassert(m_executionDepth == 0);
          ++m_executionDepth;
 
          if (m_executionCount < comp->getExecutionCount())
@@ -1171,7 +1171,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          sendMessage(fin);
          if (comp->reason() == message::Compute::Execute) {
             --m_executionDepth;
-            vassert(m_executionDepth == 0);
+            //vassert(m_executionDepth == 0);
             if (reducePolicy() == message::ReducePolicy::Never) {
                message::ExecutionProgress finc(message::ExecutionProgress::Finish);
                finc.setUuid(comp->uuid());
@@ -1212,7 +1212,7 @@ bool Module::handleMessage(const vistle::message::Message *message) {
          idle.setDestId(Id::LocalManager);
          sendMessage(idle);
 
-         vassert(m_executionDepth == 0);
+         //vassert(m_executionDepth == 0);
          message::ExecutionProgress fin(red->timestep()<0
                ? message::ExecutionProgress::Finish
                : message::ExecutionProgress::Timestep);
