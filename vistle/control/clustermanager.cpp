@@ -134,7 +134,7 @@ bool ClusterManager::dispatch(bool &received) {
       const auto &mod = it->second;
 
       // keep messages from modules that have already reached a barrier on hold
-      if (reachedSet.find(modId) != reachedSet.end())
+      if (!reachedSet.empty() && reachedSet.find(modId) != reachedSet.end())
          continue;
 
       if (mod.hub == Communicator::the().hubId()) {
@@ -655,6 +655,9 @@ bool ClusterManager::handlePriv(const message::ExecutionProgress &prog) {
    if (i2 == m_stateTracker.runningMap.end()) {
       return false;
    }
+
+   //FIXME
+   return true;
 
    // initiate reduction if requested by module
    auto &mod = i->second;
