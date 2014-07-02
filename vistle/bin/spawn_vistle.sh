@@ -1,6 +1,6 @@
 #! /bin/bash
 
-#echo SPAWN "$@"
+echo SPAWN "$@"
 
 case $(hostname) in
    viscluster*)
@@ -13,8 +13,8 @@ case $(hostname) in
    *)
       #echo mpirun "$@"
       #exec mpirun -np 1 "$@"
-      echo EXEC: "$@"
-      exec mpirun -np 2 "$@"
+      #echo EXEC: "$@"
+      #exec mpirun -np 2 "$@"
       #exec xterm -e gdb --args "$@"
       exec "$@"
       ;;
