@@ -44,6 +44,8 @@ std::string backtrace()
 
 bool attach_debugger() {
 
+   return true;
+
 #ifdef _WIN32
    DebugBreak();
    return true;
