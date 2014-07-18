@@ -8,7 +8,7 @@ case $(hostname) in
       if [ "$MPISIZE" = "" ]; then
          MPISIZE=16
       fi
-      exec mpirun -np ${MPISIZE} -H ${HOSTS} "$@"
+      exec mpirun -np ${MPISIZE} -hosts ${HOSTS} "$@"
       ;;
    *)
       #echo mpirun "$@"

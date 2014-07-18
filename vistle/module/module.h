@@ -234,8 +234,8 @@ protected:
       int provided = MPI_THREAD_SINGLE; \
       MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided); \
       if (provided == MPI_THREAD_SINGLE) { \
-         std::cerr << "no thread support in MPI" << std::endl; \
-         exit(1); \
+         /* std::cerr << "no thread support in MPI" << std::endl; \
+         exit(1); */ \
       } \
       vistle::registerTypes(); \
       int rank=-1, size=-1; \
