@@ -345,7 +345,7 @@ Communicator::~Communicator() {
       //MPI_Wait(&s, MPI_STATUS_IGNORE);
       //MPI_Wait(&m_reqAny, MPI_STATUS_IGNORE);
    }
-   MPI_Barrier(MPI_COMM_WORLD);
+   //MPI_Barrier(MPI_COMM_WORLD);
 }
 
 ClusterManager &Communicator::clusterManager() const {
