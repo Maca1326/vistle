@@ -209,7 +209,7 @@ bool  ClusterManager::Module::processDelayed() {
     while (haveDelayed()) {
         bool ret = true;
         if (Communicator::the().getRank() == 0) {
-            if (ranksStarted == 0)
+            //if (ranksStarted == 0)
             {
                 auto &mpl = delayedMessages.front();
                 auto &msg = mpl.buf;
