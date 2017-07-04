@@ -153,6 +153,8 @@ inline void shadeRay(uniform const SceneData *uniform scene, uniform const TileD
                 ambientColor.x *= ambientFactor;
                 ambientColor.y *= ambientFactor;
                 ambientColor.z *= ambientFactor;
+                shaded = shaded + ambientColor * ambient;
+
                 Vec3f normal;
                 if (ro->normals[0]) {
                     const float &u = hit.u;
@@ -198,13 +200,12 @@ inline void shadeRay(uniform const SceneData *uniform scene, uniform const TileD
                 if (twoSided && dot(normal, dir) > 0.f)
                     normal = neg(normal);
 
-                shaded = shaded + ambientColor * ambient;
                 cfor (uniform int l=0; l<scene->numLights; ++l) {
                     const uniform Light &light = scene->lights[l];
                     cif (light.enabled) {
                         const Vec3f lv = normalize(light.isDirectional ? light.transformedPosition : light.transformedPosition-pos);
                         float atten = 1.f;
-                        cif (light.isDirectional) {
+                        cif (!light.isDirectional) {
                             atten = light.attenuation[0];
                             cif (light.attenuation[1]>0.f || light.attenuation[2]>0.f) {
                                 Vec4f ec = make_Vec4f(light.transformedPosition-pos);
@@ -213,13 +214,17 @@ inline void shadeRay(uniform const SceneData *uniform scene, uniform const TileD
                                     float dd = dot(scene->modelView[i], ec);
                                     d += dd*dd;
                                 }
+                                d = sqrt(d);
                                 atten += (light.attenuation[1] + light.attenuation[2]*d)*d;
                             }
                             atten = rcp(atten);
                         }
+                        if (light.spotExponent > 0.f) {
+                            atten = atten * pow(dot(light.spotDirection, lv), light.spotExponent);
+                        }
                         shaded = shaded + ambientColor * atten * light.ambient;
                         const float ldot = max(0.f, dot(normal, lv));
-                        shaded = shaded + color * atten *ldot * light.diffuse;
+                        shaded = shaded + color * atten * ldot * light.diffuse;
                         if (ldot > 0.f) {
                             const Vec3f halfway = normalize(lv-dir);
                             const float hdot = max(0.f, dot(normal, halfway));

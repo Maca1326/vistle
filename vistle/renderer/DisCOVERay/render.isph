@@ -15,6 +15,9 @@ struct Light {
    Vec4f diffuse;
    Vec4f specular;
    Vec3f transformedPosition;
+   float spotExponent;
+   Vec3f spotDirection;
+   float spotCutoff;
    float attenuation[3];
    bool enabled;
    bool isDirectional;

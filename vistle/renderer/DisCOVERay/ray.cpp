@@ -359,6 +359,13 @@ void TileTask::render(int tile) const {
         l.specular.z = light.specular[2];
         l.specular.w = light.specular[3];
 
+        Vector3 dir = light.direction.normalized();
+        l.spotDirection.x = dir[0];
+        l.spotDirection.y = dir[1];
+        l.spotDirection.z = dir[2];
+        l.spotCutoff = light.spotCutoff;
+        l.spotExponent = light.spotExponent;
+
         lights.push_back(l);
     }
     sceneData.numLights = lights.size();
