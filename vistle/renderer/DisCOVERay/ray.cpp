@@ -168,7 +168,7 @@ DisCOVERay::DisCOVERay(const std::string &name, int moduleId, mpi::communicator 
    m_pointSizeParam = addFloatParameter("point_size", "size of points", RayRenderObject::pointSize);
    setParameterRange(m_pointSizeParam, (Float)0, (Float)1e6);
 
-   m_device = rtcNewDevice("verbose=0");
+   m_device = rtcNewDevice("verbose=0,start_threads=1,set_affinity=1");
    if (!m_device) {
        CERR << "failed to create device" << std::endl;
        throw(vistle::exception("failed to create Embree device"));
