@@ -2,15 +2,17 @@
 
 CC="/usr/bin/gcc"
 
-if [ -x /usr/bin/gcc44 ]; then
-   CC="/usr/bin/gcc44"
-fi
-
 declare -a ARGS
 
 function addarg() {
    ARGS[${#ARGS[@]}]="$1"
 }
+
+if [ -x /usr/bin/gcc-6 ]; then
+   CC="/usr/bin/gcc-6"
+elif [ -x /usr/bin/gcc44 ]; then
+   CC="/usr/bin/gcc44"
+fi
 
 if [ -f /usr/local/bin/gcc-4.8 ]; then
    CC="/usr/local/bin/gcc-4.8"
