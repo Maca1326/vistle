@@ -436,7 +436,7 @@ Array *applyTriangle(typename Geometry::const_ptr tri, MappedPtr mapped, bool in
 
 
 template<class Geometry>
-osg::Vec3Array *computeNormals(typename Geometry::const_ptr geometry, bool indexGeom) {
+osg::Vec3Array *computeNormals(typename Geometry::const_ptr geometry, bool indexGeom, std::vector<int> *splitList=nullptr, float creaseAngle=M_PI) {
 
     PrimitiveAdapter<Geometry> geo(geometry);
 
@@ -450,8 +450,12 @@ osg::Vec3Array *computeNormals(typename Geometry::const_ptr geometry, bool index
     const vistle::Scalar *z = &geometry->z()[0];
 
     osg::Vec3Array *normals = new osg::Vec3Array;
-    if (numCorners > 0) {
-        normals->resize(indexGeom ? numCoords : numCorners);
+    if (indexGeom && numCorners>0 && splitList && creaseAngle<M_PI) {
+        std::vector<osg::Vec3> fn;
+        fn.reserve(numPrim);
+#ifdef COVER_PLUGIN
+        auto N = opencover::Tipsify::buildNeighbours(&cl[0], numCorners, numCorners);
+#endif
         for (Index prim=0; prim<numPrim; ++prim) {
             const Index begin = geo.getPrimitiveBegin(prim), end = geo.getPrimitiveBegin(prim+1);
             Index v0 = cl[begin+0], v1 = cl[begin+1], v2 = cl[begin+2];
@@ -460,35 +464,49 @@ osg::Vec3Array *computeNormals(typename Geometry::const_ptr geometry, bool index
             osg::Vec3 w(x[v2], y[v2], z[v2]);
             osg::Vec3 normal = (w - u) ^ (v - u) * -1;
             normal.normalize();
-
-            if (indexGeom) {
-                for (Index c = begin; c < end; ++c) {
-                    const Index v = cl[c];
-                    (*normals)[v] += normal;
-                }
-            } else {
-                for (Index c = begin; c < end; ++c) {
-                    const Index v = cl[c];
-                    (*normals)[v] = normal;
-                }
-            }
-        }
-        if (indexGeom) {
-            for (Index v=0; v<numCoords; ++v)
-                (*normals)[v].normalize();
+            fn.push_back(normal);
         }
     } else {
-        for (Index prim=0; prim<numPrim; ++prim) {
-            const Index begin = geo.getPrimitiveBegin(prim), end = geo.getPrimitiveBegin(prim+1);
-            const Index c = begin;
-            osg::Vec3 u(x[c + 0], y[c + 0], z[c + 0]);
-            osg::Vec3 v(x[c + 1], y[c + 1], z[c + 1]);
-            osg::Vec3 w(x[c + 2], y[c + 2], z[c + 2]);
-            osg::Vec3 normal = (w - u) ^ (v - u) * -1;
-            normal.normalize();
+        if (numCorners > 0) {
+            normals->resize(indexGeom ? numCoords : numCorners);
+            for (Index prim=0; prim<numPrim; ++prim) {
+                const Index begin = geo.getPrimitiveBegin(prim), end = geo.getPrimitiveBegin(prim+1);
+                Index v0 = cl[begin+0], v1 = cl[begin+1], v2 = cl[begin+2];
+                osg::Vec3 u(x[v0], y[v0], z[v0]);
+                osg::Vec3 v(x[v1], y[v1], z[v1]);
+                osg::Vec3 w(x[v2], y[v2], z[v2]);
+                osg::Vec3 normal = (w - u) ^ (v - u) * -1;
+                normal.normalize();
 
-            for (Index c = begin; c < end; ++c)
-                normals->push_back(normal);
+                if (indexGeom) {
+                    for (Index c = begin; c < end; ++c) {
+                        const Index v = cl[c];
+                        (*normals)[v] += normal;
+                    }
+                } else {
+                    for (Index c = begin; c < end; ++c) {
+                        const Index v = cl[c];
+                        (*normals)[v] = normal;
+                    }
+                }
+            }
+            if (indexGeom) {
+                for (Index v=0; v<numCoords; ++v)
+                    (*normals)[v].normalize();
+            }
+        } else {
+            for (Index prim=0; prim<numPrim; ++prim) {
+                const Index begin = geo.getPrimitiveBegin(prim), end = geo.getPrimitiveBegin(prim+1);
+                const Index c = begin;
+                osg::Vec3 u(x[c + 0], y[c + 0], z[c + 0]);
+                osg::Vec3 v(x[c + 1], y[c + 1], z[c + 1]);
+                osg::Vec3 w(x[c + 2], y[c + 2], z[c + 2]);
+                osg::Vec3 normal = (w - u) ^ (v - u) * -1;
+                normal.normalize();
+
+                for (Index c = begin; c < end; ++c)
+                    normals->push_back(normal);
+            }
         }
     }
 
