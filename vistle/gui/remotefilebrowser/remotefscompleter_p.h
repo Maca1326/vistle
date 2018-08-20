@@ -59,6 +59,8 @@ QT_REQUIRE_CONFIG(fscompleter);
 
 QT_BEGIN_NAMESPACE
 
+class QKeyEvent;
+
 /*!
     QCompleter that can deal with AbstractFileSystemModel
   */
@@ -67,10 +69,11 @@ public:
     explicit RemoteFSCompleter(AbstractFileSystemModel *model, QObject *parent = 0)
         : QCompleter(model, parent), proxyModel(0), sourceModel(model)
     {
-#if defined(Q_OS_WIN)
-        setCaseSensitivity(Qt::CaseInsensitive);
-#endif
+        if (model->isWindows()) {
+            setCaseSensitivity(Qt::CaseInsensitive);
+        }
     }
+    bool processKeyEvent(QKeyEvent *ke);
     QString pathFromIndex(const QModelIndex &index) const override;
     QStringList splitPath(const QString& path) const override;
 

@@ -3731,6 +3731,34 @@ QSize RemoteFileDialogTreeView::sizeHint() const
     return QSize(sizeHint.width() * 4, height * 30);
 }
 
+#if QT_CONFIG(completer)
+// iterating forward(dir=1)/backward(dir=-1) from the
+// current row based. dir=0 indicates a new completion prefix was set.
+bool advanceToEnabledItem(QCompleter *completer, int dir)
+{
+    int start = completer->currentRow();
+    if (start == -1)
+        return false;
+    int i = start + dir;
+    if (dir == 0) dir = 1;
+    do {
+        if (!completer->setCurrentRow(i)) {
+            if (!completer->wrapAround())
+                break;
+            i = i > 0 ? 0 : completer->completionCount() - 1;
+        } else {
+            QModelIndex currentIndex = completer->currentIndex();
+            if (completer->completionModel()->flags(currentIndex) & Qt::ItemIsEnabled)
+                return true;
+            i += dir;
+        }
+    } while (i != start);
+
+    completer->setCurrentRow(start); // restore
+    return false;
+}
+#endif
+
 /*!
     // FIXME: this is a hack to avoid propagating key press events
     // to the dialog and from there to the "Ok" button
@@ -3747,25 +3775,44 @@ void RemoteFileDialogLineEdit::keyPressEvent(QKeyEvent *e)
 #if QT_CONFIG(shortcut)
     int key = e->key();
 #endif
-    QKeyEvent *syn = nullptr;
+    bool accepted = false;
 #if QT_CONFIG(completer)
-    if (e->modifiers() == Qt::ControlModifier && completer() && completer()->popup() && completer()->popup()->isVisible()) {
+    auto comp = dynamic_cast<RemoteFSCompleter *>(completer());
+    if (e->modifiers() == Qt::CTRL && comp && comp->popup() && comp->popup()->isVisible()) {
+        QKeyEvent *synPress = nullptr;
+        int dir = 0;
         if (e->key() == Qt::Key_N) {
-            syn = new QKeyEvent(QEvent::KeyPress, Qt::Key_Down, Qt::ControlModifier);
+            synPress = new QKeyEvent(QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier);
+            dir = 1;
         }
         if (e->key() == Qt::Key_P) {
-            syn = new QKeyEvent(QEvent::KeyPress, Qt::Key_Up, Qt::ControlModifier);
+            synPress = new QKeyEvent(QEvent::KeyPress, Qt::Key_Up, Qt::NoModifier);
+            dir = -1;
         }
+
+        if (synPress) {
+            if (!comp->processKeyEvent(synPress))
+                advanceToEnabledItem(comp, dir);
+            accepted = true;
+            e->accept();
+            comp->complete();
+        }
+        delete synPress;
     }
 #endif
-    QLineEdit::keyPressEvent(syn ? syn : e);
+    if (!accepted)
+        QLineEdit::keyPressEvent(e);
 #if QT_CONFIG(shortcut)
     if (!e->matches(QKeySequence::Cancel) && key != Qt::Key_Back)
 #endif
         e->accept();
-    if (syn)
-        e->accept();
-    delete syn;
+}
+
+bool RemoteFSCompleter::processKeyEvent(QKeyEvent *ev) {
+
+    bool result = eventFilter(popup(), ev);
+    qInfo() << "EVENT FILTER:" << result;
+    return result;
 }
 
 
