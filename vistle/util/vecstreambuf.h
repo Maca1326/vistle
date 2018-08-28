@@ -29,7 +29,23 @@ class vecostreambuf: public std::basic_streambuf<CharT, TraitsT> {
           m_vector.reserve(std::max(2*(oldsize+num), m_vector.capacity()*2));
       }
       m_vector.resize(oldsize+num);
-      memcpy(m_vector.data()+oldsize, s, num);
+      auto cur = m_vector.data()+oldsize;
+      switch (num) {
+          case 1 : std::memcpy(cur, s, 1) ; break;
+          case 2 : std::memcpy(cur, s, 2) ; break;
+          case 3 : std::memcpy(cur, s, 3) ; break;
+          case 4 : std::memcpy(cur, s, 4) ; break;
+          case 5 : std::memcpy(cur, s, 5) ; break;
+          case 6 : std::memcpy(cur, s, 6) ; break;
+          case 7 : std::memcpy(cur, s, 7) ; break;
+          case 8 : std::memcpy(cur, s, 8) ; break;
+          case 9 : std::memcpy(cur, s, 9) ; break;
+#if defined(__GNUC__) && defined(__SIZEOF_INT128__) // hack for detect int128 support
+          case 16: std::memcpy(cur, s, 16); break;
+          case 17: std::memcpy(cur, s, 17); break;
+#endif
+          default: std::memcpy(cur, s, num);
+      }
       return num;
    }
 
@@ -63,7 +79,23 @@ class vecistreambuf: public std::basic_streambuf<CharT, TraitsT> {
    std::size_t read(void *ptr, std::size_t size) {
        if (cur+size > vec.size())
            size = vec.size()-cur;
-       memcpy(ptr, vec.data()+cur, size);
+       const void *d = vec.data()+cur;
+       switch (size) {
+           case 1 : std::memcpy(ptr, d, 1) ; break;
+           case 2 : std::memcpy(ptr, d, 2) ; break;
+           case 3 : std::memcpy(ptr, d, 3) ; break;
+           case 4 : std::memcpy(ptr, d, 4) ; break;
+           case 5 : std::memcpy(ptr, d, 5) ; break;
+           case 6 : std::memcpy(ptr, d, 6) ; break;
+           case 7 : std::memcpy(ptr, d, 7) ; break;
+           case 8 : std::memcpy(ptr, d, 8) ; break;
+           case 9 : std::memcpy(ptr, d, 9) ; break;
+#if defined(__GNUC__) && defined(__SIZEOF_INT128__) // hack for detect int128 support
+           case 16: std::memcpy(ptr, d, 16); break;
+           case 17: std::memcpy(ptr, d, 17); break;
+#endif
+           default: std::memcpy(ptr, d, size);
+       }
        cur += size;
        return size;
    }
