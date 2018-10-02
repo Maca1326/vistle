@@ -23,9 +23,6 @@ if ("${CMAKE_SYSTEM_NAME}" STREQUAL "CrayLinuxEnvironment")
       return()
    endif()
 
-   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -craympich-mt")
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -craympich-mt")
-
    set(VISTLE_USE_PYTHON3 ON CACHE INTERNAL "")
 
    # work around broken FindCUDA
