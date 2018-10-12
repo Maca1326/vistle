@@ -562,6 +562,7 @@ bool Hub::dispatch() {
                }
             }
          }
+#ifndef MODULE_THREAD
          if (id >= message::Id::ModuleBase
                  && m_stateTracker.getModuleState(id) != StateObserver::Unknown
                  && m_stateTracker.getModuleState(id) != StateObserver::Quit) {
@@ -570,6 +571,7 @@ bool Hub::dispatch() {
             m.setSenderId(id);
             sendManager(m); // will be returned and forwarded to master hub
          }
+#endif
       }
    }
 

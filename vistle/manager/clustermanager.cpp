@@ -1106,6 +1106,8 @@ bool ClusterManager::handlePriv(const message::ModuleExit &moduleExit) {
          if (!Communicator::the().broadcastAndHandleMessage(exit))
             return false;
       }
+
+      return true;
    }
 
    //CERR << " Module [" << mod << "] quit" << std::endl;
