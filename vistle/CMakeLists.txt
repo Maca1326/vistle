@@ -8,7 +8,12 @@ endif()
 
 include(cmake/Qt4-5.cmake)
 
-add_compile_options("$<$<CONFIG:DEBUG>:-DPy_DEBUG>")
+if (WIN32)
+   option(VISTLE_PYTHON_DEBUG "for Debug builds, use expect Python built in Debug mode" OFF)
+   if (VISTLE_PYTHON_DEBUG)
+      add_compile_options("$<$<CONFIG:DEBUG>:-DPy_DEBUG>")
+   endif()
+endif()
 
 enable_testing()
 
