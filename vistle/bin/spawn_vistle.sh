@@ -66,6 +66,7 @@ case $(uname) in
       ;;
 esac
 
+WRAPPER="valgrind --track-origins=yes --read-var-info=yes --read-inline-info=yes --error-limit=no"
 WRAPPER=""
 LAUNCH=""
 if [ -n "$SINGULARITY_CONTAINER" ]; then
