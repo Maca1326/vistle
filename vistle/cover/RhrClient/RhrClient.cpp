@@ -439,6 +439,7 @@ bool RhrClient::init()
 #endif
 
    m_maxTilesPerFrame = covise::coCoviseConfig::getInt("maxTilesPerFrame", config, m_maxTilesPerFrame);
+   m_delayFrames = covise::coCoviseConfig::getInt("delayFrames", config, m_delayFrames);
 
    m_benchmark = covise::coCoviseConfig::isOn("benchmark", config, true);
    m_lastStat = cover->currentTime();
@@ -636,10 +637,31 @@ bool RhrClient::init()
    tilesPerFrame->setText("Tiles/frame");
    tilesPerFrame->setValue(m_maxTilesPerFrame);
    tilesPerFrame->setBounds(1, 1000);
+   tilesPerFrame->setIntegral(true);
    tilesPerFrame->setCallback([this](double value, bool moving){
        m_maxTilesPerFrame = value;
        for (auto &r: m_remotes)
            r.second->setMaxTilesPerFrame(m_maxTilesPerFrame);
+   });
+
+   auto delayFrames = new ui::Slider(m_menu, "DelayFrames");
+   delayFrames->setText("Delay (frames)");
+   delayFrames->setValue(m_delayFrames);
+   delayFrames->setBounds(0,3);
+   delayFrames->setIntegral(true);
+   delayFrames->setCallback([this](double value, bool moving){
+       m_delayFrames = value;
+       for (auto &r: m_remotes)
+           r.second->setDelayFrames(m_delayFrames);
+   });
+
+   auto singleContext = new ui::Button(m_menu, "SingleContext");
+   singleContext->setText("Single-context optimizations");
+   singleContext->setState(m_singleContextOptimization);
+   singleContext->setCallback([this](bool state){
+       m_singleContextOptimization = state;
+       for (auto &r: m_remotes)
+           r.second->enableSingleContextOptimizations(m_singleContextOptimization);
    });
 
    return true;
@@ -1053,6 +1075,7 @@ void RhrClient::addRemoteConnection(const std::string &name, std::shared_ptr<Rem
    m_clientsChanged = true;
 
    remote->setMaxTilesPerFrame(m_maxTilesPerFrame);
+   remote->setDelayFrames(m_delayFrames);
    remote->setNodeConfigs(m_nodeConfig);
    remote->setNumLocalViews(m_numLocalViews);
    remote->setNumClusterViews(m_numClusterViews);

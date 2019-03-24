@@ -1600,3 +1600,11 @@ bool RemoteConnection::distributeAndHandleTileMpi(std::shared_ptr<RemoteRenderMe
 void RemoteConnection::setMaxTilesPerFrame(unsigned ntiles) {
     m_maxTilesPerFrame = ntiles;
 }
+
+void RemoteConnection::setDelayFrames(int numFrames) {
+    m_drawer->setDelayFrames(numFrames);
+}
+
+void RemoteConnection::enableSingleContextOptimizations(bool enable) {
+    m_drawer->enableSingleContextOptimizations(enable);
+}

@@ -48,9 +48,13 @@ bool DecodeTask::work() {
 
     int bpp = 0;
     if (tile.format == rfbColorRGBA) {
+        if (!rgba)
+            return false;
         assert(rgba);
         bpp = 4;
     } else {
+        if (!depth)
+            return false;
         assert(depth);
         switch (tile.format) {
         case rfbDepthFloat: bpp=4; break;
