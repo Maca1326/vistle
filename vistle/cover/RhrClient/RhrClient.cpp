@@ -655,14 +655,20 @@ bool RhrClient::init()
            r.second->setDelayFrames(m_delayFrames);
    });
 
-   auto singleContext = new ui::Button(m_menu, "SingleContext");
-   singleContext->setText("Single-context optimizations");
-   singleContext->setState(m_singleContextOptimization);
-   singleContext->setCallback([this](bool state){
-       m_singleContextOptimization = state;
+   auto transferMethod = new ui::SelectionList(m_menu, "TransferMethod");
+   transferMethod->setText("Texture upload");
+   transferMethod->append("Buffer data");
+   transferMethod->append("Orphan & buffer data");
+   transferMethod->append("Map & copy");
+   transferMethod->append("Direct mapping");
+   transferMethod->setCallback([this](int choice){
+       if (choice < BufferedTextureRectangle::BufferData || choice > BufferedTextureRectangle::MapDirect)
+           return;
+       m_transferMethod = BufferedTextureRectangle::TransferMethod(choice);
        for (auto &r: m_remotes)
-           r.second->enableSingleContextOptimizations(m_singleContextOptimization);
+           r.second->setTransferMethod(m_transferMethod);
    });
+   transferMethod->select(m_transferMethod);
 
    return true;
 }
@@ -1076,6 +1082,7 @@ void RhrClient::addRemoteConnection(const std::string &name, std::shared_ptr<Rem
 
    remote->setMaxTilesPerFrame(m_maxTilesPerFrame);
    remote->setDelayFrames(m_delayFrames);
+   remote->setTransferMethod(m_transferMethod);
    remote->setNodeConfigs(m_nodeConfig);
    remote->setNumLocalViews(m_numLocalViews);
    remote->setNumClusterViews(m_numClusterViews);

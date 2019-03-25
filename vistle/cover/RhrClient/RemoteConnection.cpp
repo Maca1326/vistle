@@ -525,7 +525,7 @@ bool RemoteConnection::update() {
         coVRMSController::instance()->syncData(&m_remoteTimestep, sizeof(m_remoteTimestep));
     }
 
-    return m_frameReady;
+    return m_frameReady || m_drawer->needFrame();
 }
 
 // called from OpenCOVER main thread
@@ -547,10 +547,6 @@ void RemoteConnection::preFrame() {
     }
 
     m_drawer->update();
-#if 0
-    if (m_mode != MultiChannelDrawer::AsIs)
-        m_drawer->reproject();
-#endif
 }
 
 void RemoteConnection::drawFinished() {
@@ -913,7 +909,7 @@ void RemoteConnection::setViewsToRender(MultiChannelDrawer::ViewSelection select
 
 bool RemoteConnection::canEnqueue() const {
 
-    return !m_frameReady && !m_waitForFrame && m_frameDrawn;
+    return !m_frameReady && !m_waitForFrame && (m_frameDrawn || m_drawer->canWrite());
 }
 
 void RemoteConnection::enqueueTask(std::shared_ptr<DecodeTask> task) {
@@ -1184,8 +1180,9 @@ bool RemoteConnection::checkSwapFrame() {
    CERR << "checkSwapFrame(): " << count << ", frame ready=" << m_frameReady << std::endl;
    ++count;
 #endif
+    bool canSwap = m_drawer->canSwap();
 
-    bool doSwap = coVRMSController::instance()->allReduceAnd(m_frameReady);
+    bool doSwap = coVRMSController::instance()->allReduceAnd(m_frameReady && canSwap);
     return doSwap;
 }
 
@@ -1198,6 +1195,7 @@ void RemoteConnection::swapFrame() {
 
    //CERR << "swapFrame: timestep=" << m_visibleTimestep << std::endl;
 
+   assert(m_drawer->canSwap());
    m_drawer->swapFrame();
 
    std::lock_guard<std::mutex> locker(*m_taskMutex);
@@ -1605,6 +1603,6 @@ void RemoteConnection::setDelayFrames(int numFrames) {
     m_drawer->setDelayFrames(numFrames);
 }
 
-void RemoteConnection::enableSingleContextOptimizations(bool enable) {
-    m_drawer->enableSingleContextOptimizations(enable);
+void RemoteConnection::setTransferMethod(BufferedTextureRectangle::TransferMethod method) {
+    m_drawer->setTransferMethod(method);
 }

@@ -199,7 +199,7 @@ class RemoteConnection {
 
    unsigned m_maxTilesPerFrame = 100;
    bool m_handleTilesAsync = false;
-   bool m_singleContextOptimization = true;
+   opencover::BufferedTextureRectangle::TransferMethod m_transferMethod = opencover::BufferedTextureRectangle::Fastest;
 
    std::unique_ptr<boost::mpi::communicator> m_comm;
    std::unique_ptr<boost::mpi::communicator> m_commAny, m_commMiddle, m_commLeft, m_commRight;
@@ -210,7 +210,7 @@ class RemoteConnection {
    void setMaxTilesPerFrame(unsigned ntiles);
    bool canHandleTile(std::shared_ptr<const vistle::message::RemoteRenderMessage> msg) const;
    void skipFrames();
-   void enableSingleContextOptimizations(bool enable);
+   void setTransferMethod(opencover::BufferedTextureRectangle::TransferMethod method);
 };
 
 #endif
