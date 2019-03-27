@@ -506,7 +506,7 @@ bool RemoteConnection::update() {
     m_needUpdate = false;
 
     if (!m_handleTilesAsync) {
-        updateTileQueue();
+        updateTaskQueue();
 
         processMessages();
     }
@@ -519,7 +519,7 @@ bool RemoteConnection::update() {
         coVRMSController::instance()->syncData(&m_numRemoteTimesteps, sizeof(m_numRemoteTimesteps));
     }
 
-    updateTileQueue();
+    updateTaskQueue();
     {
         lock_guard locker(*m_mutex);
         coVRMSController::instance()->syncData(&m_remoteTimestep, sizeof(m_remoteTimestep));
@@ -660,7 +660,7 @@ bool RemoteConnection::handleTile(const RemoteRenderMessage &msg, const tileMsg 
         bool process = false;
         {
             std::lock_guard<std::mutex> locker(*m_taskMutex);
-            process = canEnqueue();
+            process = canStart();
         }
         if (process) {
             for (unsigned i=0; i<ntiles; ++i) {
@@ -907,14 +907,14 @@ void RemoteConnection::setViewsToRender(MultiChannelDrawer::ViewSelection select
     CERR << "setViewsToRender(state=" << selection << "), numViews=" << m_numViews << std::endl;
 }
 
-bool RemoteConnection::canEnqueue() const {
+bool RemoteConnection::canStart() const {
 
-    return !m_frameReady && !m_waitForFrame && (m_frameDrawn || m_drawer->canWrite());
+    return !m_frameReady && !m_waitForFrame && m_drawer->canWrite();
 }
 
-void RemoteConnection::enqueueTask(std::shared_ptr<DecodeTask> task) {
+void RemoteConnection::startTask(std::shared_ptr<DecodeTask> task) {
 
-   assert(canEnqueue());
+   assert(canStart());
 
    const auto &tile = static_cast<const tileMsg &>(task->msg->rhr());
    handleTileMeta(*task->msg, tile);
@@ -957,9 +957,9 @@ void RemoteConnection::enqueueTask(std::shared_ptr<DecodeTask> task) {
    }
 
    if (first) {
-       assert(m_queuedTiles==0);
+       assert(m_numStartedTasks==0);
    }
-   ++m_queuedTiles;
+   ++m_numStartedTasks;
 
    m_runningTasks.emplace(task);
    task->result = std::async(std::launch::async, [this, task](){
@@ -989,11 +989,11 @@ bool RemoteConnection::handleTileMessage(std::shared_ptr<const message::RemoteRe
    bool last = tile.flags & rfbTileLast;
 
 #if 0
-   CERR << "q=" << m_queuedTiles << ", wait=" << m_waitForFrame << ", tile: x="<<tile.x << ", y="<<tile.y << ", w="<<tile.width<<", h="<<tile.height << ", total w=" << tile.totalwidth
+   CERR << "q=" << m_numStartedTasks << ", wait=" << m_waitForFrame << ", tile: x="<<tile.x << ", y="<<tile.y << ", w="<<tile.width<<", h="<<tile.height << ", total w=" << tile.totalwidth
       << ", first: " << bool(tile.flags&rfbTileFirst) << ", last: " << last
       << std::endl;
 #endif
-   CERR << "q=" << m_queuedTiles << ", wait=" << m_waitForFrame << ", tile: first: " << first << ", last: " << last
+   CERR << "q=" << m_numStartedTasks << ", wait=" << m_waitForFrame << ", tile: first: " << first << ", last: " << last
       << ", req: " << tile.requestNumber
       << std::endl;
 #endif
@@ -1016,27 +1016,27 @@ bool RemoteConnection::handleTileMessage(std::shared_ptr<const message::RemoteRe
 
    auto task = std::make_shared<DecodeTask>(msg, payload);
    std::lock_guard<std::mutex> locker(*m_taskMutex);
-   if (canEnqueue() && m_queuedTasks.empty()) {
-      enqueueTask(task);
+   checkTaskQueue();
+   if (canStart() && m_queuedTasks.empty()) {
+      startTask(task);
    } else {
-      assert(m_deferredFrames >= 0);
       if (tile.flags & rfbTileFirst)
          ++m_deferredFrames;
       m_queuedTasks.emplace_back(task);
+      checkTaskQueue();
       return false;
    }
 
-   assert(m_deferredFrames == 0 || !m_queuedTasks.empty());
-   assert(m_queuedTasks.empty() || m_deferredFrames>0);
+   checkTaskQueue();
 
    return true;
 }
 
 // returns true if a frame has been discarded - should be called again
-bool RemoteConnection::updateTileQueue() {
+bool RemoteConnection::updateTaskQueue() {
 
-   //CERR << "tiles: " << m_queuedTiles << " queued, " << m_queuedTasks.size() << " deferred, " << m_finishedTasks.size() << " finished" << std::endl;
-   //assert(m_queuedTiles >= m_finishedTasks.size());
+   //CERR << "tiles: " << m_numStartedTasks << " started, " << m_queuedTasks.size() << " deferred, " << m_finishedTasks.size() << " finished" << std::endl;
+   //assert(m_numStartedTasks >= m_finishedTasks.size());
    bool haveFinishedTasks = false;
    {
        std::lock_guard<std::mutex> locker(*m_taskMutex);
@@ -1053,9 +1053,9 @@ bool RemoteConnection::updateTileQueue() {
           m_finishedTasks.pop_front();
           haveFinishedTasks = !m_finishedTasks.empty();
 
-          --m_queuedTiles;
-          assert(m_queuedTiles >= 0);
-          frameDone = m_queuedTiles==0;
+          --m_numStartedTasks;
+          assert(m_numStartedTasks >= 0);
+          frameDone = m_numStartedTasks==0;
       }
 
        bool ok = dt->result.get();
@@ -1073,7 +1073,7 @@ bool RemoteConnection::updateTileQueue() {
 
    {
        std::lock_guard<std::mutex> locker(*m_taskMutex);
-       if (m_queuedTiles > 0) {
+       if (m_numStartedTasks > 0) {
            return false;
        }
 
@@ -1083,12 +1083,11 @@ bool RemoteConnection::updateTileQueue() {
        }
 #endif
 
-       assert(m_deferredFrames == 0 || !m_queuedTasks.empty());
-       assert(m_queuedTasks.empty() || m_deferredFrames>0);
+       checkTaskQueue();
    }
 
    std::lock_guard<std::mutex> locker(*m_taskMutex);
-   while(canEnqueue()) {
+   while(canStart()) {
       std::shared_ptr<DecodeTask> dt;
       {
           if (m_queuedTasks.empty())
@@ -1102,7 +1101,6 @@ bool RemoteConnection::updateTileQueue() {
 
       if (tile.flags & rfbTileFirst) {
          --m_deferredFrames;
-         assert(m_deferredFrames >= 0);
       }
       if (m_deferredFrames > 0) {
           if (tile.flags & rfbTileFirst) {
@@ -1112,12 +1110,10 @@ bool RemoteConnection::updateTileQueue() {
           }
       } else {
           //CERR << "quueing from updateTaskQueue" << std::endl;
-          enqueueTask(dt);
+          startTask(dt);
       }
+      checkTaskQueue();
    }
-
-   assert(m_deferredFrames == 0 || !m_queuedTasks.empty());
-   assert(m_queuedTasks.empty() || m_deferredFrames>0);
 
    return false;
 }
@@ -1605,4 +1601,9 @@ void RemoteConnection::setDelayFrames(int numFrames) {
 
 void RemoteConnection::setTransferMethod(BufferedTextureRectangle::TransferMethod method) {
     m_drawer->setTransferMethod(method);
+}
+
+void RemoteConnection::checkTaskQueue() const {
+   assert(m_deferredFrames >= 0);
+   assert(m_deferredFrames == 0 || !m_queuedTasks.empty());
 }

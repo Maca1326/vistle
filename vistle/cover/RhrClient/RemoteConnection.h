@@ -170,12 +170,12 @@ class RemoteConnection {
    int m_remoteSkipped = 0, m_remoteSkippedPerFrame = 0;
    std::string m_name;
 
-   bool canEnqueue() const;
-   void enqueueTask(std::shared_ptr<DecodeTask> task);
+   bool canStart() const;
+   void startTask(std::shared_ptr<DecodeTask> task);
    int m_deferredFrames = 0;
-   bool updateTileQueue();
+   bool updateTaskQueue();
    bool handleTileMessage(std::shared_ptr<const vistle::message::RemoteRenderMessage> msg, std::shared_ptr<std::vector<char>> payload);
-   int m_queuedTiles = 0;
+   int m_numStartedTasks = 0;
 
    bool m_frameReady = false;
    bool m_waitForFrame = false;
@@ -211,6 +211,7 @@ class RemoteConnection {
    bool canHandleTile(std::shared_ptr<const vistle::message::RemoteRenderMessage> msg) const;
    void skipFrames();
    void setTransferMethod(opencover::BufferedTextureRectangle::TransferMethod method);
+   void checkTaskQueue() const;
 };
 
 #endif
