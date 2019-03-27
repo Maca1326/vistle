@@ -506,7 +506,7 @@ bool RemoteConnection::update() {
     m_needUpdate = false;
 
     if (!m_handleTilesAsync) {
-        updateTaskQueue();
+        updateTileQueue();
 
         processMessages();
     }
@@ -519,7 +519,7 @@ bool RemoteConnection::update() {
         coVRMSController::instance()->syncData(&m_numRemoteTimesteps, sizeof(m_numRemoteTimesteps));
     }
 
-    updateTaskQueue();
+    updateTileQueue();
     {
         lock_guard locker(*m_mutex);
         coVRMSController::instance()->syncData(&m_remoteTimestep, sizeof(m_remoteTimestep));
@@ -977,7 +977,7 @@ bool RemoteConnection::canHandleTile(std::shared_ptr<const message::RemoteRender
     return m_lastTileAt.empty();
 }
 
-bool RemoteConnection::handleTileMessage(std::shared_ptr<const message::RemoteRenderMessage> msg, std::shared_ptr<std::vector<char>> payload) {
+bool RemoteConnection::handleTileMessage(std::shared_ptr<message::RemoteRenderMessage> msg, std::shared_ptr<std::vector<char>> payload) {
 
     assert(msg->rhr().type == rfbTile);
     const auto &tile = static_cast<const tileMsg &>(msg->rhr());
@@ -1014,28 +1014,28 @@ bool RemoteConnection::handleTileMessage(std::shared_ptr<const message::RemoteRe
        }
    }
 
-   auto task = std::make_shared<DecodeTask>(msg, payload);
    std::lock_guard<std::mutex> locker(*m_taskMutex);
-   checkTaskQueue();
-   if (canStart() && m_queuedTasks.empty()) {
+   checkTileQueue();
+   if (canStart() && m_queuedTiles.empty()) {
+      auto task = std::make_shared<DecodeTask>(msg, payload);
       startTask(task);
    } else {
       if (tile.flags & rfbTileFirst)
          ++m_deferredFrames;
-      m_queuedTasks.emplace_back(task);
-      checkTaskQueue();
+      m_queuedTiles.emplace_back(msg, payload);
+      checkTileQueue();
       return false;
    }
 
-   checkTaskQueue();
+   checkTileQueue();
 
    return true;
 }
 
 // returns true if a frame has been discarded - should be called again
-bool RemoteConnection::updateTaskQueue() {
+bool RemoteConnection::updateTileQueue() {
 
-   //CERR << "tiles: " << m_numStartedTasks << " started, " << m_queuedTasks.size() << " deferred, " << m_finishedTasks.size() << " finished" << std::endl;
+   //CERR << "tiles: " << m_numStartedTasks << " started, " << m_queuedTiles.size() << " deferred, " << m_finishedTasks.size() << " finished" << std::endl;
    //assert(m_numStartedTasks >= m_finishedTasks.size());
    bool haveFinishedTasks = false;
    {
@@ -1078,26 +1078,28 @@ bool RemoteConnection::updateTaskQueue() {
        }
 
 #if 0
-       if (!m_queuedTasks.empty() && !(m_queuedTasks.front()->msg->flags&rfbTileFirst)) {
+       if (!m_queuedTiles.empty() && !(m_queuedTiles.front()->msg->flags&rfbTileFirst)) {
            CERR << "first deferred tile should have rfbTileFirst set" << std::endl;
        }
 #endif
 
-       checkTaskQueue();
+       checkTileQueue();
    }
 
    std::lock_guard<std::mutex> locker(*m_taskMutex);
    while(canStart()) {
-      std::shared_ptr<DecodeTask> dt;
+      std::shared_ptr<vistle::message::RemoteRenderMessage> msg;
+      std::shared_ptr<std::vector<char>> payload;
       {
-          if (m_queuedTasks.empty())
+          if (m_queuedTiles.empty())
               break;
-          //CERR << "emptying deferred queue: tiles=" << m_queuedTasks.size() << ", frames=" << m_deferredFrames << std::endl;
-          dt = m_queuedTasks.front();
-          m_queuedTasks.pop_front();
+          //CERR << "emptying deferred queue: tiles=" << m_queuedTiles.size() << ", frames=" << m_deferredFrames << std::endl;
+          msg = m_queuedTiles.front().msg;
+          payload = m_queuedTiles.front().payload;
+          m_queuedTiles.pop_front();
       }
 
-      const auto &tile = static_cast<const tileMsg &>(dt->msg->rhr());
+      const auto &tile = static_cast<const tileMsg &>(msg->rhr());
 
       if (tile.flags & rfbTileFirst) {
          --m_deferredFrames;
@@ -1109,10 +1111,10 @@ bool RemoteConnection::updateTaskQueue() {
               ++m_remoteSkippedPerFrame;
           }
       } else {
-          //CERR << "quueing from updateTaskQueue" << std::endl;
-          startTask(dt);
+          //CERR << "quueing from updateTileQueue" << std::endl;
+          startTask(std::make_shared<DecodeTask>(msg, payload));
       }
-      checkTaskQueue();
+      checkTileQueue();
    }
 
    return false;
@@ -1176,6 +1178,7 @@ bool RemoteConnection::checkSwapFrame() {
    CERR << "checkSwapFrame(): " << count << ", frame ready=" << m_frameReady << std::endl;
    ++count;
 #endif
+    assert(!m_frameReady || m_numStartedTasks == 0);
     bool canSwap = m_drawer->canSwap();
 
     bool doSwap = coVRMSController::instance()->allReduceAnd(m_frameReady && canSwap);
@@ -1195,6 +1198,7 @@ void RemoteConnection::swapFrame() {
    m_drawer->swapFrame();
 
    std::lock_guard<std::mutex> locker(*m_taskMutex);
+   assert(m_numStartedTasks == 0);
    assert(m_frameReady == true);
    m_frameReady = false;
    m_frameDrawn = false;
@@ -1603,7 +1607,7 @@ void RemoteConnection::setTransferMethod(BufferedTextureRectangle::TransferMetho
     m_drawer->setTransferMethod(method);
 }
 
-void RemoteConnection::checkTaskQueue() const {
+void RemoteConnection::checkTileQueue() const {
    assert(m_deferredFrames >= 0);
-   assert(m_deferredFrames == 0 || !m_queuedTasks.empty());
+   assert(m_deferredFrames == 0 || !m_queuedTiles.empty());
 }
