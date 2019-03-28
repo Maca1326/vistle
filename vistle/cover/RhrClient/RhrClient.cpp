@@ -440,6 +440,7 @@ bool RhrClient::init()
 
    m_maxTilesPerFrame = covise::coCoviseConfig::getInt("maxTilesPerFrame", config, m_maxTilesPerFrame);
    m_delayFrames = covise::coCoviseConfig::getInt("delayFrames", config, m_delayFrames);
+   m_asyncTileTransfer = covise::coCoviseConfig::isOn("asyncTileTransfer", config, m_asyncTileTransfer);
 
    m_benchmark = covise::coCoviseConfig::isOn("benchmark", config, true);
    m_lastStat = cover->currentTime();
@@ -1080,6 +1081,7 @@ void RhrClient::addRemoteConnection(const std::string &name, std::shared_ptr<Rem
    remote->setName(name);
    m_clientsChanged = true;
 
+   remote->setAsyncTileTransfer(m_asyncTileTransfer);
    remote->setMaxTilesPerFrame(m_maxTilesPerFrame);
    remote->setDelayFrames(m_delayFrames);
    remote->setTransferMethod(m_transferMethod);

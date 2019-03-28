@@ -135,18 +135,9 @@ RemoteConnection::~RemoteConnection() {
 void RemoteConnection::init() {
 
     const std::string conf("COVER.Plugin.RhrClient");
+    setAsyncTileTransfer(m_handleTilesAsync);
 
-    m_handleTilesAsync = covise::coCoviseConfig::isOn("mpiThread", conf, m_handleTilesAsync);
-
-    if (coVRMSController::instance()->isCluster()) {
-        m_comm.reset(new boost::mpi::communicator(coVRMSController::instance()->getAppCommunicator(), boost::mpi::comm_duplicate));
-        if (!m_comm) {
-            m_handleTilesAsync = false;
-        }
-    }
-    if (m_handleTilesAsync) {
-        CERR << "handling tiles and MPI communication on separate thread" << std::endl;
-    }
+    m_comm.reset(new boost::mpi::communicator(coVRMSController::instance()->getAppCommunicator(), boost::mpi::comm_duplicate));
 
     m_boundsNode = new osg::Node;
     m_mutex.reset(new std::recursive_mutex);
@@ -1610,4 +1601,24 @@ void RemoteConnection::setTransferMethod(BufferedTextureRectangle::TransferMetho
 void RemoteConnection::checkTileQueue() const {
    assert(m_deferredFrames >= 0);
    assert(m_deferredFrames == 0 || !m_queuedTiles.empty());
+}
+
+void RemoteConnection::setAsyncTileTransfer(bool async) {
+
+    stopThread();
+    m_handleTilesAsync = async;
+
+    if (coVRMSController::instance()->isCluster()) {
+        if (!m_comm) {
+            m_handleTilesAsync = false;
+        }
+    }
+
+    if (m_handleTilesAsync) {
+        CERR << "handling tiles and MPI communication on separate thread" << std::endl;
+    } else {
+        CERR << "handling tiles and MPI communication on main thread" << std::endl;
+    }
+
+    start();
 }

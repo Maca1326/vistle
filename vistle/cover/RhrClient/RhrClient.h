@@ -127,6 +127,7 @@ private:
    int m_maxTilesPerFrame = 100;
    bool m_printViewSizes = true;
    int m_delayFrames = 0;
+   bool m_asyncTileTransfer = true;
    opencover::BufferedTextureRectangle::TransferMethod m_transferMethod = opencover::BufferedTextureRectangle::Fastest;
 };
 #endif

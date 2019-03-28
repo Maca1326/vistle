@@ -214,6 +214,7 @@ class RemoteConnection {
    void skipFrames();
    void setTransferMethod(opencover::BufferedTextureRectangle::TransferMethod method);
    void checkTileQueue() const;
+   void setAsyncTileTransfer(bool async);
 };
 
 #endif
