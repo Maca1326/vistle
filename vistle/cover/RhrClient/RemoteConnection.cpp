@@ -1605,7 +1605,7 @@ void RemoteConnection::checkTileQueue() const {
 
 void RemoteConnection::setAsyncTileTransfer(bool async) {
 
-    stopThread();
+    //stopThread();
     m_handleTilesAsync = async;
 
     if (coVRMSController::instance()->isCluster()) {
@@ -1620,5 +1620,5 @@ void RemoteConnection::setAsyncTileTransfer(bool async) {
         CERR << "handling tiles and MPI communication on main thread" << std::endl;
     }
 
-    start();
+    //start();
 }
