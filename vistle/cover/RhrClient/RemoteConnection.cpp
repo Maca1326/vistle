@@ -135,12 +135,13 @@ RemoteConnection::~RemoteConnection() {
 void RemoteConnection::init() {
 
     const std::string conf("COVER.Plugin.RhrClient");
+    m_mutex.reset(new std::recursive_mutex);
+
     setAsyncTileTransfer(m_handleTilesAsync);
 
     m_comm.reset(new boost::mpi::communicator(coVRMSController::instance()->getAppCommunicator(), boost::mpi::comm_duplicate));
 
     m_boundsNode = new osg::Node;
-    m_mutex.reset(new std::recursive_mutex);
     m_sendMutex.reset(new std::recursive_mutex);
     m_taskMutex.reset(new std::mutex);
 
@@ -156,11 +157,13 @@ void RemoteConnection::init() {
 void RemoteConnection::start()
 {
     if (m_handleTilesAsync || m_isMaster) {
-        if (m_thread && m_running) {
+        if (m_running) {
             return;
         }
         m_running = true;
-        m_thread.reset(new std::thread(std::ref(*this)));
+        if (!m_thread) {
+            m_thread.reset(new std::thread(std::ref(*this)));
+        }
     }
 }
 
@@ -335,6 +338,13 @@ void RemoteConnection::operator()() {
         }
         {
             lock_guard locker(*m_mutex);
+            if (m_switchAsync) {
+                if (!m_newHandleTilesAsync) {
+                    for (int i=1; i<m_comm->size(); ++i)
+                        m_comm->send(i, TagQuit);
+                }
+                m_switchAsync = false;
+            }
             if (m_interrupt) {
                 break;
             }
@@ -519,7 +529,16 @@ bool RemoteConnection::update() {
         coVRMSController::instance()->syncData(&m_remoteTimestep, sizeof(m_remoteTimestep));
     }
 
-    return m_frameReady || m_drawer->needFrame();
+    bool switchAsync = false;
+    {
+        std::lock_guard<std::recursive_mutex> locker(*m_mutex);
+        switchAsync = m_switchAsync;
+    }
+    if (switchAsync) {
+        setAsyncTileTransfer(m_newHandleTilesAsync);
+    }
+
+    return switchAsync || m_frameReady || m_drawer->needFrame();
 }
 
 // called from OpenCOVER main thread
@@ -640,44 +659,44 @@ bool RemoteConnection::handleTile(const RemoteRenderMessage &msg, const tileMsg 
 
     assert(payload->size() == msg.payloadSize());
     auto m = std::make_shared<RemoteRenderMessage>(msg);
-    if (m_handleTilesAsync) {
+    if (!m_handleTilesAsync) {
+        lock_guard locker(*m_mutex);
         m_receivedTiles.push_back(TileMessage(m, payload));
         if (tile.flags & rfbTileLast)
             m_lastTileAt.push_back(m_receivedTiles.size());
-        skipFrames();
-        unsigned ntiles = m_receivedTiles.size();
-        if (!m_lastTileAt.empty()) {
-            ntiles = m_lastTileAt.front();
-            assert(ntiles <= m_receivedTiles.size());
-            m_lastTileAt.pop_front();
-        }
-        bool process = false;
-        {
-            std::lock_guard<std::mutex> locker(*m_taskMutex);
-            process = canStart();
-        }
-        if (process) {
-            for (unsigned i=0; i<ntiles; ++i) {
-                auto &t = m_receivedTiles.front();
-                if (m_comm) {
-                    distributeAndHandleTileMpi(t.msg, t.payload);
-                } else {
-                    handleTileMessage(t.msg, t.payload);
-                }
-                m_receivedTiles.pop_front();
-            }
-            for (auto &l: m_lastTileAt) {
-                l -= ntiles;
-            }
-        }
+
         return true;
     }
 
-    lock_guard locker(*m_mutex);
     m_receivedTiles.push_back(TileMessage(m, payload));
     if (tile.flags & rfbTileLast)
         m_lastTileAt.push_back(m_receivedTiles.size());
-
+    skipFrames();
+    unsigned ntiles = m_receivedTiles.size();
+    if (!m_lastTileAt.empty()) {
+        ntiles = m_lastTileAt.front();
+        assert(ntiles <= m_receivedTiles.size());
+        m_lastTileAt.pop_front();
+    }
+    bool process = false;
+    {
+        std::lock_guard<std::mutex> locker(*m_taskMutex);
+        process = canStart();
+    }
+    if (process) {
+        for (unsigned i=0; i<ntiles; ++i) {
+            auto &t = m_receivedTiles.front();
+            if (m_comm) {
+                distributeAndHandleTileMpi(t.msg, t.payload);
+            } else {
+                handleTileMessage(t.msg, t.payload);
+            }
+            m_receivedTiles.pop_front();
+        }
+        for (auto &l: m_lastTileAt) {
+            l -= ntiles;
+        }
+    }
     return true;
 }
 
@@ -903,9 +922,6 @@ void RemoteConnection::setViewsToRender(MultiChannelDrawer::ViewSelection select
 
 bool RemoteConnection::canStart() const {
 
-    if (m_switchAsync)
-        return false;
-
     return !m_frameReady && !m_waitForFrame && m_drawer->canWrite();
 }
 
@@ -1112,10 +1128,6 @@ bool RemoteConnection::updateTileQueue() {
           startTask(std::make_shared<DecodeTask>(msg, payload));
       }
       checkTileQueue();
-   }
-
-   if (m_switchAsync && m_numStartedTasks == 0) {
-       setAsyncTileTransfer(m_newHandleTilesAsync);
    }
 
    return false;
@@ -1615,29 +1627,58 @@ void RemoteConnection::checkTileQueue() const {
 
 void RemoteConnection::requestAsyncTileTransfer(bool async) {
 
-    std::lock_guard<std::mutex> locker(*m_taskMutex);
+    std::lock_guard<std::recursive_mutex> locker(*m_mutex);
     m_switchAsync = true;
     m_newHandleTilesAsync = async;
 }
 
 void RemoteConnection::setAsyncTileTransfer(bool async) {
 
-    if (m_switchAsync) {
-        if (coVRMSController::instance()->isMaster()) {
-
-        } else {
-            if (!m_newHandleTilesAsync) {
-                stopThread();
-            }
-        }
-    }
-    m_newHandleTilesAsync = async;
-    m_handleTilesAsync = async;
-
     if (coVRMSController::instance()->isCluster()) {
         if (!m_comm) {
-            m_handleTilesAsync = false;
+            async = false;
         }
+    }
+
+    bool switchAsync = false;
+    {
+        std::lock_guard<std::recursive_mutex> locker(*m_mutex);
+        switchAsync = m_switchAsync;
+    }
+
+    if (switchAsync) {
+        if (async == m_handleTilesAsync) {
+            std::lock_guard<std::recursive_mutex> locker(*m_mutex);
+            m_switchAsync = false;
+            return;
+        }
+
+        if (async) {
+            m_handleTilesAsync = async;
+            if (coVRMSController::instance()->isMaster()) {
+            } else {
+                start();
+            }
+            std::lock_guard<std::recursive_mutex> locker(*m_mutex);
+            m_switchAsync = false;
+        } else {
+            if (coVRMSController::instance()->isMaster()) {
+                bool wait = true;
+                while (wait) {
+                    usleep(10000);
+                    std::lock_guard<std::recursive_mutex> locker(*m_mutex);
+                    wait = m_switchAsync;
+                }
+            } else {
+                m_thread->join();
+                m_thread.reset();
+            }
+        }
+        std::lock_guard<std::recursive_mutex> locker(*m_mutex);
+        m_switchAsync = false;
+        m_handleTilesAsync = async;
+    } else {
+        m_handleTilesAsync = async;
     }
 
     if (m_handleTilesAsync) {
@@ -1645,14 +1686,4 @@ void RemoteConnection::setAsyncTileTransfer(bool async) {
     } else {
         CERR << "handling tiles and MPI communication on main thread" << std::endl;
     }
-
-    if (m_switchAsync) {
-        if (coVRMSController::instance()->isMaster()) {
-        } else {
-            if (m_handleTilesAsync)
-                start();
-        }
-    }
-
-    m_switchAsync = false;
 }
