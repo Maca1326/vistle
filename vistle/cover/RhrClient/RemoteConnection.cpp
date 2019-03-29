@@ -156,6 +156,9 @@ void RemoteConnection::init() {
 void RemoteConnection::start()
 {
     if (m_handleTilesAsync || m_isMaster) {
+        if (m_thread && m_running) {
+            return;
+        }
         m_running = true;
         m_thread.reset(new std::thread(std::ref(*this)));
     }
@@ -900,6 +903,9 @@ void RemoteConnection::setViewsToRender(MultiChannelDrawer::ViewSelection select
 
 bool RemoteConnection::canStart() const {
 
+    if (m_switchAsync)
+        return false;
+
     return !m_frameReady && !m_waitForFrame && m_drawer->canWrite();
 }
 
@@ -1106,6 +1112,10 @@ bool RemoteConnection::updateTileQueue() {
           startTask(std::make_shared<DecodeTask>(msg, payload));
       }
       checkTileQueue();
+   }
+
+   if (m_switchAsync && m_numStartedTasks == 0) {
+       setAsyncTileTransfer(m_newHandleTilesAsync);
    }
 
    return false;
@@ -1603,9 +1613,25 @@ void RemoteConnection::checkTileQueue() const {
    assert(m_deferredFrames == 0 || !m_queuedTiles.empty());
 }
 
+void RemoteConnection::requestAsyncTileTransfer(bool async) {
+
+    std::lock_guard<std::mutex> locker(*m_taskMutex);
+    m_switchAsync = true;
+    m_newHandleTilesAsync = async;
+}
+
 void RemoteConnection::setAsyncTileTransfer(bool async) {
 
-    //stopThread();
+    if (m_switchAsync) {
+        if (coVRMSController::instance()->isMaster()) {
+
+        } else {
+            if (!m_newHandleTilesAsync) {
+                stopThread();
+            }
+        }
+    }
+    m_newHandleTilesAsync = async;
     m_handleTilesAsync = async;
 
     if (coVRMSController::instance()->isCluster()) {
@@ -1620,5 +1646,13 @@ void RemoteConnection::setAsyncTileTransfer(bool async) {
         CERR << "handling tiles and MPI communication on main thread" << std::endl;
     }
 
-    //start();
+    if (m_switchAsync) {
+        if (coVRMSController::instance()->isMaster()) {
+        } else {
+            if (m_handleTilesAsync)
+                start();
+        }
+    }
+
+    m_switchAsync = false;
 }

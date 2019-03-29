@@ -671,6 +671,15 @@ bool RhrClient::init()
    });
    transferMethod->select(m_transferMethod);
 
+   auto networkAsync = new ui::Button(m_menu, "NetworkAsync");
+   networkAsync->setText("Network communication thread");
+   networkAsync->setState(m_asyncTileTransfer);
+   networkAsync->setCallback([this](bool state){
+       m_asyncTileTransfer = state;
+       for (auto &r: m_remotes)
+           r.second->requestAsyncTileTransfer(m_asyncTileTransfer);
+   });
+
    return true;
 }
 

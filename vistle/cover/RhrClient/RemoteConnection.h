@@ -180,6 +180,7 @@ class RemoteConnection {
    bool m_frameReady = false;
    bool m_waitForFrame = false;
    bool m_frameDrawn = true;
+   bool m_switchAsync = false;
    typedef std::deque<std::shared_ptr<DecodeTask>> TaskQueue;
    TaskQueue m_finishedTasks;
    std::set<std::shared_ptr<DecodeTask>> m_runningTasks;
@@ -200,7 +201,7 @@ class RemoteConnection {
    void printStats();
 
    unsigned m_maxTilesPerFrame = 100;
-   bool m_handleTilesAsync = false;
+   bool m_handleTilesAsync = false, m_newHandleTilesAsync = false;
    opencover::BufferedTextureRectangle::TransferMethod m_transferMethod = opencover::BufferedTextureRectangle::Fastest;
 
    std::unique_ptr<boost::mpi::communicator> m_comm;
@@ -215,6 +216,7 @@ class RemoteConnection {
    void setTransferMethod(opencover::BufferedTextureRectangle::TransferMethod method);
    void checkTileQueue() const;
    void setAsyncTileTransfer(bool async);
+   void requestAsyncTileTransfer(bool async);
 };
 
 #endif
