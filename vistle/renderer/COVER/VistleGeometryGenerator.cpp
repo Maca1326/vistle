@@ -453,9 +453,6 @@ osg::Vec3Array *computeNormals(typename Geometry::const_ptr geometry, bool index
     if (indexGeom && numCorners>0 && splitList && creaseAngle<M_PI) {
         std::vector<osg::Vec3> fn;
         fn.reserve(numPrim);
-#ifdef COVER_PLUGIN
-        auto N = opencover::Tipsify::buildNeighbours(&cl[0], numCorners, numCorners);
-#endif
         for (Index prim=0; prim<numPrim; ++prim) {
             const Index begin = geo.getPrimitiveBegin(prim), end = geo.getPrimitiveBegin(prim+1);
             Index v0 = cl[begin+0], v1 = cl[begin+1], v2 = cl[begin+2];
@@ -465,6 +462,13 @@ osg::Vec3Array *computeNormals(typename Geometry::const_ptr geometry, bool index
             osg::Vec3 normal = (w - u) ^ (v - u) * -1;
             normal.normalize();
             fn.push_back(normal);
+        }
+#ifdef COVER_PLUGIN
+        auto N = opencover::Tipsify::buildNeighbours(&cl[0], numCorners, numCorners);
+#endif
+        const Index *end = &cl[geometry->getNumCorners()];
+        for (const Index *v=cl; v != end; ++v) {
+
         }
     } else {
         if (numCorners > 0) {
