@@ -1163,9 +1163,6 @@ bool ClusterManager::handlePriv(const message::Execute &exec) {
             if (mod.ranksStarted > 0) {
                 mod.delay(exec);
             } else {
-                vassert(!mod.prepared);
-                mod.prepared = false;
-                mod.reduced = true;
                 Communicator::the().broadcastAndHandleMessage(exec);
             }
         }

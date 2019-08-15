@@ -1512,6 +1512,8 @@ bool Module::handleExecute(const vistle::message::Execute *exec) {
         const bool gang = schedulingPolicy() == message::SchedulingPolicy::Gang
                 || schedulingPolicy() == message::SchedulingPolicy::LazyGang;
 
+        std::cerr << "GANG scheduling: " << gang << std::endl;
+
         int direction = 1;
 
         // just process one tuple of objects at a time
@@ -1694,6 +1696,8 @@ bool Module::handleExecute(const vistle::message::Execute *exec) {
                 numObject = mpi::all_reduce(comm(), numObject, mpi::maximum<int>());
             }
         }
+
+        std::cerr << "NUM OBJECTS: " << numObject << std::endl;
 
 
         if (exec->allRanks() || gang || exec->what() == Execute::ComputeExecute) {
