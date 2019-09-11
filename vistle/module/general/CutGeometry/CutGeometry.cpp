@@ -4,6 +4,7 @@
 #include <core/object.h>
 #include <core/polygons.h>
 #include <core/triangles.h>
+#include <core/quads.h>
 #include <util/math.h>
 
 #include "CutGeometry.h"
@@ -33,6 +34,7 @@ class PlaneClip {
 
    Coords::const_ptr m_coord;
    Triangles::const_ptr m_tri;
+   Quads::const_ptr m_quad;
    Polygons::const_ptr m_poly;
    std::vector<Object::const_ptr> m_data;
    IsoDataFunctor m_decider;
@@ -61,6 +63,7 @@ class PlaneClip {
    Coords::ptr m_outCoords;
    Triangles::ptr m_outTri;
    Polygons::ptr m_outPoly;
+   Quads::ptr m_outQuad;
    Vec<Scalar>::ptr m_outData;
 
  public:
@@ -93,6 +96,38 @@ class PlaneClip {
 
          m_outTri = Triangles::ptr(new Triangles(Object::Initialized));
          m_outTri->setMeta(grid->meta());
+         m_outCoords = m_outTri;
+      }
+
+   PlaneClip(Quads::const_ptr grid, IsoDataFunctor decider)
+      : m_coord(grid)
+      , m_quad(grid)
+      , m_decider(decider)
+      , haveCornerList(false)
+      , el(nullptr)
+      , cl(nullptr)
+      , x(nullptr)
+      , y(nullptr)
+      , z(nullptr)
+      , d(nullptr)
+      , out_cl(nullptr)
+      , out_el(nullptr)
+      , out_x(nullptr)
+      , out_y(nullptr)
+      , out_z(nullptr)
+      , out_d(nullptr)
+      {
+
+         if (grid->getNumCorners() > 0) {
+            haveCornerList = true;
+            cl = &grid->cl()[0];
+         }
+         x = &grid->x()[0];
+         y = &grid->y()[0];
+         z = &grid->z()[0];
+
+         m_outQuad = Quads::ptr(new Quads(Object::Initialized));
+         m_outQuad->setMeta(grid->meta());
          m_outCoords = m_outTri;
       }
 
@@ -144,7 +179,7 @@ class PlaneClip {
       Index numCoordsIn = m_outCoords->getNumCoords();
 
       if (m_tri) {
-         const Index numElem = haveCornerList ? m_tri->getNumCorners()/3 : m_tri->getNumCoords()/3;
+         const Index numElem = m_tri->getNumElements();
 
          std::vector<Index> outIdxCorner(numElem+1), outIdxCoord(numElem+1);
          outIdxCorner[0] = 0;
@@ -185,6 +220,52 @@ class PlaneClip {
 #pragma omp parallel for schedule (dynamic)
          for (ssize_t elem = 0; elem<numElem; ++elem) {
             processTriangle(elem, outIdxCorner[elem], outIdxCoord[elem], false);
+         }
+         //std::cerr << "CuttingSurface: << " << m_outData->x().size() << " vert, " << m_outData->x().size() << " data elements" << std::endl;
+
+         return true;
+      } else if (m_quad) {
+         const Index numElem = m_quad->getNumElements();
+
+         std::vector<Index> outIdxCorner(numElem+1), outIdxCoord(numElem+1);
+         outIdxCorner[0] = 0;
+         outIdxCoord[0] = numCoordsIn;
+#pragma omp parallel for schedule (dynamic)
+         for (ssize_t elem=0; elem<numElem; ++elem) {
+
+            Index numCorner=0, numCoord=0;
+            processQuad(elem, numCorner, numCoord, true);
+
+            outIdxCorner[elem+1] = numCorner;
+            outIdxCoord[elem+1] = numCoord;
+         }
+
+         for (Index elem=0; elem<numElem; ++elem) {
+            outIdxCoord[elem+1] += outIdxCoord[elem];
+            outIdxCorner[elem+1] += outIdxCorner[elem];
+         }
+
+         Index numCoord = outIdxCoord[numElem];
+         Index numCorner = outIdxCorner[numElem];
+
+         if (haveCornerList) {
+            m_outTri->cl().resize(numCorner);
+            out_cl = m_outTri->cl().data();
+         }
+
+         m_outTri->setSize(numCoord);
+         out_x = m_outTri->x().data();
+         out_y = m_outTri->y().data();
+         out_z = m_outTri->z().data();
+
+         if (m_outData) {
+            m_outData->x().resize(numCoord);
+            out_d = m_outData->x().data();
+         }
+
+#pragma omp parallel for schedule (dynamic)
+         for (ssize_t elem = 0; elem<numElem; ++elem) {
+            processQuad(elem, outIdxCorner[elem], outIdxCoord[elem], false);
          }
          //std::cerr << "CuttingSurface: << " << m_outData->x().size() << " vert, " << m_outData->x().size() << " data elements" << std::endl;
 
@@ -517,6 +598,229 @@ class PlaneClip {
       }
    }
 
+   void processQuad(const Index element, Index &outIdxCorner, Index &outIdxCoord, bool numVertsOnly) {
+
+      const Index start = element*4;
+      const auto vertexMap = m_vertexMap.data();
+
+      Index numIn = 0;
+      Index cornerIn = 0, cornerOut = 0; // for the case where we have to split edges, new triangles might be created
+      // - make sure that all the vertices belonging to a triangle are emitted in order
+      for (Index i=0; i<4; ++i) {
+         const Index corner = start+i;
+         const Index vind = haveCornerList ? cl[corner] : corner;
+         const bool in = vertexMap[vind] > 0;
+         if (in) {
+            cornerIn = i;
+            ++numIn;
+         } else {
+            cornerOut = i;
+         }
+      }
+
+      if (numIn == 0) {
+         if (numVertsOnly) {
+            outIdxCorner = 0;
+            outIdxCoord = 0;
+         }
+         return;
+      }
+
+      if (numIn == 4) {
+         // if all vertices in the element are on the right side
+         // of the cutting plane, insert the element and all vertices
+
+         if (numVertsOnly) {
+            outIdxCorner = haveCornerList ? 4 : 0;
+            outIdxCoord = haveCornerList ? 0 : 4;
+            return;
+         }
+
+         if (haveCornerList) {
+            for (Index i=0; i<4; ++i) {
+
+               const Index corner = start+i;
+               const Index vid = cl[corner];
+               const Index outID = vertexMap[vid]-1;
+               out_cl[outIdxCorner+i] = outID;
+            }
+         } else {
+            for (Index i=0; i<4; ++i) {
+
+               const Index in = start+i;
+               const Index out = outIdxCoord+i;
+               out_x[out] = x[in];
+               out_y[out] = y[in];
+               out_z[out] = z[in];
+            }
+         }
+
+      } else if (numIn > 0) {
+
+         const Index totalCorner = numIn==3 ? 8 : 4;
+         const Index newCoord = 2;
+
+         if (numVertsOnly) {
+            outIdxCorner = haveCornerList ? totalCorner : 0;
+            outIdxCoord = haveCornerList ? newCoord : totalCorner;
+            return;
+         }
+
+         if (numIn == 1) {
+            // in0 is the only pre-existing corner inside
+            const Index in0 = haveCornerList ? cl[start+cornerIn] : start+cornerIn;
+            vassert(vertexMap[in0] > 0);
+            const Index out0 = haveCornerList ? cl[start + (cornerIn+1)%3] : start + (cornerIn+1)%3;
+            vassert(vertexMap[out0] == 0);
+            const Vector v0 = splitEdge(in0, out0);
+            out_x[outIdxCoord] = v0[0];
+            out_y[outIdxCoord] = v0[1];
+            out_z[outIdxCoord] = v0[2];
+
+            const Index out1 = haveCornerList ? cl[start+(cornerIn+2)%3] : start+(cornerIn+2)%3;
+            vassert(vertexMap[out1] == 0);
+            const Vector v1 = splitEdge(in0, out1);
+            out_x[outIdxCoord+1] = v1[0];
+            out_y[outIdxCoord+1] = v1[1];
+            out_z[outIdxCoord+1] = v1[2];
+
+            if (haveCornerList) {
+               Index n = 0;
+               out_cl[outIdxCorner+n] = vertexMap[in0]-1;
+               ++n;
+               out_cl[outIdxCorner+n] = outIdxCoord;
+               ++n;
+               out_cl[outIdxCorner+n] = outIdxCoord+1;
+               ++n;
+               out_cl[outIdxCorner+n] = outIdxCoord+1;
+               ++n;
+               vassert(n == totalCorner);
+            } else {
+               out_x[outIdxCoord+2] = x[in0];
+               out_y[outIdxCoord+2] = y[in0];
+               out_z[outIdxCoord+2] = z[in0];
+               out_x[outIdxCoord+3] = x[in0];
+               out_y[outIdxCoord+3] = y[in0];
+               out_z[outIdxCoord+3] = z[in0];
+            }
+
+#if 0
+         } else if (numIn == 2) {
+            if (haveCornerList) {
+               const Index out0 = cl[start + cornerOut];
+               const Index in0 = cl[start+(cornerOut+2)%3];
+               vassert(vertexMap[out0] == 0);
+               const Vector v0 = splitEdge(in0, out0);
+               out_x[outIdxCoord] = v0[0];
+               out_y[outIdxCoord] = v0[1];
+               out_z[outIdxCoord] = v0[2];
+
+               const Index in1 = cl[start+(cornerOut+1)%3];
+               vassert(vertexMap[in1] > 0);
+               const Vector v1 = splitEdge(in1, out0);
+               out_x[outIdxCoord+1] = v1[0];
+               out_y[outIdxCoord+1] = v1[1];
+               out_z[outIdxCoord+1] = v1[2];
+
+               const Vector vin0(x[in0], y[in0], z[in0]);
+               const Vector vin1(x[in1], y[in1], z[in1]);
+               const Vector v2 = (vin0+vin1)*Scalar(0.5);
+               out_x[outIdxCoord+2] = v2[0];
+               out_y[outIdxCoord+2] = v2[1];
+               out_z[outIdxCoord+2] = v2[2];
+
+               Index n = 0;
+               out_cl[outIdxCorner+n] = vertexMap[in0]-1;
+               ++n;
+               out_cl[outIdxCorner+n] = outIdxCoord;
+               ++n;
+               out_cl[outIdxCorner+n] = outIdxCoord+2;
+               ++n;
+
+               out_cl[outIdxCorner+n] = outIdxCoord+2;
+               ++n;
+               out_cl[outIdxCorner+n] = outIdxCoord;
+               ++n;
+               out_cl[outIdxCorner+n] = outIdxCoord+1;
+               ++n;
+
+               out_cl[outIdxCorner+n] = outIdxCoord+2;
+               ++n;
+               out_cl[outIdxCorner+n] = outIdxCoord+1;
+               ++n;
+               out_cl[outIdxCorner+n] = vertexMap[in1]-1;
+               ++n;
+               vassert(n == totalCorner);
+            } else {
+               const Index out0 = start + cornerOut;
+               const Index in0 = start+(cornerOut+2)%3;
+               vassert(vertexMap[out0] == 0);
+               const Vector v0 = splitEdge(in0, out0);
+
+               out_x[outIdxCoord] = v0[0];
+               out_y[outIdxCoord] = v0[1];
+               out_z[outIdxCoord] = v0[2];
+
+               const Index in1 = start+(cornerOut+1)%3;
+               vassert(vertexMap[in1] > 0);
+               const Vector v1 = splitEdge(in1, out0);
+               out_x[outIdxCoord+1] = v1[0];
+               out_y[outIdxCoord+1] = v1[1];
+               out_z[outIdxCoord+1] = v1[2];
+
+               const Vector vin0(x[in0], y[in0], z[in0]);
+               const Vector vin1(x[in1], y[in1], z[in1]);
+               const Vector v2 = (vin0+vin1)*Scalar(0.5);
+               out_x[outIdxCoord+2] = v2[0];
+               out_y[outIdxCoord+2] = v2[1];
+               out_z[outIdxCoord+2] = v2[2];
+
+               Index out = outIdxCoord;
+
+               out_x[out] = x[in0];
+               out_y[out] = y[in0];
+               out_z[out] = z[in0];
+               ++out;
+               out_x[out] = v0[0];
+               out_y[out] = v0[1];
+               out_z[out] = v0[2];
+               ++out;
+               out_x[out] = v2[0];
+               out_y[out] = v2[1];
+               out_z[out] = v2[2];
+               ++out;
+
+               out_x[out] = v2[0];
+               out_y[out] = v2[1];
+               out_z[out] = v2[2];
+               ++out;
+               out_x[out] = v0[0];
+               out_y[out] = v0[1];
+               out_z[out] = v0[2];
+               ++out;
+               out_x[out] = v1[0];
+               out_y[out] = v1[1];
+               out_z[out] = v1[2];
+               ++out;
+
+               out_x[out] = v2[0];
+               out_y[out] = v2[1];
+               out_z[out] = v2[2];
+               ++out;
+               out_x[out] = v1[0];
+               out_y[out] = v1[1];
+               out_z[out] = v1[2];
+               ++out;
+               out_x[out] = x[in1];
+               out_y[out] = y[in1];
+               out_z[out] = z[in1];
+               ++out;
+            }
+#endif
+         }
+      }
+   }
+
    void processPolygon(const Index element, Index &outIdxPoly, Index &outIdxCorner, Index &outIdxCoord, bool numVertsOnly) {
 
       const auto vertexMap = m_vertexMap.data();
@@ -635,8 +939,122 @@ class PlaneClip {
          vassert(n == numIn+numCreate);
       }
    }
-};
 
+   void processQuad(Index element, Index &outIdxPoly, Index &outIdxCorner, Index &outIdxCoord, bool numVertsOnly) {
+
+       const auto vertexMap = m_vertexMap.data();
+       const Index start = el[element];
+       Index end = el[element + 1];
+       const Index nCorner = end - start;
+
+       Index numIn = 0, numCreate = 0;
+       if (nCorner > 0) {
+           bool prevIn = vertexMap[cl[end-1]] > 0;
+           for (Index corner = start; corner < end; ++corner) {
+               const Index vind = cl[corner];
+               const bool in = vertexMap[vind] > 0;
+               if (in) {
+                   if (!prevIn) {
+                       ++numCreate;
+                   }
+                   ++numIn;
+                   prevIn = true;
+               } else {
+                   if (prevIn)
+                       ++numCreate;
+                   prevIn = false;
+               }
+           }
+       }
+
+       if (numIn == 0) {
+           if (numVertsOnly) {
+               outIdxPoly = 0;
+               outIdxCorner = 0;
+               outIdxCoord = 0;
+           }
+           return;
+       }
+
+       if (numIn == nCorner) {
+           // if all vertices in the element are on the right side
+           // of the cutting plane, insert the element and all vertices
+
+           if (numVertsOnly) {
+               outIdxPoly = 1;
+               outIdxCorner = numIn;
+               outIdxCoord = 0;
+               return;
+           }
+
+           out_el[outIdxPoly] = outIdxCorner;
+
+           Index i = 0;
+           for (Index corner = start; corner < end; ++corner) {
+
+               const Index vid = cl[corner];
+               const Index outID = vertexMap[vid]-1;
+               out_cl[outIdxCorner+i] = outID;
+               ++i;
+           }
+
+       } else if (numIn > 0) {
+           // if not all of the vertices of an element are on the same
+           // side of the cutting plane:
+           //   - insert vertices that are on the right side of the plane
+           //   - omit vertices that are on the wrong side of the plane
+           //   - if the vertex before the processed vertex is on the
+           //     other side of the plane: insert the intersection point
+           //     between the line formed by the two vertices and the
+           //     plane
+
+           vassert(numCreate%2 == 0);
+           vassert(numCreate == 2); // we only handle convex polygons
+           if (numVertsOnly) {
+               outIdxPoly = numCreate/2;
+               outIdxPoly = 1;
+               outIdxCorner = numIn + numCreate;
+               outIdxCoord = numCreate;
+               return;
+           }
+
+           out_el[outIdxPoly] = outIdxCorner;
+
+           Index n = 0;
+           Index prevIdx = cl[start + nCorner-1];
+           Index numCreated = 0;
+           bool prevIn = vertexMap[prevIdx] > 0;
+           for (Index i = 0; i < nCorner; ++i) {
+
+               const Index corner = start + i;
+               const Index idx = cl[corner];
+               Index outID = vertexMap[idx];
+               const bool in = outID > 0;
+               --outID;
+               if (in != prevIn) {
+                   const Index newId = outIdxCoord + numCreated;
+                   ++numCreated;
+
+                   const Vector v = splitEdge(idx, prevIdx);
+                   out_x[newId] = v[0];
+                   out_y[newId] = v[1];
+                   out_z[newId] = v[2];
+
+                   out_cl[outIdxCorner+n] = newId;
+                   ++n;
+               }
+               if (in) {
+                   out_cl[outIdxCorner+n] = outID;
+                   ++n;
+               }
+               prevIdx = idx;
+               prevIn = in;
+           }
+           vassert(numCreated == numCreate);
+           vassert(n == numIn+numCreate);
+       }
+   }
+};
 
 Object::ptr CutGeometry::cutGeometry(Object::const_ptr object) const {
 
