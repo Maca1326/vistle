@@ -49,6 +49,7 @@ using message::RemoteRenderMessage;
 enum {
     TagQuit,
     TagContinue,
+    TagSwitchAsync,
     TagTileAll,
     TagTileAny,
     TagTileMiddle,
@@ -1561,6 +1562,10 @@ bool RemoteConnection::distributeAndHandleTileMpi(std::shared_ptr<RemoteRenderMe
         } else if (status.tag() == TagContinue) {
             m_comm->recv(0, TagContinue);
             return false;
+        } else if (status.tag() == TagSwitchAsync) {
+            m_comm->recv(0, TagSwitchAsync);
+            m_switchAsync = true;
+            return false;
         } else if (status.tag() == TagTileSend) {
             message::Buffer tile;
             m_comm->recv(0, TagTileSend, tile.data(), sizeof(RemoteRenderMessage));
@@ -1628,7 +1633,9 @@ void RemoteConnection::checkTileQueue() const {
 void RemoteConnection::requestAsyncTileTransfer(bool async) {
 
     std::lock_guard<std::recursive_mutex> locker(*m_mutex);
-    m_switchAsync = true;
+    if (coVRMSController::instance()->isMaster()) {
+        m_switchAsync = true;
+    }
     m_newHandleTilesAsync = async;
 }
 
