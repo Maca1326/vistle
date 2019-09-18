@@ -79,7 +79,6 @@ if(${TEMPLATES_IN_HEADERS})
       rectilineargrid.cpp
       structuredgrid.cpp
       grid.cpp
-      fixedelementsize.cpp
    )
 endif()
 
@@ -177,8 +176,6 @@ set(core_HEADERS
    uuid.h
    grid.h
    cellalgorithm.h
-   fixedelementsize.h
-   fixedelementsize_impl.h
 )
 if (MSVC)
   set_source_files_properties(unstr.cpp PROPERTIES COMPILE_FLAGS /bigobj)
