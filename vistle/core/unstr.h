@@ -5,6 +5,7 @@
 #include "shm.h"
 #include "indexed.h"
 #include "grid.h"
+#include "celltypes.h"
 #include <util/enum.h>
 
 namespace vistle {
@@ -31,12 +32,6 @@ class V_COREEXPORT UnstructuredGrid: public Indexed, virtual public GridInterfac
       HEXAHEDRON  =  7,
       POINT       = 10,
       POLYHEDRON  = 11,
-
-      GHOST_TETRAHEDRON = TETRAHEDRON|GHOST_BIT,
-      GHOST_PYRAMID     =     PYRAMID|GHOST_BIT,
-      GHOST_PRISM       =       PRISM|GHOST_BIT,
-      GHOST_HEXAHEDRON  =  HEXAHEDRON|GHOST_BIT,
-      GHOST_POLYHEDRON  =  POLYHEDRON|GHOST_BIT
    };
 
    static const Index MaxNumVertices = 4;
