@@ -563,7 +563,7 @@ bool Hub::dispatch() {
             }
          }
 #ifndef MODULE_THREAD
-         if (id >= message::Id::ModuleBase
+         if (message::Id::isModule(id)
                  && m_stateTracker.getModuleState(id) != StateObserver::Unknown
                  && m_stateTracker.getModuleState(id) != StateObserver::Quit) {
             // synthesize ModuleExit message for crashed modules
