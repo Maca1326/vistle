@@ -5,6 +5,7 @@
 #include "shm.h"
 #include "indexed.h"
 #include "grid.h"
+#include "celltypes.h"
 #include <util/enum.h>
 
 namespace vistle {
@@ -14,29 +15,22 @@ class V_COREEXPORT UnstructuredGrid: public Indexed, virtual public GridInterfac
 
  public:
    typedef Indexed Base;
-
-   // make sure that these types match those from COVISE: src/kernel/do/coDoUnstructuredGrid.h
    enum Type {
-      GHOST_BIT   = 0x80,
-      CONVEX_BIT  = 0x40, //<! cell was checked to be convex
-      TYPE_MASK   = 0x3f,
+       GHOST_BIT   = cell::GHOST_BIT,
+       CONVEX_BIT  = cell::CONVEX_BIT,
+       TYPE_MASK   = cell::TYPE_MASK,
 
-      NONE        =  0,
-      BAR         =  1,
-      TRIANGLE    =  2,
-      QUAD        =  3,
-      TETRAHEDRON =  4,
-      PYRAMID     =  5,
-      PRISM       =  6,
-      HEXAHEDRON  =  7,
-      POINT       = 10,
-      POLYHEDRON  = 11,
-
-      GHOST_TETRAHEDRON = TETRAHEDRON|GHOST_BIT,
-      GHOST_PYRAMID     =     PYRAMID|GHOST_BIT,
-      GHOST_PRISM       =       PRISM|GHOST_BIT,
-      GHOST_HEXAHEDRON  =  HEXAHEDRON|GHOST_BIT,
-      GHOST_POLYHEDRON  =  POLYHEDRON|GHOST_BIT
+       NONE        = cell::NONE,
+       BAR         = cell::BAR,
+       TRIANGLE    = cell::TRIANGLE,
+       QUAD        = cell::QUAD,
+       TETRAHEDRON = cell::TETRAHEDRON,
+       PYRAMID     = cell::PYRAMID,
+       PRISM       = cell::PRISM,
+       HEXAHEDRON  = cell::HEXAHEDRON,
+       POLYGON     = cell::POLYGON,
+       POINT       = cell::POINT,
+       POLYHEDRON  = cell::POLYHEDRON,
    };
 
    static const Index MaxNumVertices = 4;
