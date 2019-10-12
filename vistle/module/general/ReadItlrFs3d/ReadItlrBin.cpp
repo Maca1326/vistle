@@ -43,6 +43,10 @@ struct File {
             fclose(fp);
         fp = nullptr;
 #ifdef HAVE_HDF5
+        if (dataset >= 0) {
+            H5Dclose(dataset);
+        }
+        dataset = -1;
         if (file >= 0) {
             H5Fclose(file);
         }
@@ -50,7 +54,7 @@ struct File {
 #endif
     }
 
-    bool is_hdf5() {
+    bool isHdf5() {
         return name.length() >=4 && name.substr(name.length()-4)==".hdf";
     }
 
@@ -59,13 +63,13 @@ struct File {
             return "plain";
         if (file >= 0)
             return "hdf5";
-        if (is_hdf5())
+        if (isHdf5())
             return "hdf5";
         return "plain";
     }
 
     bool open() {
-        if (is_hdf5()) {
+        if (isHdf5()) {
 #ifdef HAVE_HDF5
         file = H5Fopen(name.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
         if (file >= 0)
@@ -88,23 +92,48 @@ struct File {
         return false;
     }
 
+    bool openDataset(const std::string &dataset) {
+#ifdef HAVE_HDF5
+        if (this->datasetName == dataset)
+            return true;
+        datasetName.clear();
+        if (this->dataset >= 0) {
+            H5Dclose(this->dataset);
+        }
+        this->dataset = H5Dopen2(file, dataset.c_str(), H5P_DEFAULT);
+        if (this->dataset < 0) {
+            return false;
+        }
+        this->datatype = H5Dget_type(this->dataset);
+        this->dataclass = H5Tget_class(this->datatype);
+        this->typesize = H5Tget_size(this->datatype);
+        this->byteorder= H5Tget_order(this->datatype);
+        this->dataspace = H5Dget_space(this->dataset);
+        this->numdims = H5Sget_simple_extent_ndims(this->dataspace);
+        dims.resize(numdims);
+        H5Sget_simple_extent_dims(dataspace, dims.data(), nullptr);
+#endif
+        datasetName = dataset;
+        return true;
+    }
+
     std::string name;
+    std::string datasetName;
     FILE *fp = nullptr;
 #ifdef HAVE_HDF5
+    herr_t status = 0;
     hid_t file = -1;
+    hid_t dataset = -1;
+    hid_t datatype = -1;
+    size_t typesize = 0;
+    hid_t dataspace = -1;
+    H5T_class_t dataclass;
+    H5T_order_t byteorder;
+    int numdims = 0;
+    std::vector<hsize_t> dims;
+    size_t offset = 0;
 #endif
 };
-
-class Closer {
-
-    public:
-    Closer(FILE *fp): m_fp(fp) {}
-    ~Closer() { fclose(m_fp); }
-
-    private:
-    FILE *m_fp;
-};
-
 
 using namespace vistle;
 
@@ -172,8 +201,24 @@ bool readArrayChunk(FILE *fp, D *buf, const size_t num) {
 
 static const size_t bufsiz = 16384;
 
+#ifdef HAVE_HDF5
+template<typename T>
+hid_t maptype();
+
+template<>
+hid_t maptype<float>() {
+    return H5T_NATIVE_FLOAT;
+}
+
+template<>
+hid_t maptype<unsigned int>() {
+    return H5T_NATIVE_UINT;
+}
+#endif
+
 template <typename T>
 bool readArray(File &file, const std::string &name, T *p, const size_t num) {
+    file.openDataset(name);
     if (file.fp) {
         typedef typename on_disk<T>::type D;
         if (boost::is_same<T, D>::value) {
@@ -190,17 +235,52 @@ bool readArray(File &file, const std::string &name, T *p, const size_t num) {
             }
         }
         return true;
+#ifdef HAVE_HDF5
     } else if (file.file >= 0) {
+        std::vector<hsize_t> offset(file.numdims), count(file.numdims);
+        std::copy(file.dims.begin(), file.dims.end(), count.begin());
+        size_t begin = file.offset;
+        size_t end = file.offset + num;
+        std::vector<size_t> sizes(file.numdims);
+        std::copy(file.dims.begin(), file.dims.end(), sizes.begin());
+        for (int d=file.numdims-1; d>0; --d) {
+            sizes[d-1] *= sizes[d];
+        }
+        offset[0] = begin;
+        count[0] = num;
+        for (int d=1; d<file.numdims; ++d) {
+            offset[d] = offset[d-1]/file.dims[d-1];
+            count[d] = count[d-1]/file.dims[d-1];
+        }
+        for (int d=0; d<file.numdims-1; ++d) {
+            offset[d] %= sizes[d+1];
+            count[d] %= sizes[d+1];
+        }
+        for (int d=0; d<file.numdims-1; ++d) {
+            assert(offset[d] == 0);
+            assert(count[d] == 0);
+        }
+        H5Sselect_hyperslab(file.dataspace, H5S_SELECT_SET,  offset.data(), nullptr, count.data(), nullptr);
+        hid_t memspace = H5Screate_simple(file.numdims, count.data(), nullptr);
+        std::vector<hsize_t> origin(file.numdims);
+        H5Sselect_hyperslab(memspace, H5S_SELECT_SET, origin.data(), nullptr, count.data(), nullptr);
+        H5Dread(file.dataset, maptype<T>(), memspace, file.dataspace, H5P_DEFAULT, p);
+        file.offset += num;
+#endif
     }
     return false;
 }
 
 template <typename T>
 bool skipArray(File &file, const std::string &name, const size_t num) {
+    file.openDataset(name);
     typedef typename on_disk<T>::type D;
     if (file.fp) {
         return !fseek(file.fp, sizeof(D)*num, SEEK_CUR);
+#ifdef HAVE_HDF5
     } else if (file.file) {
+        file.offset += num;
+#endif
     }
     return false;
 }
@@ -239,12 +319,13 @@ ReadItlrBin::ReadItlrBin(const std::string &name, int moduleID, mpi::communicato
     , m_dims{0,0,0} {
 
     m_gridFilename = addStringParameter("grid_filename", ".bin file for grid", "/data/itlr/itlmer-Case11114_VISUS/netz_xyz.bin", Parameter::ExistingFilename);
+    setParameterFilters(m_gridFilename, "FS3D Binary Files (*.bin)/FS3D HDF5 Files (*.hdf)/All Files (*)");
     for (int i=0; i<NumPorts; ++i) {
         if (i == 0)
             m_filename[i] = addStringParameter("filename"+std::to_string(i), ".lst or .bin file for data", "/data/itlr/itlmer-Case11114_VISUS/funs.lst", Parameter::ExistingFilename);
         else
             m_filename[i] = addStringParameter("filename"+std::to_string(i), ".lst or .bin file for data", "", Parameter::ExistingFilename);
-        setParameterFilters(m_filename[i], "List Files (*.lst)/Binary Files (*.bin)/All Files (*)");
+        setParameterFilters(m_filename[i], "List Files (*.lst)/Binary Files (*.bin)/HDF5 Files (*.hdf)/All Files (*)");
     }
 
     m_numPartitions = addIntParameter("num_partitions", "number of partitions (-1: MPI ranks)", -1);
@@ -429,9 +510,11 @@ std::vector<RectilinearGrid::ptr> ReadItlrBin::readGridBlocks(const std::string 
         return result;
     }
 
-    char header[80];
-    size_t n = fread(header, 80, 1, file.fp);
-    std::string unit = header;
+    if (file.fp) {
+        char header[80];
+        size_t n = fread(header, 80, 1, file.fp);
+        std::string unit = header;
+    }
 
     uint32_t dims[3];
     if (!readArray<uint32_t>(file, "gridsize", dims, 3)) {
