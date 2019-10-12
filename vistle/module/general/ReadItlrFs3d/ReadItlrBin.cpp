@@ -25,9 +25,75 @@
 #include "ReadItlrBin.h"
 #include <core/rectilineargrid.h>
 
+#ifdef HAVE_HDF5
+#include <hdf5.h>
+#endif
+
 const int SplitDim = 0;
 
 MODULE_MAIN(ReadItlrBin)
+
+struct File {
+    File(const std::string &name)
+    : name(name)
+    {}
+
+    ~File() {
+        if (fp)
+            fclose(fp);
+        fp = nullptr;
+#ifdef HAVE_HDF5
+        if (file >= 0) {
+            H5Fclose(file);
+        }
+        file = -1;
+#endif
+    }
+
+    bool is_hdf5() {
+        return name.length() >=4 && name.substr(name.length()-4)==".hdf";
+    }
+
+    std::string format() {
+        if (fp)
+            return "plain";
+        if (file >= 0)
+            return "hdf5";
+        if (is_hdf5())
+            return "hdf5";
+        return "plain";
+    }
+
+    bool open() {
+        if (is_hdf5()) {
+#ifdef HAVE_HDF5
+        file = H5Fopen(name.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+        if (file >= 0)
+            return true;
+        std::cerr << "failed to open HDF5 file " << name << std::endl;
+        return false;
+#else
+        std::cerr << "failed to open HDF5 file " << name << ": no HDF5 support" << std::endl;
+        return false;
+#endif
+        } else {
+#ifdef _WIN32
+            fp = fopen(name.c_str(), "rb");
+#else
+            fp = fopen(name.c_str(), "r");
+#endif
+            return fp;
+        }
+
+        return false;
+    }
+
+    std::string name;
+    FILE *fp = nullptr;
+#ifdef HAVE_HDF5
+    hid_t file = -1;
+#endif
+};
 
 class Closer {
 
@@ -107,52 +173,64 @@ bool readArrayChunk(FILE *fp, D *buf, const size_t num) {
 static const size_t bufsiz = 16384;
 
 template <typename T>
-bool readArray(FILE *fp, T *p, const size_t num) {
-    typedef typename on_disk<T>::type D;
-    if (boost::is_same<T, D>::value) {
-       return readArrayChunk<T>(fp, p, num);
-    } else {
-       std::vector<D> buf(bufsiz);
-       for (size_t i=0; i<num; i+=bufsiz) {
-          const size_t nread = i+bufsiz <= num ? bufsiz : num-i;
-          if (!readArrayChunk(fp, &buf[0], nread))
-             return false;
-          for (size_t j=0; j<nread; ++j) {
-             p[i+j] = buf[j];
-          }
-       }
+bool readArray(File &file, const std::string &name, T *p, const size_t num) {
+    if (file.fp) {
+        typedef typename on_disk<T>::type D;
+        if (boost::is_same<T, D>::value) {
+            return readArrayChunk<T>(file.fp, p, num);
+        } else {
+            std::vector<D> buf(bufsiz);
+            for (size_t i=0; i<num; i+=bufsiz) {
+                const size_t nread = i+bufsiz <= num ? bufsiz : num-i;
+                if (!readArrayChunk(file.fp, &buf[0], nread))
+                    return false;
+                for (size_t j=0; j<nread; ++j) {
+                    p[i+j] = buf[j];
+                }
+            }
+        }
+        return true;
+    } else if (file.file >= 0) {
     }
-    return true;
+    return false;
 }
 
 template <typename T>
-bool skipArray(FILE *fp, const size_t num) {
+bool skipArray(File &file, const std::string &name, const size_t num) {
     typedef typename on_disk<T>::type D;
-    return !fseek(fp, sizeof(D)*num, SEEK_CUR);
+    if (file.fp) {
+        return !fseek(file.fp, sizeof(D)*num, SEEK_CUR);
+    } else if (file.file) {
+    }
+    return false;
 }
 
-bool readFloatArray(FILE *fp, Scalar *p, const size_t num) {
-    if (ferror(fp)) {
-       std::cerr << "readFloatArray: file error" << std::endl;
-       return false;
+bool readFloatArray(File &file, const std::string &name, Scalar *p, const size_t num) {
+    if (file.fp) {
+        if (ferror(file.fp)) {
+            std::cerr << "readFloatArray: file error" << std::endl;
+            return false;
+        }
+        if (feof(file.fp)) {
+            std::cerr << "readFloatArray: already at EOF" << std::endl;
+            return false;
+        }
     }
-    if (feof(fp)) {
-       std::cerr << "readFloatArray: already at EOF" << std::endl;
-       return false;
-    }
-    return readArray<Scalar>(fp, p, num);
+    return readArray<Scalar>(file, name, p, num);
 }
 
-bool skipFloatArray(FILE *fp, const size_t num) {
-    if (ferror(fp)) {
-       std::cerr << "skipFloatArray: file error" << std::endl;
-       return false;
+bool skipFloatArray(File &file, const std::string &name, const size_t num) {
+    if (file.fp) {
+        if (ferror(file.fp)) {
+            std::cerr << "skipFloatArray: file error" << std::endl;
+            return false;
+        }
+        if (feof(file.fp)) {
+            std::cerr << "skipFloatArray: already at EOF" << std::endl;
+            return false;
+        }
     }
-    if (feof(fp)) {
-       std::cerr << "skipFloatArray: already at EOF" << std::endl;
-       return false;
-    }
-    return skipArray<Scalar>(fp, num);
+    return skipArray<Scalar>(file, name, num);
 }
 
 ReadItlrBin::ReadItlrBin(const std::string &name, int moduleID, mpi::communicator comm)
@@ -185,8 +263,8 @@ ReadItlrBin::ReadItlrBin(const std::string &name, int moduleID, mpi::communicato
         m_dataOut[i] = createOutputPort("data"+std::to_string(i), "data output");
     }
 
-   setParallelizationMode(ParallelizeTimeAndBlocks);
-   setAllowTimestepDistribution(true);
+   setParallelizationMode(ParallelizeBlocks);
+   //setAllowTimestepDistribution(true);
    observeParameter(m_numPartitions);
 }
 
@@ -345,28 +423,29 @@ std::vector<RectilinearGrid::ptr> ReadItlrBin::readGridBlocks(const std::string 
 
     std::vector<RectilinearGrid::ptr> result;
 
-    FILE *fp = fopen(filename.c_str(), "r");
-    if (!fp) {
-        sendError("failed to open grid file %s", filename.c_str());
+    File file(filename);
+    if (!file.open()) {
+        sendError("failed to open grid file %s in format %s", filename.c_str(), file.format().c_str());
         return result;
     }
-    Closer closeFile(fp);
 
     char header[80];
-    size_t n = fread(header, 80, 1, fp);
+    size_t n = fread(header, 80, 1, file.fp);
     std::string unit = header;
 
     uint32_t dims[3];
-    if (!readArray<uint32_t>(fp, dims, 3)) {
+    if (!readArray<uint32_t>(file, "gridsize", dims, 3)) {
        sendError("failed to read grid dimensions from %s", filename.c_str());
        return result;
     }
+
+    const std::string axis[3]{"xval", "yval", "zval"};
 
     // read coordinates and prepare for transformation avoiding transposition
     std::vector<float> coords[3];
     for (int i=0; i<3; ++i) {
         coords[i].resize(dims[i]);
-        if (!readFloatArray(fp, coords[i].data(), dims[i])) {
+        if (!readFloatArray(file, axis[i], coords[i].data(), dims[i])) {
             sendError("failed to read grid coordinates %d from %s", i, filename.c_str());
             return result;
         }
@@ -414,29 +493,31 @@ std::vector<RectilinearGrid::ptr> ReadItlrBin::readGridBlocks(const std::string 
 
 DataBase::ptr ReadItlrBin::readFieldBlock(const std::string &filename, int part) const {
 
-    FILE *fp = fopen(filename.c_str(), "r");
-    if (!fp) {
-        sendError("failed to open file %s", filename.c_str());
+    File file(filename);
+    if (!file.open()) {
+        sendError("failed to open file %s in format %s", filename.c_str(), file.format().c_str());
         return DataBase::ptr();
     }
-    Closer closeFile(fp);
 
-    char header[80];
-    size_t n = fread(header, 80, 1, fp);
-    std::string fieldname = header;
-    n = fread(header, 80, 1, fp);
-    std::string unit = header;
+    std::vector<uint32_t> dims(7);
+    if (file.fp) {
 
-    uint32_t dims[7];
-    if (!readArray<uint32_t>(fp, dims, 7)) {
-       sendError("failed to read dimensions from %s", filename.c_str());
-       return DataBase::ptr();
-    }
+        char header[80];
+        size_t n = fread(header, 80, 1, file.fp);
+        std::string fieldname = header;
+        n = fread(header, 80, 1, file.fp);
+        std::string unit = header;
 
-    if (dims[3] != m_dims[2] || dims[4] != m_dims[1] || dims[5] != m_dims[0]) {
-       sendInfo("data with dimensions: %d %d %d", (int)dims[3], (int)dims[4], (int)dims[5]);
-       sendError("data set dimensions from %s don't match grid dimensions", filename.c_str());
-       return DataBase::ptr();
+        if (!readArray<uint32_t>(file, "dims", dims.data(), 7)) {
+            sendError("failed to read dimensions from %s", filename.c_str());
+            return DataBase::ptr();
+        }
+
+        if (dims[3] != m_dims[2] || dims[4] != m_dims[1] || dims[5] != m_dims[0]) {
+            sendInfo("data with dimensions: %d %d %d", (int)dims[3], (int)dims[4], (int)dims[5]);
+            sendError("data set dimensions from %s don't match grid dimensions", filename.c_str());
+            return DataBase::ptr();
+        }
     }
 
     auto b = computeBlock(part);
@@ -452,17 +533,19 @@ DataBase::ptr ReadItlrBin::readFieldBlock(const std::string &filename, int part)
     }
     Index rest = m_dims[0]*m_dims[1]*m_dims[2] - offset - size;
 
+    const std::string arrayname1{"funs"};
+    const std::string arraynames3[3]{"xval", "yval", "zval"};
     int numComp = 1;
     if (filename.find("velv") == 0 || filename.find("/velv") != std::string::npos) {
         numComp = 3;
     }
     switch(numComp) {
     case 1: {
-        if (!skipFloatArray(fp, offset)) {
+        if (!skipFloatArray(file, arrayname1, offset)) {
             sendError("failed to skip data from %s", filename.c_str());
         }
         Vec<Scalar>::ptr vec(new Vec<Scalar>(size));
-        if (!readFloatArray(fp, &vec->x()[0], size)) {
+        if (!readFloatArray(file, arrayname1, &vec->x()[0], size)) {
             sendError("failed to read data from %s", filename.c_str());
             return DataBase::ptr();
         }
@@ -471,26 +554,14 @@ DataBase::ptr ReadItlrBin::readFieldBlock(const std::string &filename, int part)
     }
     case 3: {
         Vec<Scalar,3>::ptr vec3(new Vec<Scalar,3>(size));
-        if (!skipFloatArray(fp, offset)) {
-            sendError("failed to skip data from %s", filename.c_str());
-        }
-        if (!readFloatArray(fp, &vec3->x()[0], size)) {
-            sendError("failed to read data from %s", filename.c_str());
-            return DataBase::ptr();
-        }
-        if (!skipFloatArray(fp, rest+offset)) {
-            sendError("failed to skip data from %s", filename.c_str());
-        }
-        if (!readFloatArray(fp, &vec3->y()[0], size)) {
-            sendError("failed to read data from %s", filename.c_str());
-            return DataBase::ptr();
-        }
-        if (!skipFloatArray(fp, rest+offset)) {
-            sendError("failed to skip data from %s", filename.c_str());
-        }
-        if (!readFloatArray(fp, &vec3->z()[0], size)) {
-            sendError("failed to read data from %s", filename.c_str());
-            return DataBase::ptr();
+        for (int c=0; c<3; ++c) {
+            if (!skipFloatArray(file, arraynames3[c], offset)) {
+                sendError("failed to skip data from %s", filename.c_str());
+            }
+            if (!readFloatArray(file, arraynames3[c], &vec3->x(c)[0], size)) {
+                sendError("failed to read data from %s", filename.c_str());
+                return DataBase::ptr();
+            }
         }
         return vec3;
         break;
@@ -512,111 +583,3 @@ std::vector<std::string> ReadItlrBin::readListFile(const std::string &filename) 
     }
     return files;
 }
-
-#if 0
-bool ReadItlrBin::compute() {
-
-    std::string gridFile = m_gridFilename->getValue();
-    if (m_numPartitions->getValue() < 0)
-        m_nparts = size();
-    else
-        m_nparts = m_numPartitions->getValue();
-
-    auto grids = readGridBlocks(gridFile, m_nparts);
-    assert(grids.size() == m_nparts);
-
-    std::string scalarFile[NumPorts];
-    std::vector<std::string> fileList[NumPorts];
-    filesystem::path directory[NumPorts];
-    int numFiles = -1;
-    bool haveListFile = false;
-    for (int port=0; port<NumPorts; ++port) {
-        scalarFile[port] = m_filename[port]->getValue();
-        if (scalarFile[port].empty())
-            continue;
-
-        fileList[port].push_back(scalarFile[port]);
-        bool haveList = false;
-        if (boost::algorithm::ends_with(scalarFile[port], ".lst")) {
-            fileList[port] = readListFile(scalarFile[port]);
-            haveList = true;
-        }
-        filesystem::path listFilePath(scalarFile[port]);
-        directory[port] = listFilePath.parent_path();
-
-        if (numFiles < 0) {
-            haveListFile = haveList;
-        } else {
-            if (haveList != haveListFile) {
-                sendError("Selection of a .bin or a .list file has to match on all ports");
-                return true;
-            }
-        }
-
-        if (numFiles < 0) {
-            numFiles = fileList[port].size();
-        } else {
-            numFiles = std::min<int>(numFiles, fileList[port].size());
-        }
-    }
-
-    int first = m_firstStep->getValue();
-    int inc = m_stepSkip->getValue()+1;
-    int last = m_lastStep->getValue();
-    if (last < 0)
-        last = numFiles-1;
-    int step = numFiles >= 1 ? 0 : -1;
-    int numSteps = (last-first)/inc+1;
-    if (!haveListFile) {
-        first = 0;
-        last = 0;
-        inc = 1;
-    }
-    for (int idx = first; idx <= last; idx += inc) {
-        for (int block=0; block<m_nparts; ++block) {
-            if (rankForBlockAndTimestep(block, step) == rank()) {
-                for (int port=0; port<NumPorts; ++port) {
-                    if (scalarFile[port].empty())
-                        continue;
-                    auto file = fileList[port][idx];
-                    filesystem::path filename;
-                    if (haveListFile) {
-                        filename = directory[port];
-                        filename /= file;
-                    } else {
-                        filename = fileList[port][idx];
-                    }
-
-                    auto scal = readFieldBlock(filename.string(), block);
-                    if (scal) {
-                        scal->setGrid(grids[block]);
-                        if (numSteps > 1) {
-                            scal->setTimestep(step);
-                            scal->setNumTimesteps(numSteps);
-                        }
-                        addObject(m_dataOut[port], scal);
-                    }
-                }
-            }
-        }
-        ++step;
-    }
-
-    return true;
-}
-
-int ReadItlrBin::rankForBlockAndTimestep(int block, int timestep) {
-
-    bool distTime = m_distributeTimesteps->getValue();
-
-    if (block < 0) {
-        block = 0;
-    }
-
-    if (distTime) {
-        block += timestep;
-    }
-
-    return block % size();
-}
-#endif
