@@ -532,11 +532,7 @@ ReadItlrBin::Block ReadItlrBin::computeBlock(int part) const {
     return block;
 }
 
-bool readGridSize(File &file, uint32_t dims[3]) {
-
-    if (file.fp) {
-        return readArray<uint32_t>(file, "gridsize", dims, 3);
-    }
+bool readHdf5GridSize(File &file, uint32_t dims[3]) {
 #ifdef HAVE_HDF5
     hid_t attr = H5Aopen(file.file, "gridsize", H5P_DEFAULT);
     if (attr < 0) {
@@ -556,6 +552,35 @@ bool readGridSize(File &file, uint32_t dims[3]) {
 #endif
 }
 
+bool readGridSizeFromGrid(File &file, uint32_t dims[3]) {
+
+    if (file.fp) {
+        return readArray<uint32_t>(file, "gridsize", dims, 3);
+    }
+    return readHdf5GridSize(file, dims);
+}
+
+bool readGridSizeFromField(File &file, uint32_t dims[3]) {
+
+    if (file.fp) {
+        char header[80];
+        size_t n = fread(header, 80, 1, file.fp);
+        std::string fieldname = header;
+        n = fread(header, 80, 1, file.fp);
+        std::string unit = header;
+
+        std::vector<uint32_t> d(7);
+        if (!readArray<uint32_t>(file, "dims", d.data(), 7)) {
+            return false;
+        }
+        for (int i=0; i<3; ++i)
+            dims[i] = d[i+3];
+        return true;
+    }
+
+    return readHdf5GridSize(file, dims);
+}
+
 std::vector<RectilinearGrid::ptr> ReadItlrBin::readGridBlocks(const std::string &filename, int nparts) {
 
     std::vector<RectilinearGrid::ptr> result;
@@ -573,7 +598,7 @@ std::vector<RectilinearGrid::ptr> ReadItlrBin::readGridBlocks(const std::string 
     }
 
     uint32_t dims[3]{0,0,0};
-    if (!readGridSize(file, dims)) {
+    if (!readGridSizeFromGrid(file, dims)) {
         sendError("failed to read grid dimensions from %s", filename.c_str());
         return result;
     }
@@ -583,15 +608,14 @@ std::vector<RectilinearGrid::ptr> ReadItlrBin::readGridBlocks(const std::string 
     // read coordinates and prepare for transformation avoiding transposition
     std::vector<float> coords[3];
     for (int i=0; i<3; ++i) {
-        coords[i].resize(dims[i]+1);
-        if (!readFloatArray(file, axis[i], coords[i].data(), dims[i]+1)) {
+        if (file.isHdf5())
+            coords[i].resize(dims[i]+1);
+        if (!readFloatArray(file, axis[i], coords[i].data(), coords[i].size())) {
             sendError("failed to read grid coordinates %d from %s", i, filename.c_str());
             return result;
         }
         if (i==2) {
-            for (int j=0; j<=dims[i]; ++j) {
-                coords[i][j] *= -1;
-            }
+            std::transform(coords[i].begin(), coords[i].end(), coords[i].begin(), [](float z){return -z;});
             std::reverse(coords[i].begin(), coords[i].end());
         }
         coords[i].resize(dims[i]);
@@ -639,25 +663,15 @@ DataBase::ptr ReadItlrBin::readFieldBlock(const std::string &filename, int part)
         return DataBase::ptr();
     }
 
-    std::vector<uint32_t> dims(7);
-    if (file.fp) {
-
-        char header[80];
-        size_t n = fread(header, 80, 1, file.fp);
-        std::string fieldname = header;
-        n = fread(header, 80, 1, file.fp);
-        std::string unit = header;
-
-        if (!readArray<uint32_t>(file, "dims", dims.data(), 7)) {
-            sendError("failed to read dimensions from %s", filename.c_str());
-            return DataBase::ptr();
-        }
-
-        if (dims[3] != m_dims[2] || dims[4] != m_dims[1] || dims[5] != m_dims[0]) {
-            sendInfo("data with dimensions: %d %d %d", (int)dims[3], (int)dims[4], (int)dims[5]);
-            sendError("data set dimensions from %s don't match grid dimensions", filename.c_str());
-            return DataBase::ptr();
-        }
+    uint32_t dims[3]{0,0,0};
+    if (!readGridSizeFromField(file, dims)) {
+        sendError("failed to read grid dimensions from %s", filename.c_str());
+        return DataBase::ptr();
+    }
+    if (dims[0] != m_dims[2] || dims[1] != m_dims[1] || dims[2] != m_dims[0]) {
+        sendInfo("data with dimensions: %d %d %d", (int)dims[0], (int)dims[1], (int)dims[2]);
+        sendError("data set dimensions from %s don't match grid dimensions", filename.c_str());
+        return DataBase::ptr();
     }
 
     auto b = computeBlock(part);
@@ -710,7 +724,8 @@ DataBase::ptr ReadItlrBin::readFieldBlock(const std::string &filename, int part)
     }
     }
 
-    sendError("expecting scalar or vector field, have %d dimensions", (int)dims[6]);
+    sendError("expecting scalar or 3-dim vector field, didn't find any in %s", filename.c_str());
+    //sendError("have %d dimensions", (int)dims[6]);
     return DataBase::ptr();
 }
 
