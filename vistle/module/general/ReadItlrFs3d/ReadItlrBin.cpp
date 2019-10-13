@@ -94,30 +94,32 @@ struct File {
 
     bool openDataset(const std::string &dataset) {
 #ifdef HAVE_HDF5
-        std::cerr << "opening dataset " << dataset << std::endl;
-        if (this->datasetName == dataset)
-            return true;
-        offset = 0;
-        datasetName.clear();
-        if (this->dataset >= 0) {
-            H5Dclose(this->dataset);
+        if (isHdf5()) {
+            std::cerr << "opening dataset " << dataset << std::endl;
+            if (this->datasetName == dataset)
+                return true;
+            offset = 0;
+            datasetName.clear();
+            if (this->dataset >= 0) {
+                H5Dclose(this->dataset);
+            }
+            this->dataset = H5Dopen2(file, dataset.c_str(), H5P_DEFAULT);
+            if (this->dataset < 0) {
+                return false;
+            }
+            this->datatype = H5Dget_type(this->dataset);
+            this->dataclass = H5Tget_class(this->datatype);
+            this->typesize = H5Tget_size(this->datatype);
+            this->byteorder= H5Tget_order(this->datatype);
+            this->dataspace = H5Dget_space(this->dataset);
+            this->numdims = H5Sget_simple_extent_ndims(this->dataspace);
+            dims.resize(numdims);
+            H5Sget_simple_extent_dims(dataspace, dims.data(), nullptr);
+            std::cerr << "dataset dims:";
+            for (const auto &d: dims)
+                std::cerr << " " << d;
+            std::cerr << std::endl;
         }
-        this->dataset = H5Dopen2(file, dataset.c_str(), H5P_DEFAULT);
-        if (this->dataset < 0) {
-            return false;
-        }
-        this->datatype = H5Dget_type(this->dataset);
-        this->dataclass = H5Tget_class(this->datatype);
-        this->typesize = H5Tget_size(this->datatype);
-        this->byteorder= H5Tget_order(this->datatype);
-        this->dataspace = H5Dget_space(this->dataset);
-        this->numdims = H5Sget_simple_extent_ndims(this->dataspace);
-        dims.resize(numdims);
-        H5Sget_simple_extent_dims(dataspace, dims.data(), nullptr);
-        std::cerr << "dataset dims:";
-        for (const auto &d: dims)
-            std::cerr << " " << d;
-        std::cerr << std::endl;
 #endif
         datasetName = dataset;
         return true;
