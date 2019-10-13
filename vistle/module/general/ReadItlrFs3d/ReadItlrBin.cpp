@@ -94,8 +94,10 @@ struct File {
 
     bool openDataset(const std::string &dataset) {
 #ifdef HAVE_HDF5
+        std::cerr << "opening dataset " << dataset << std::endl;
         if (this->datasetName == dataset)
             return true;
+        offset = 0;
         datasetName.clear();
         if (this->dataset >= 0) {
             H5Dclose(this->dataset);
@@ -112,6 +114,10 @@ struct File {
         this->numdims = H5Sget_simple_extent_ndims(this->dataspace);
         dims.resize(numdims);
         H5Sget_simple_extent_dims(dataspace, dims.data(), nullptr);
+        std::cerr << "dataset dims:";
+        for (const auto &d: dims)
+            std::cerr << " " << d;
+        std::cerr << std::endl;
 #endif
         datasetName = dataset;
         return true;
@@ -218,7 +224,10 @@ hid_t maptype<unsigned int>() {
 
 template <typename T>
 bool readArray(File &file, const std::string &name, T *p, const size_t num) {
-    file.openDataset(name);
+    if (!file.openDataset(name)) {
+        std::cerr << "failed to open dataset " << name << std::endl;
+        return false;
+    }
     if (file.fp) {
         typedef typename on_disk<T>::type D;
         if (boost::is_same<T, D>::value) {
@@ -240,7 +249,6 @@ bool readArray(File &file, const std::string &name, T *p, const size_t num) {
         std::vector<hsize_t> offset(file.numdims), count(file.numdims);
         std::copy(file.dims.begin(), file.dims.end(), count.begin());
         size_t begin = file.offset;
-        size_t end = file.offset + num;
         std::vector<size_t> sizes(file.numdims);
         std::copy(file.dims.begin(), file.dims.end(), sizes.begin());
         for (int d=file.numdims-1; d>0; --d) {
@@ -253,19 +261,39 @@ bool readArray(File &file, const std::string &name, T *p, const size_t num) {
             count[d] = count[d-1]/file.dims[d-1];
         }
         for (int d=0; d<file.numdims-1; ++d) {
-            offset[d] %= sizes[d+1];
-            count[d] %= sizes[d+1];
+            offset[d] %= file.dims[d];
+            count[d] = file.dims[d];
         }
+        std::cerr << "selecting hyperslab:";
+        for (const auto &d: offset)
+            std::cerr << " " << d;
+        std::cerr << " plus";
+        for (const auto &d: count)
+            std::cerr << " " << d;
+        std::cerr << std::endl;
+        size_t sz = count[file.numdims-1];
         for (int d=0; d<file.numdims-1; ++d) {
+            sz *= count[d];
             assert(offset[d] == 0);
-            assert(count[d] == 0);
+            assert(count[d] == file.dims[d]);
         }
-        H5Sselect_hyperslab(file.dataspace, H5S_SELECT_SET,  offset.data(), nullptr, count.data(), nullptr);
+        assert(sz == num);
+        if (H5Sselect_hyperslab(file.dataspace, H5S_SELECT_SET,  offset.data(), nullptr, count.data(), nullptr) < 0) {
+            std::cerr << "H5Sselect_hyperslab from file failed for " << file.name << ":" << file.datasetName << std::endl;
+            return false;
+        }
         hid_t memspace = H5Screate_simple(file.numdims, count.data(), nullptr);
         std::vector<hsize_t> origin(file.numdims);
-        H5Sselect_hyperslab(memspace, H5S_SELECT_SET, origin.data(), nullptr, count.data(), nullptr);
-        H5Dread(file.dataset, maptype<T>(), memspace, file.dataspace, H5P_DEFAULT, p);
+        if (H5Sselect_hyperslab(memspace, H5S_SELECT_SET, origin.data(), nullptr, count.data(), nullptr) < 0) {
+            std::cerr << "H5Sselect_hyperslab in memory failed for " << file.name << ":" << file.datasetName << std::endl;
+            return false;
+        }
+        if (H5Dread(file.dataset, maptype<T>(), memspace, file.dataspace, H5P_DEFAULT, p) < 0) {
+            std::cerr << "H5Dread failed for " << file.name << ":" << file.datasetName << std::endl;
+            return false;
+        }
         file.offset += num;
+        return true;
 #endif
     }
     return false;
@@ -273,13 +301,17 @@ bool readArray(File &file, const std::string &name, T *p, const size_t num) {
 
 template <typename T>
 bool skipArray(File &file, const std::string &name, const size_t num) {
-    file.openDataset(name);
+    if (!file.openDataset(name)) {
+        std::cerr << "failed to open dataset " << name << std::endl;
+        return false;
+    }
     typedef typename on_disk<T>::type D;
     if (file.fp) {
         return !fseek(file.fp, sizeof(D)*num, SEEK_CUR);
 #ifdef HAVE_HDF5
     } else if (file.file) {
         file.offset += num;
+        return true;
 #endif
     }
     return false;
@@ -416,9 +448,7 @@ bool ReadItlrBin::prepareRead()
         m_nparts = m_numPartitions->getValue();
 
     m_grids = readGridBlocks(gridFile, m_nparts);
-    assert(m_grids.size() == m_nparts);
-
-    return true;
+    return (m_grids.size() == m_nparts);
 }
 
 bool ReadItlrBin::read(Reader::Token &token, int timestep, int block)
@@ -500,6 +530,30 @@ ReadItlrBin::Block ReadItlrBin::computeBlock(int part) const {
     return block;
 }
 
+bool readGridSize(File &file, uint32_t dims[3]) {
+
+    if (file.fp) {
+        return readArray<uint32_t>(file, "gridsize", dims, 3);
+    }
+#ifdef HAVE_HDF5
+    hid_t attr = H5Aopen(file.file, "gridsize", H5P_DEFAULT);
+    if (attr < 0) {
+        std::cerr << "failed to open attribute 'gridsize'" << std::endl;
+        return false;
+    }
+    hid_t type = H5Aget_type(attr);
+    if (H5Aread(attr, type, &dims[0]) < 0) {
+        H5Aclose(attr);
+        return false;
+    }
+    std::cerr << "grid dimensions: " << dims[0] << " " << dims[1] << " " << dims[2] << std::endl;
+    H5Aclose(attr);
+    return true;
+#else
+    return false;
+#endif
+}
+
 std::vector<RectilinearGrid::ptr> ReadItlrBin::readGridBlocks(const std::string &filename, int nparts) {
 
     std::vector<RectilinearGrid::ptr> result;
@@ -516,10 +570,10 @@ std::vector<RectilinearGrid::ptr> ReadItlrBin::readGridBlocks(const std::string 
         std::string unit = header;
     }
 
-    uint32_t dims[3];
-    if (!readArray<uint32_t>(file, "gridsize", dims, 3)) {
-       sendError("failed to read grid dimensions from %s", filename.c_str());
-       return result;
+    uint32_t dims[3]{0,0,0};
+    if (!readGridSize(file, dims)) {
+        sendError("failed to read grid dimensions from %s", filename.c_str());
+        return result;
     }
 
     const std::string axis[3]{"xval", "yval", "zval"};
@@ -527,17 +581,18 @@ std::vector<RectilinearGrid::ptr> ReadItlrBin::readGridBlocks(const std::string 
     // read coordinates and prepare for transformation avoiding transposition
     std::vector<float> coords[3];
     for (int i=0; i<3; ++i) {
-        coords[i].resize(dims[i]);
-        if (!readFloatArray(file, axis[i], coords[i].data(), dims[i])) {
+        coords[i].resize(dims[i]+1);
+        if (!readFloatArray(file, axis[i], coords[i].data(), dims[i]+1)) {
             sendError("failed to read grid coordinates %d from %s", i, filename.c_str());
             return result;
         }
         if (i==2) {
-            for (int j=0; j<dims[i]; ++j) {
+            for (int j=0; j<=dims[i]; ++j) {
                 coords[i][j] *= -1;
             }
             std::reverse(coords[i].begin(), coords[i].end());
         }
+        coords[i].resize(dims[i]);
     }
     std::swap(coords[0], coords[2]);
     for (int i=0; i<3; ++i) {
@@ -626,6 +681,7 @@ DataBase::ptr ReadItlrBin::readFieldBlock(const std::string &filename, int part)
     case 1: {
         if (!skipFloatArray(file, arrayname1, offset)) {
             sendError("failed to skip data from %s", filename.c_str());
+            return DataBase::ptr();
         }
         Vec<Scalar>::ptr vec(new Vec<Scalar>(size));
         if (!readFloatArray(file, arrayname1, &vec->x()[0], size)) {
@@ -640,6 +696,7 @@ DataBase::ptr ReadItlrBin::readFieldBlock(const std::string &filename, int part)
         for (int c=0; c<3; ++c) {
             if (!skipFloatArray(file, arraynames3[c], offset)) {
                 sendError("failed to skip data from %s", filename.c_str());
+                return DataBase::ptr();
             }
             if (!readFloatArray(file, arraynames3[c], &vec3->x(c)[0], size)) {
                 sendError("failed to read data from %s", filename.c_str());
