@@ -555,6 +555,10 @@ bool readHdf5GridSize(File &file, uint32_t dims[3]) {
 bool readGridSizeFromGrid(File &file, uint32_t dims[3]) {
 
     if (file.fp) {
+        char header[80];
+        size_t n = fread(header, 80, 1, file.fp);
+        std::string unit = header;
+
         return readArray<uint32_t>(file, "gridsize", dims, 3);
     }
     return readHdf5GridSize(file, dims);
@@ -591,12 +595,6 @@ std::vector<RectilinearGrid::ptr> ReadItlrBin::readGridBlocks(const std::string 
         return result;
     }
 
-    if (file.fp) {
-        char header[80];
-        size_t n = fread(header, 80, 1, file.fp);
-        std::string unit = header;
-    }
-
     uint32_t dims[3]{0,0,0};
     if (!readGridSizeFromGrid(file, dims)) {
         sendError("failed to read grid dimensions from %s", filename.c_str());
@@ -610,6 +608,8 @@ std::vector<RectilinearGrid::ptr> ReadItlrBin::readGridBlocks(const std::string 
     for (int i=0; i<3; ++i) {
         if (file.isHdf5())
             coords[i].resize(dims[i]+1);
+        else
+            coords[i].resize(dims[i]);
         if (!readFloatArray(file, axis[i], coords[i].data(), coords[i].size())) {
             sendError("failed to read grid coordinates %d from %s", i, filename.c_str());
             return result;
@@ -618,7 +618,14 @@ std::vector<RectilinearGrid::ptr> ReadItlrBin::readGridBlocks(const std::string 
             std::transform(coords[i].begin(), coords[i].end(), coords[i].begin(), [](float z){return -z;});
             std::reverse(coords[i].begin(), coords[i].end());
         }
-        coords[i].resize(dims[i]);
+        if (file.isHdf5()) {
+            // per-cell data was read, map to dual grid
+            for (size_t j=0; j<coords[i].size()-1; ++j) {
+                coords[i][j] += coords[i][j+1];
+                coords[i][j] *= 0.5;
+            }
+            coords[i].resize(dims[i]);
+        }
     }
     std::swap(coords[0], coords[2]);
     for (int i=0; i<3; ++i) {
