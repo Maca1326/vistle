@@ -416,6 +416,63 @@ std::shared_ptr<vistle::RenderObject> COVER::addObject(int senderId, const std::
       cover->addPlugin(plugin.c_str());
 
    if (geometry) {
+       ////////////// get some data from geometry...
+       Object::Type type = geometry->getType();
+
+       vistle::Polygons::const_ptr polygons = vistle::Polygons::as(geometry);
+       const Index numElements = polygons->getNumElements();
+       const Index numCorners = polygons->getNumCorners();
+       const Index numVertices = polygons->getNumVertices();
+
+
+       ///////////// create connection to blender and send data
+       int sock = 0, valread;
+       struct sockaddr_in serv_addr;
+       //char *hello = "Hello from client";
+       char buffer[1024] = {0};
+       if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+       {
+           printf("\n Socket creation error \n");
+       }
+
+       int PORT = 50007;
+       serv_addr.sin_family = AF_INET;
+       serv_addr.sin_port = htons(PORT);
+
+       //char* peerHost = "localhost";
+       // Resolve server address (convert from symbolic name to IP number)
+       //struct hostent *host = gethostbyname(peerHost);
+       struct hostent *host = gethostbyname("localhost");
+       if (host == NULL)
+       {
+           std::cerr << "Error: " << strerror(errno) << std::endl;
+           exit(1);
+       }
+
+       // Write resolved IP address of a server to the address structure
+       memmove(&(serv_addr.sin_addr.s_addr), host->h_addr_list[0], 4);
+
+       // Convert IPv4 and IPv6 addresses from text to binary form
+       if(inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)<=0)
+       {
+           printf("\nInvalid address/ Address not supported \n");
+       }
+
+       if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+       {
+           printf("\nConnection Failed \n");
+       }
+       // send data to blender
+       int num_el = 500;
+       send(sock, &num_el, sizeof(num_el), 0);
+
+       //send(sock , hello , strlen(hello) , 0 );
+       //printf("Client message sent\n");
+       valread = read( sock , buffer, 1024);
+       printf("%s\n",buffer );
+       //////////////////////
+
+
        plugin = geometry->getAttribute("_plugin");
        if (!plugin.empty())
            cover->addPlugin(plugin.c_str());
