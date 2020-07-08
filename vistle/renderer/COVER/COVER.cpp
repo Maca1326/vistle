@@ -416,14 +416,6 @@ std::shared_ptr<vistle::RenderObject> COVER::addObject(int senderId, const std::
       cover->addPlugin(plugin.c_str());
 
    if (geometry) {
-       ////////////// get some data from geometry...
-       Object::Type type = geometry->getType();
-
-       vistle::Polygons::const_ptr polygons = vistle::Polygons::as(geometry);
-       const Index numElements = polygons->getNumElements();
-       const Index numCorners = polygons->getNumCorners();
-       const Index numVertices = polygons->getNumVertices();
-
 
        ///////////// create connection to blender and send data
        int sock = 0, valread;
@@ -462,8 +454,19 @@ std::shared_ptr<vistle::RenderObject> COVER::addObject(int senderId, const std::
        {
            printf("\nConnection Failed \n");
        }
-       // send data to blender
-       int num_el = 500;
+       //--- send data to blender
+       ////////////// get some data from geometry...
+       Object::Type type = geometry->getType();
+
+       vistle::Polygons::const_ptr polygons = vistle::Polygons::as(geometry);
+       const Index numElements = polygons->getNumElements();
+       const Index numCorners = polygons->getNumCorners();
+       const Index numVertices = polygons->getNumVertices();
+
+       // prepare data
+       int num_el = numElements;
+
+       // send
        send(sock, &num_el, sizeof(num_el), 0);
 
        //send(sock , hello , strlen(hello) , 0 );
