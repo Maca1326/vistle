@@ -142,6 +142,8 @@ class V_COVEREXPORT COVER: public vistle::Renderer {
    ColorMapMap m_colormaps;
 
    std::set<int> m_dataTypeWarnings; // set of unsupported data types for which a warning has already been printed
+
+   int sock;
 };
 
 #endif
