@@ -5,11 +5,11 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/thread_time.hpp>
 
-#include <util/tools.h>
+#include <vistle/util/tools.h>
 #include "message.h"
 #include "messagequeue.h"
 #include "shm.h"
-#include "assert.h"
+#include <cassert>
 
 #ifdef __linux__
 // not necessary, as child processes die with their parent
@@ -127,7 +127,7 @@ void MessageQueue::receive(Message &msg) {
          throw except::parent_died();
    }
 #endif
-   vassert(recvSize == message::Message::MESSAGE_SIZE);
+   assert(recvSize == message::Message::MESSAGE_SIZE);
 }
 
 bool MessageQueue::tryReceive(Message &msg) {
@@ -141,7 +141,7 @@ bool MessageQueue::tryReceive(Message &msg) {
    unsigned priority = 0;
    bool result = m_mq.try_receive(&msg, message::Message::MESSAGE_SIZE, recvSize, priority);
    if (result) {
-      vassert(recvSize == message::Message::MESSAGE_SIZE);
+      assert(recvSize == message::Message::MESSAGE_SIZE);
    }
    return result;
 }

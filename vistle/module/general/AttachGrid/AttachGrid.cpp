@@ -1,6 +1,6 @@
-#include <core/object.h>
-#include <core/vec.h>
-#include <core/coords.h>
+#include <vistle/core/object.h>
+#include <vistle/core/vec.h>
+#include <vistle/core/coords.h>
 
 #include "AttachGrid.h"
 
@@ -59,7 +59,7 @@ bool AttachGrid::compute() {
        auto &pin = m_dataIn[i];
        auto &pout = m_dataOut[i];
        if (isConnected(*pin)) {
-           vassert(data[i]);
+           assert(data[i]);
            auto out = data[i]->clone();
            out->copyAttributes(data[i]);
            out->setGrid(grid);

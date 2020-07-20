@@ -20,8 +20,8 @@
 #include <iostream>
 #include <vector>
 
-#include <util/enum.h>
-#include <util/buffer.h>
+#include <vistle/util/enum.h>
+#include <vistle/util/buffer.h>
 
 #include "export.h"
 #include "index.h"
@@ -341,9 +341,7 @@ extern template
 bool V_COREEXPORT decompressZfp<zfp_type_float>(void *dest, const buffer &compressed, const Index dim[3]);
 extern template
 bool V_COREEXPORT decompressZfp<zfp_type_double>(void *dest, const buffer &compressed, const Index dim[3]);
-#endif
 
-#ifdef HAVE_ZFP
 template<>
 bool V_COREEXPORT compressZfp<zfp_type_none>(buffer &compressed, const void *src, const Index dim[3], const ZfpParameters &param);
 extern template
@@ -356,11 +354,11 @@ extern template
 bool V_COREEXPORT compressZfp<zfp_type_double>(buffer &compressed, const void *src, const Index dim[3], const ZfpParameters &param);
 #endif
 } // namespace detail
-
+#ifdef HAVE_ZFP
 using detail::ZfpParameters;
 using detail::compressZfp;
 using detail::decompressZfp;
-
+#endif
 } // namespace vistle
 #endif
 

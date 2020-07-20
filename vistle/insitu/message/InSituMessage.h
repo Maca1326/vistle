@@ -1,7 +1,7 @@
 #ifndef INSITU_MESSAGE_H
 #define INSITU_MESSAGE_H
 
-#include <vistle_insitu_message_export.h>
+#include "export.h"
 
 #include <string>
 #include <array>
@@ -10,15 +10,15 @@
 #include <boost/asio/streambuf.hpp>
 
 #include <boost/mpi.hpp>
-#include <core/message.h>
-#include <core/messages.h>
-#include <core/messagepayload.h>
-#include <core/tcpmessage.h>
-#include <core/archives_config.h>
-#include <core/archives.h>
-#include <core/shm.h>
+#include <vistle/core/message.h>
+#include <vistle/core/messages.h>
+#include <vistle/core/messagepayload.h>
+#include <vistle/core/tcpmessage.h>
+#include <vistle/core/archives_config.h>
+#include <vistle/core/archives.h>
+#include <vistle/core/shm.h>
 
-#include <util/vecstreambuf.h>
+#include <vistle/util/vecstreambuf.h>
 
 #include <boost/interprocess/shared_memory_object.hpp>
 #include <boost/interprocess/mapped_region.hpp>
@@ -29,7 +29,7 @@ namespace insitu {
 
 namespace message {
 
-enum class VISTLE_INSITU_MESSAGE_EXPORT InSituMessageType {
+enum class V_INSITUMESSAGEEXPORT InSituMessageType {
     Invalid
     , ShmInit
     , AddObject
@@ -50,7 +50,7 @@ enum class VISTLE_INSITU_MESSAGE_EXPORT InSituMessageType {
 };
 
 class Message;
-struct VISTLE_INSITU_MESSAGE_EXPORT InSituMessageBase {
+struct V_INSITUMESSAGEEXPORT InSituMessageBase {
     InSituMessageBase(InSituMessageType t) :m_type(t) {};
     InSituMessageType type() const;
 protected:
@@ -61,7 +61,7 @@ protected:
 #define COMMA ,
 
 #define DECLARE_ENGINE_MESSAGE_WITH_PARAM(messageType,  payloadType)\
-struct VISTLE_INSITU_MESSAGE_EXPORT messageType : public InSituMessageBase\
+struct V_INSITUMESSAGEEXPORT messageType : public InSituMessageBase\
 {\
     typedef payloadType value_type;\
     friend class insitu::message::Message; \
@@ -80,7 +80,7 @@ private:\
 
 
 #define DECLARE_ENGINE_MESSAGE(messageType)\
-struct VISTLE_INSITU_MESSAGE_EXPORT messageType : public InSituMessageBase {\
+struct V_INSITUMESSAGEEXPORT messageType : public InSituMessageBase {\
      const InSituMessageType type = InSituMessageType::messageType;\
     messageType() :InSituMessageBase(type) {}\
     ARCHIVE_ACCESS\
@@ -108,7 +108,7 @@ DECLARE_ENGINE_MESSAGE_WITH_PARAM(ModuleID, int)
 #endif
 
 
-struct VISTLE_INSITU_MESSAGE_EXPORT InSituMessage : public vistle::message::MessageBase<InSituMessage, vistle::message::INSITU> {
+struct V_INSITUMESSAGEEXPORT InSituMessage : public vistle::message::MessageBase<InSituMessage, vistle::message::INSITU> {
     InSituMessage(InSituMessageType t) :m_ismType(t) {}
     InSituMessageType ismType() const {
         return m_ismType;
@@ -118,7 +118,7 @@ private:
 };
 static_assert(sizeof(InSituMessage) <= vistle::message::Message::MESSAGE_SIZE, "message too large");
 
-class VISTLE_INSITU_MESSAGE_EXPORT Message {
+class V_INSITUMESSAGEEXPORT Message {
 
 public:
     InSituMessageType type() const;
@@ -128,7 +128,7 @@ public:
     SomeMessage& unpackOrCast() {
 
 
-        assert(SomeMessage::type != type());
+        assert(SomeMessage::type == type());
         if (!m_msg) {
             vistle::vecistreambuf<vistle::buffer> buf(m_payload);
             m_msg.reset(new SomeMessage{});
@@ -152,10 +152,6 @@ private:
     vistle::buffer m_payload;
     std::unique_ptr<InSituMessageBase> m_msg;
 };
-
-
-
-
 
 } //message
 } //insitu

@@ -1,5 +1,5 @@
 
-#include <util/sysdep.h>
+#include <vistle/util/sysdep.h>
 
 #include <iostream>
 #include <fstream>
@@ -10,14 +10,10 @@
 
 #include <limits.h>
 
-#include <util/valgrind.h>
+#include <vistle/util/valgrind.h>
 #include "messagequeue.h"
 #include "scalars.h"
-#include "assert.h"
-
-#ifndef TEMPLATES_IN_HEADERS
-#define VISTLE_IMPL
-#endif
+#include <cassert>
 
 #include "archives.h"
 #include "shm.h"
@@ -238,12 +234,12 @@ int Shm::arrayID() const {
 }
 
 void Shm::setObjectID(int id) {
-    vassert(id > m_objectId);
+    assert(id >= m_objectId);
     m_objectId = id;
 }
 
 void Shm::setArrayID(int id) {
-    vassert(id > m_arrayId);
+    assert(id >= m_arrayId);
     m_arrayId = id;
 }
 
@@ -411,11 +407,11 @@ const managed_shm & Shm::shm() const {
 std::string Shm::createObjectId(const std::string &id) {
 
 #ifdef MODULE_THREAD
-   vassert(m_id < 0);
+   assert(m_id < 0);
 #else
-   vassert(m_id > 0 || !id.empty());
+   assert(m_id > 0 || !id.empty());
 #endif
-   vassert(id.size() < sizeof(shm_name_t));
+   assert(id.size() < sizeof(shm_name_t));
    if (!id.empty()) {
       return id;
    }
@@ -429,13 +425,13 @@ std::string Shm::createObjectId(const std::string &id) {
         << m_objectId++ << "o"
         << m_rank << "r";
 
-   vassert(name.str().size() < sizeof(shm_name_t));
+   assert(name.str().size() < sizeof(shm_name_t));
 
    return name.str();
 }
 
 std::string Shm::createArrayId(const std::string &id) {
-   vassert(id.size() < sizeof(shm_name_t));
+   assert(id.size() < sizeof(shm_name_t));
    if (!id.empty()) {
       return id;
    }
@@ -450,7 +446,7 @@ std::string Shm::createArrayId(const std::string &id) {
         << m_arrayId++ << "a"
         << m_rank << "r";
 
-   vassert(name.str().size() < sizeof(shm_name_t));
+   assert(name.str().size() < sizeof(shm_name_t));
 
    return name.str();
 }

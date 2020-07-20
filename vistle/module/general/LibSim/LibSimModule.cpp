@@ -1,25 +1,25 @@
 #include "LibSimModule.h"
 
-#include <util/sleep.h>
-#include <util/listenv4v6.h>
-#include <util/hostname.h>
+#include <vistle/util/sleep.h>
+#include <vistle/util/listenv4v6.h>
+#include <vistle/util/hostname.h>
 
-#include <insitu/libsim/EstablishConnection.h>
+#include <vistle/insitu/libsim/EstablishConnection.h>
 
-#include <core/rectilineargrid.h>
+#include <vistle/core/rectilineargrid.h>
 #include <sstream>
 
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
 
-#include <core/message.h>
-#include <core/tcpmessage.h>
+#include <vistle/core/message.h>
+#include <vistle/core/tcpmessage.h>
 
 
-#include <insitu/util/print.h>
+#include <vistle/insitu/util/print.h>
 
 #ifdef MODULE_THREAD
-#include <insitu/libsim/EngineInterface.h>
+#include <vistle/insitu/libsim/EngineInterface.h>
 #endif
 using namespace std;
 using vistle::insitu::message::InSituMessageType;
@@ -290,7 +290,7 @@ void LibSimModule::connectToSim() {
 
 void LibSimModule::disconnectSim() {
     if (rank() == 0) {
-        sendInfo("LibSimController is disconnecting from simulation");
+        CERR << "LibSimController is disconnecting from simulation" << endl;
     }
     {
         Guard g(m_socketMutex);
@@ -374,7 +374,7 @@ void LibSimModule::recvAndhandleMessage()     {
         auto state = msg.unpackOrCast<vistle::insitu::message::ConnectionClosed>();
         if (state.value)
         {
-            sendInfo("the simulation disconnected properly");
+            CERR << "the simulation disconnected properly" << endl;
         }
         else
         {

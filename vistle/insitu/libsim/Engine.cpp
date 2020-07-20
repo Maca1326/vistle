@@ -7,7 +7,7 @@
 #include "VisItDataTypes.h"
 #include "VertexTypesToVistle.h"
 #include "Exeption.h"
-#include <insitu/core/transformArray.h>
+#include <vistle/insitu/core/transformArray.h>
 
 #include "MeshMetaData.h"
 #include "VariableMetaData.h"
@@ -25,23 +25,23 @@
 #include "VisitDataTypesToVistle.h"
 
 #include <boost/mpi.hpp>
-#include <control/hub.h>
+#include <vistle/control/hub.h>
 
 
-#include <module/module.h>
+#include <vistle/module/module.h>
 
-#include <core/rectilineargrid.h>
-#include <core/structuredgrid.h>
-#include <core/unstr.h>
+#include <vistle/core/rectilineargrid.h>
+#include <vistle/core/structuredgrid.h>
+#include <vistle/core/unstr.h>
 
-#include <core/message.h>
-#include <core/messagequeue.h>
-#include <core/tcpmessage.h>
+#include <vistle/core/message.h>
+#include <vistle/core/messagequeue.h>
+#include <vistle/core/tcpmessage.h>
 
-#include <util/sleep.h>
-#include <util/directory.h>
-#include <util/hostname.h>
-#include <util/listenv4v6.h>
+#include <vistle/util/sleep.h>
+#include <vistle/util/directory.h>
+#include <vistle/util/hostname.h>
+#include <vistle/util/listenv4v6.h>
 
 #include <ostream>
 
@@ -54,7 +54,7 @@
 #ifdef  LIBSIM_DEBUG
 #define DEBUG_CERR std::cerr << "Engine: " << " [" << m_rank << "/" << m_mpiSize << "] "
 #else
-#include <insitu/util/print.h>
+#include <vistle/insitu/util/print.h>
 #define DEBUG_CERR vistle::DoNotPrintInstance
 #endif
 #define CERR std::cerr << "Engine: " << " [" << m_rank << "/" << m_mpiSize << "] "
@@ -215,7 +215,7 @@ bool Engine::isInitialized() const noexcept {
 }
 
 bool Engine::setMpiComm(void* newconn) {
-    comm = (MPI_Comm)newconn;
+    comm = *static_cast<MPI_Comm*>(newconn);
 
 return true;
 
@@ -364,6 +364,7 @@ bool Engine::recvAndhandleVistleMessage() {
         }
         else {
             sendShmIds();
+            m_messageHandler.send(Ready{ false }); //confirm that we are done creating vistle objects
         }
     }
     break;
@@ -795,11 +796,6 @@ void Engine::makeRectilinearMesh(MeshInfo meshInfo) {
                     return;
                 }
             }
-            //std::reverse(owner.begin(), owner.end());
-            //std::reverse(dataType.begin(), dataType.end());
-            //std::reverse(nComps.begin(), nComps.end());
-            //std::reverse(nTuples.begin(), nTuples.end());
-            //std::reverse(data.begin(), data.end());
 
             vistle::RectilinearGrid::ptr grid = m_shmIDs.createVistleObject<vistle::RectilinearGrid>(nTuples[0], nTuples[1], nTuples[2]);
             setTimestep(grid);

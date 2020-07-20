@@ -6,7 +6,7 @@
 #include "indexed.h"
 #include "grid.h"
 #include "celltypes.h"
-#include <util/enum.h>
+#include <vistle/util/enum.h>
 
 namespace vistle {
 
@@ -94,6 +94,4 @@ class V_COREEXPORT UnstructuredGrid: public Indexed, virtual public GridInterfac
 } // namespace vistle
 #endif
 
-#ifdef VISTLE_IMPL
 #include "unstr_impl.h"
-#endif

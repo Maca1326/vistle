@@ -4,42 +4,45 @@ set(util_SOURCES
    affinity.cpp
    coRestraint.cpp
    crypto.cpp
+   directory.cpp
    exception.cpp
    fileio.cpp
    findself.cpp
    hostname.cpp
-   stopwatch.cpp
-   tools.cpp
-   spawnprocess.cpp
-   directory.cpp
-   sleep.cpp
-   sysdep.cpp
-   netpbmimage.cpp
    listenv4v6.cpp
+   netpbmimage.cpp
+   sleep.cpp
+   spawnprocess.cpp
+   stopwatch.cpp
+   sysdep.cpp
+   tools.cpp
 )
 
 set(util_HEADERS
-   export.h
    affinity.h
+   allocator.h
+   buffer.h
    coRestraint.h
    crypto.h
+   directory.h
    enum.h
    exception.h
+   export.h
    fileio.h
    findself.h
    hostname.h
+   listenv4v6.h
    math.h
+   netpbmimage.h
+   pybind.h
+   sleep.h
+   spawnprocess.h
+   ssize_t.h
+   stopwatch.h
    sysdep.h
    tools.h
-   stopwatch.h
    valgrind.h
    vecstreambuf.h
-   spawnprocess.h
-   directory.h
-   sleep.h
-   pybind.h
-   netpbmimage.h
-   listenv4v6.h
 )
 
 if (NOT CMAKE_BUILD_TYPE STREQUAL "")
@@ -48,26 +51,20 @@ if (NOT CMAKE_BUILD_TYPE STREQUAL "")
 endif()
 
 vistle_add_library(vistle_util ${VISTLE_LIB_TYPE} ${util_SOURCES} ${util_HEADERS})
-vistle_install_headers(util ${util_HEADERS})
+vistle_export_library(vistle_util ${VISTLE_LIB_TYPE} ${util_SOURCES} ${util_HEADERS})
 
-include_directories(SYSTEM ${BOTAN_INCLUDE_DIRS})
+target_include_directories(vistle_util SYSTEM PRIVATE ${BOTAN_INCLUDE_DIRS})
+vistle_target_link_libraries(vistle_util
+    PRIVATE Boost::system
+	PUBLIC Boost::filesystem
+	PRIVATE Threads::Threads
+	PRIVATE ${BOTAN_LIBRARIES}
+)
 
-target_link_libraries(vistle_util
-    PRIVATE ${Boost_SYSTEM_LIBRARY}
-)
-target_link_libraries(vistle_util
-    PUBLIC ${Boost_FILESYSTEM_LIBRARY}
-)
-target_link_libraries(vistle_util
-    PRIVATE Threads::Threads
-)
-target_link_libraries(vistle_util
-    PRIVATE ${BOTAN_LIBRARIES}
-)
 
 find_library(LIBEXECINFO execinfo)
 if (LIBEXECINFO)
-    target_link_libraries(vistle_util
+    vistle_target_link_libraries(vistle_util
         PRIVATE execinfo
     )
 endif()

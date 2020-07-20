@@ -1,8 +1,8 @@
 #include <boost/algorithm/string/predicate.hpp>
-#include <core/coords.h>
-#include <core/coordswradius.h>
-#include <core/vec.h>
-#include <core/assert.h>
+#include <vistle/core/coords.h>
+#include <vistle/core/coordswradius.h>
+#include <vistle/core/vec.h>
+#include <cassert>
 
 #include "renderobject.h"
 

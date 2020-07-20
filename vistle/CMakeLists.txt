@@ -46,12 +46,6 @@ if (VISTLE_DOUBLE_PRECISION)
     add_definitions(-DVISTLE_SCALAR_DOUBLE)
 endif()
 
-option(TEMPLATES_IN_HEADERS "define templates in headers" ON)
-if(${TEMPLATES_IN_HEADERS})
-   add_definitions(-DTEMPLATES_IN_HEADERS)
-   add_definitions(-DVISTLE_IMPL)
-endif()
-
 macro(USE_OPENMP)
    if (OPENMP_FOUND)
       set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -148,7 +142,7 @@ set(THRUST_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/3rdparty/thrust")
 
 #vistle_find_package(Eigen3 REQUIRED)
 set(EIGEN3_INCLUDE_PATH "../3rdparty")
-include_directories(SYSTEM ${EIGEN3_INCLUDE_PATH})
+
 
 if (VISTLE_GUI_ONLY)
     add_definitions(-DNO_MPI)
@@ -165,7 +159,7 @@ endif()
 include_directories(SYSTEM "${PROJECT_SOURCE_DIR}/3rdparty/pybind11/include")
 
 # replacement for Boost.Serialization
-include_directories(SYSTEM "${PROJECT_SOURCE_DIR}/3rdparty/yas/include")
+#include_directories(SYSTEM "${PROJECT_SOURCE_DIR}/3rdparty/yas/include")
 
 # lossy floating point compression
 #vistle_find_package(ZFP)
@@ -193,7 +187,7 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 set(COVISEDESTDIR ${PROJECT_BINARY_DIR})
 
-include_directories(.)
+#include_directories(.)
 
 add_subdirectory(util)
 add_subdirectory(core)

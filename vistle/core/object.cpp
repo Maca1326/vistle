@@ -1,15 +1,9 @@
-#ifndef TEMPLATES_IN_HEADERS
-#define VISTLE_IMPL
-#endif
 #include "object.h"
-#ifndef TEMPLATES_IN_HEADERS
-#undef VISTLE_IMPL
-#endif
 
 #include "object_impl.h"
 
 #include "shm.h"
-#include "assert.h"
+#include <cassert>
 
 #include "archives.h"
 #include <iostream>
@@ -22,9 +16,9 @@
 
 #include <boost/mpl/for_each.hpp>
 
-#include <util/tools.h>
+#include <vistle/util/tools.h>
 
-#include <util/exception.h>
+#include <vistle/util/exception.h>
 
 using namespace boost::interprocess;
 
@@ -210,7 +204,7 @@ bool Object::Data::isComplete() const {
 
 void ObjectData::referenceResolved(const std::function<void()> &completeCallback) {
     //std::cerr << "reference (from " << unresolvedReferences << ") resolved in " << name << std::endl;
-    vassert(unresolvedReferences > 0);
+    assert(unresolvedReferences > 0);
     if (unresolvedReferences.fetch_sub(1) == 1 && completeCallback) {
         completeCallback();
     }
@@ -285,7 +279,7 @@ Object::ptr Object::clone() const {
 
 Object *Object::createEmpty(const std::string &name) {
 
-   vassert("cannot create generic Object" == nullptr);
+   assert("cannot create generic Object" == nullptr);
    return nullptr;
 }
 

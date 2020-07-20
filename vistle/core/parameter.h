@@ -9,7 +9,7 @@
 #include <boost/mpl/vector.hpp>
 #include <boost/lexical_cast.hpp>
 
-#include <util/enum.h>
+#include <vistle/util/enum.h>
 #include "paramvector.h"
 #include "export.h"
 
@@ -105,7 +105,7 @@ class SetParameter;
 }
 
 template<typename T>
-class V_CORETEMPLATE_EXPORT ParameterBase: public Parameter {
+class ParameterBase: public Parameter {
 
    friend class ParameterManager;
    friend class Module;

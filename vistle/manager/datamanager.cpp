@@ -5,16 +5,16 @@
 #include "datamanager.h"
 #include "clustermanager.h"
 #include "communicator.h"
-#include <util/vecstreambuf.h>
-#include <util/sleep.h>
-#include <core/archives.h>
-#include <core/archive_loader.h>
-#include <core/archive_saver.h>
-#include <core/statetracker.h>
-#include <core/object.h>
-#include <core/tcpmessage.h>
-#include <core/messages.h>
-#include <core/shmvector.h>
+#include <vistle/util/vecstreambuf.h>
+#include <vistle/util/sleep.h>
+#include <vistle/core/archives.h>
+#include <vistle/core/archive_loader.h>
+#include <vistle/core/archive_saver.h>
+#include <vistle/core/statetracker.h>
+#include <vistle/core/object.h>
+#include <vistle/core/tcpmessage.h>
+#include <vistle/core/messages.h>
+#include <vistle/core/shmvector.h>
 #include <iostream>
 #include <functional>
 
@@ -125,7 +125,7 @@ bool DataManager::dispatch() {
         std::unique_lock<Communicator> guard(Communicator::the());
         auto status = m_req.test();
         if (status && !status->cancelled()) {
-            vassert(status->tag() == Communicator::TagData);
+            assert(status->tag() == Communicator::TagData);
             m_comm.recv(status->source(), Communicator::TagData, buf.data(), m_msgSize);
             if (buf.payloadSize() > 0) {
                 payload.resize(buf.payloadSize());
@@ -367,7 +367,7 @@ public:
     }
 
     void requestArray(const std::string &name, int type, const ArrayCompletionHandler &completeCallback) override {
-        vassert(!m_add);
+        assert(!m_add);
         m_dmgr->requestArray(m_referrer, name, type, m_hub, m_rank, completeCallback);
     }
 
@@ -467,7 +467,7 @@ bool DataManager::handlePriv(const message::SendObject &snd, buffer *payload) {
             if (it == m_requestedArrays.end()) {
                 CERR << "restored array " << snd.objectId() << " for " << snd.referrer() << ", but did not find request" << std::endl;
             }
-            vassert(it != m_requestedArrays.end());
+            assert(it != m_requestedArrays.end());
             if (it != m_requestedArrays.end()) {
                 auto handlers = std::move(it->second);
 #ifdef DEBUG

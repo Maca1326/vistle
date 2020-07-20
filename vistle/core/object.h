@@ -2,7 +2,7 @@
 #define OBJECT_H
 
 #include <vector>
-#include <util/sysdep.h>
+#include <vistle/util/sysdep.h>
 #include <memory>
 #include <iostream>
 #include <string>
@@ -20,7 +20,7 @@
 
 #include <boost/mpl/size.hpp>
 
-#include <util/enum.h>
+#include <vistle/util/enum.h>
 
 #include "export.h"
 #include "shmname.h"
@@ -485,6 +485,4 @@ V_ENUM_OUTPUT_OP(Type, Object)
 } // namespace vistle
 #endif
 
-#ifdef VISTLE_IMPL
 #include "object_impl.h"
-#endif

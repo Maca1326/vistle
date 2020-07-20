@@ -10,8 +10,8 @@
 #include <vector>
 #include <memory>
 #include <iostream>
-#include <util/vecstreambuf.h>
-#include <util/buffer.h>
+#include <vistle/util/vecstreambuf.h>
+#include <vistle/util/buffer.h>
 #include "message.h"
 
 #ifdef USE_BOOST_ARCHIVE
@@ -46,7 +46,7 @@
 
 #include <boost/mpl/vector.hpp>
 
-#include <util/vecstreambuf.h>
+#include <vistle/util/vecstreambuf.h>
 //#include "findobjectreferenceoarchive.h"
 #include "shm_array.h"
 #include "object.h"
@@ -84,7 +84,6 @@ extern template class detail::common_oarchive<vistle::boost_oarchive>;
 #endif
 #endif // VISTLE_ARCHIVES_H
 
-#ifdef VISTLE_IMPL
 #ifndef ARCHIVES_IMPL_H
 #define ARCHIVES_IMPL_H
 
@@ -435,4 +434,3 @@ BOOST_SERIALIZATION_USE_ARRAY_OPTIMIZATION(vistle::boost_iarchive)
 #endif
 
 #endif // ARCHIVES_IMPL_H
-#endif // VISTLE_IMPL

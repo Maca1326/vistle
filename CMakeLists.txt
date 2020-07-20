@@ -1,7 +1,7 @@
 IF(WIN32)
 cmake_minimum_required(VERSION 3.15.2 FATAL_ERROR)
 ELSE(WIN32)
-cmake_minimum_required(VERSION 3.3.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10.0 FATAL_ERROR)
 ENDIF()
 
 if(${CMAKE_VERSION} VERSION_LESS "3.6.0") 
@@ -119,17 +119,15 @@ if (CMAKE_BUILD_TYPE STREQUAL "")
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
-   # disable rpath - only rely on LD_LIBRARY_PATH and the likes
-   set(CMAKE_SKIP_RPATH TRUE)
 else()
    add_definitions(-DEIGEN_INITIALIZE_MATRICES_BY_NAN)
-   set(CMAKE_SKIP_RPATH FALSE)
 endif()
 
 #add_definitions(-DEIGEN_DEFAULT_DENSE_INDEX_TYPE=short)
 add_definitions(-DEIGEN_DEFAULT_DENSE_INDEX_TYPE=int)
 
 # use this instead of FIND_PACKAGE to prefer Package in $PACKAGE_HOME and $EXTERNLIBS/package
+
 macro(vistle_find_package package)
    set(SAVED_CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH})
    set(SAVED_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
@@ -208,9 +206,8 @@ endif(WIN32)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/vistle/cmake/Modules/;${CMAKE_MODULE_PATH}")
 
 if (NOT VISTLE_GUI_ONLY)
-
     find_package(OpenMP)
-
+    
     option(VISTLE_USE_PYTHON3 "use Python 3" ON)
     if(VISTLE_USE_PYTHON3)
         set(PythonLibs_FIND_VERSION_MAJOR 3)
@@ -284,10 +281,18 @@ set (Boost_USE_STATIC_RUNTIME OFF)
 ENDIF(WIN32)
 
 vistle_find_package(Boost 1.59 REQUIRED
-    COMPONENTS system serialization program_options date_time filesystem
-    chrono thread regex
+    COMPONENTS 
+        system 
+        serialization 
+        program_options 
+        date_time 
+        filesystem
+        chrono 
+        thread 
+        regex
     OPTIONAL_COMPONENTS ${BOOST_OPT})
 	
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-command-line-argument")
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-command-line-argument")
@@ -395,17 +400,195 @@ if (VISTLE_USE_CUDA AND NOT VISTLE_GUI_ONLY)
    endif (APPLE)
 endif()
 
+
+include(GNUInstallDirs)
 macro(vistle_add_library targetname)
-    add_library(${targetname} ${ARGN})
+
+	add_library(${targetname} ${ARGN})
     set_target_properties(${targetname} PROPERTIES FOLDER "Libraries")
+	string(FIND ${targetname} "vistle_" vistle_prefix)
+	if(NOT ${vistle_prefix} EQUAL 0)
+		message(WARNING " missing prefix for " ${targetname} " vistle libraries must be prefixed with vistle_")
+	elseif() #change the vistle_libname to vistle::libname in exported target
+		string(REPLACE "vistle_" "" target_suffix ${targetname})
+		set_target_properties(${targetname} PROPERTIES 
+			EXPORT_NAME ${target_suffix}
+		)
+		add_library(vistle::${target_suffix} ALIAS ${targetname})
+	endif()
+	
     if (CRAY)
        set_property(TARGET ${targetname} APPEND_STRING PROPERTY LINK_FLAGS -Wl,-soname=lib${targetname}.so)
     endif()
-    install(TARGETS ${targetname}
-       LIBRARY DESTINATION ${INSTALL_LIB_DIR}
-       ARCHIVE DESTINATION ${INSTALL_LIB_DIR})
+    if(${CMAKE_VERSION} VERSION_LESS "3.12.4")
+        install(TARGETS ${targetname} EXPORT ${targetname}Targets
+		    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+		    RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
+				     COMPONENT	${targetname}_Runtime
+		    LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+				     COMPONENT 	${targetname}_Runtime
+		    ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+				     COMPONENT 	${targetname}_Development
+        )
+    else()
+            install(TARGETS ${targetname} EXPORT ${targetname}Targets
+		    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+		    RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
+				     COMPONENT	${targetname}_Runtime
+		    LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+					 COMPONENT 	${targetname}_Runtime
+                     NAMELINK_COMPONENT ${targetname}_Development
+		    ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+				     COMPONENT 	${targetname}_Development
+        )
+    endif()
 endmacro(vistle_add_library)
 
+set(buildPackageLocation ${PROJECT_BINARY_DIR}/lib/cmake)
+
+
+option(VISTLE_INSTALL_3RDPARTY "Add the 3rdParty directories to the install directory" OFF)
+option(VISTLE_INSTALL_HEADER "Install the Vistle headers in CMAKE_INSTALL_PREFIX/include/path to lib" ON)
+
+macro(vistle_export_library targetname)
+	
+	
+	string(REPLACE ${PROJECT_BINARY_DIR}/vistle "" directory  ${CMAKE_CURRENT_BINARY_DIR})
+
+	target_include_directories(${targetname}  
+        PRIVATE  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}> 
+        PRIVATE  $<INSTALL_INTERFACE:include> 
+        INTERFACE  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}> 
+        INTERFACE  $<INSTALL_INTERFACE:include> 
+		)
+	
+	set(header "${ARGN}")
+	list(FILTER	header INCLUDE	REGEX "(\.(h|H|hpp|HPP)$)"	)
+        if(VISTLE_INSTALL_HEADER)
+	    install(
+	      FILES
+		    ${header}
+	      DESTINATION
+		    include/vistle/${directory}
+	      COMPONENT
+		    Devel
+	    ) 
+    endif()
+	set(config_in_file ${CMAKE_CURRENT_BINARY_DIR}/cmake/${targetname}Config.cmake.in)
+	file(WRITE  ${config_in_file} "include(\"\${CMAKE_CURRENT_LIST_DIR}/${targetname}Targets.cmake\")") 
+
+	configure_file(${config_in_file}
+		"${buildPackageLocation}/${targetname}Config.cmake"
+		COPYONLY)  
+	include(CMakePackageConfigHelpers)
+	write_basic_package_version_file("${targetname}ConfigVersion.cmake"
+	  VERSION "1.0.0"
+	  COMPATIBILITY ExactVersion
+    )
+    configure_file(${CMAKE_CURRENT_BINARY_DIR}/${targetname}ConfigVersion.cmake
+        ${buildPackageLocation}/${targetname}ConfigVersion.cmake
+        COPYONLY)
+	export(EXPORT ${targetname}Targets
+		FILE 		"${buildPackageLocation}/${targetname}Targets.cmake"
+		NAMESPACE 	Vistle::
+	)
+	set(Vistle_ConfigPackageLocation 
+	    ${CMAKE_INSTALL_LIBDIR}/cmake#/${directory}
+	    #CACHE STRING "Path to " ${targetname} " cmake files"
+) 	
+	install(EXPORT ${targetname}Targets
+		FILE		${targetname}Targets.cmake
+		NAMESPACE	Vistle::
+		DESTINATION	${Vistle_ConfigPackageLocation}
+		COMPONENT	${targetname}_Development
+	)
+#	configure_package_config_file(${config_in_file}
+#	"${CMAKE_CURRENT_BINARY_DIR}/${targetname}Config.cmake"
+#	INSTALL_DESTINATION "${Vistle_ConfigPackageLocation}/${targetname}Config.cmake")  
+	install(
+		FILES 
+			"${buildPackageLocation}/${targetname}Config.cmake"
+			"${buildPackageLocation}/${targetname}ConfigVersion.cmake"
+		DESTINATION ${Vistle_ConfigPackageLocation}
+		COMPONENT ${targetname}_Development
+	)
+endmacro(vistle_export_library)
+
+function(prepend_file filename)
+    file(READ ${filename} old_content)
+    file(WRITE ${filename} ${ARGN}  ${old_content})
+endfunction()
+
+function(getPublicBoostComponents PublicBoostComponents)
+    set(addNext FALSE)
+    foreach(Comp IN LISTS ARGN)
+		if(addNext)
+			string(REGEX REPLACE "::.*" "" TARGET_NAME ${Comp})
+			if(${TARGET_NAME} STREQUAL "Boost")
+				string(REGEX REPLACE ".*::" "" COMPONENT_NAME ${Comp})
+				LIST(APPEND LocalPublicBoostComponents ${COMPONENT_NAME})
+			endif()
+			set(addNext FALSE)
+		else()
+			if( ${Comp} MATCHES "PUBLIC|INTERFACE")
+				set(addNext TRUE)
+			endif()
+		endif()
+    endforeach()
+    set(${PublicBoostComponents} ${LocalPublicBoostComponents} PARENT_SCOPE)
+endfunction()
+
+
+#additionally adds public and interface dependencies to Config.cmake file
+macro(vistle_target_link_libraries targetname)
+	target_link_libraries(${targetname}
+		${ARGN})
+	set(file_content "include(CMakeFindDependencyMacro)\n")
+    set(file_content ${file_content} "set(oldCMAKE_PREFIX_PATH \${CMAKE_PREFIX_PATH})\n")
+    set(file_content ${file_content} "set(CMAKE_PREFIX_PATH \${CMAKE_CURRENT_LIST_DIR} \${CMAKE_PREFIX_PATH})\n") 
+	set(add_next_arg false)
+    set(hasPublicDependencies false)
+    foreach(arg IN ITEMS ${ARGN})
+        if(add_next_arg)
+        	#set(file_content ${file_content} "set(" ${arg} "_DIR \"\${CMAKE_CURRENT_LIST_DIR}\")\n")
+            if(${arg} MATCHES "vistle_.*")
+	            set(file_content ${file_content} "find_dependency(" ${arg} ")\n") 
+                set(add_next_arg false)
+            endif()
+        elseif(${arg} MATCHES "PUBLIC|INTERFACE")
+            set(add_next_arg true)
+            set(hasPublicDependencies true)
+		endif()
+	endforeach()
+
+    getPublicBoostComponents(public_boost_componets ${ARGN})
+    list(LENGTH public_boost_componets num_PUBLIC_Boost_componets)
+    if(num_PUBLIC_Boost_componets GREATER 0)
+        set(file_content ${file_content} "find_dependency( Boost " ${BOOST_MINIMUM_REQUIRED_VERSION} " REQUIRED COMPONENTS \n")
+        foreach(item IN LISTS public_boost_componets)
+            set(file_content ${file_content} "\t" ${item} "\n")
+        endforeach()
+        set(file_content ${file_content} ")\n") 
+    endif()
+    set(file_content ${file_content} "set(CMAKE_PREFIX_PATH \${oldCMAKE_PREFIX_PATH})\n")
+    if(hasPublicDependencies)
+	    prepend_file(${buildPackageLocation}/${targetname}Config.cmake ${file_content})
+    endif()
+endmacro()
+
+macro(vistle_install_docs)
+	string(REPLACE ${PROJECT_BINARY_DIR} "" directory  ${CMAKE_CURRENT_BINARY_DIR})
+	install(
+	  FILES
+		"${ARGN}"
+	  DESTINATION
+		doc/${directory}
+	  COMPONENT
+		Devel
+	) 
+endmacro(vistle_install_docs) 
+
+vistle_install_docs(README.md) 	
 macro(vistle_install_headers directory)
     install(FILES ${ARGN} DESTINATION include/vistle/${directory})
 endmacro(vistle_install_headers)

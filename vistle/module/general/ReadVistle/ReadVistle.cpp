@@ -1,10 +1,10 @@
-#include <sstream>
 #include <fstream>
 #include <iomanip>
+#include <sstream>
 #include <string>
 
-#include <core/archives.h>
-#include <core/object.h>
+#include <vistle/core/archives.h>
+#include <vistle/core/object.h>
 
 #include "ReadVistle.h"
 
@@ -87,7 +87,7 @@ bool ReadVistle::load(const std::string & name) {
             obj = Object::load(*xia);
             delete xia;
          } else {
-            vassert("add support for another archive format" == NULL);
+            assert("add support for another archive format" == NULL);
             return false;
          }
          ia = NULL;

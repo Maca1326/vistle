@@ -3,7 +3,7 @@
 
 
 #include "coordswradius.h"
-#include <util/enum.h>
+#include <vistle/util/enum.h>
 
 namespace vistle {
 
@@ -50,6 +50,4 @@ class  V_COREEXPORT Tubes: public CoordsWithRadius {
 } // namespace vistle
 #endif
 
-#ifdef VISTLE_IMPL
 #include "tubes_impl.h"
-#endif

@@ -1,7 +1,7 @@
 #include <cstdlib>
 #include <cstdio>
 
-#include <util/hostname.h>
+#include <vistle/util/hostname.h>
 #include <sys/types.h>
 
 #include <sstream>
@@ -22,33 +22,30 @@
 #include <mutex>
 #include <boost/asio.hpp>
 
-#include <util/sysdep.h>
-#include <util/tools.h>
-#include <util/stopwatch.h>
-#include <util/exception.h>
-#include <core/object.h>
-#include <core/empty.h>
-#include <core/export.h>
-#include <core/message.h>
-#include <core/messagequeue.h>
-#include <core/messagerouter.h>
-#include <core/messagepayload.h>
-#include <core/parameter.h>
-#include <core/shm.h>
-#include <core/port.h>
-#include <core/statetracker.h>
+#include <vistle/util/sysdep.h>
+#include <vistle/util/tools.h>
+#include <vistle/util/stopwatch.h>
+#include <vistle/util/exception.h>
+#include <vistle/core/object.h>
+#include <vistle/core/empty.h>
+#include <vistle/core/export.h>
+#include <vistle/core/message.h>
+#include <vistle/core/messagequeue.h>
+#include <vistle/core/messagerouter.h>
+#include <vistle/core/messagepayload.h>
+#include <vistle/core/parameter.h>
+#include <vistle/core/shm.h>
+#include <vistle/core/port.h>
+#include <vistle/core/statetracker.h>
 
 #include "objectcache.h"
 
-#ifndef TEMPLATES_IN_HEADERS
-#define VISTLE_IMPL
-#endif
 #include "module.h"
 
 #include <boost/serialization/vector.hpp>
-#include <core/shm_reference.h>
-#include <core/archive_saver.h>
-#include <core/archive_loader.h>
+#include <vistle/core/shm_reference.h>
+#include <vistle/core/archive_saver.h>
+#include <vistle/core/archive_loader.h>
 
 //#define DEBUG
 //#define REDUCE_DEBUG
@@ -413,7 +410,7 @@ ObjectCache::CacheMode Module::setCacheMode(ObjectCache::CacheMode mode, bool up
 
 void Module::setDefaultCacheMode(ObjectCache::CacheMode mode) {
 
-   vassert(mode != ObjectCache::CacheDefault);
+   assert(mode != ObjectCache::CacheDefault);
    m_defaultCacheMode = mode;
    setCacheMode(m_defaultCacheMode, false);
 }
@@ -443,7 +440,7 @@ bool Module::havePort(const std::string &name) {
 
 Port *Module::createInputPort(const std::string &name, const std::string &description, const int flags) {
 
-   vassert(!havePort(name));
+   assert(!havePort(name));
    if (havePort(name)) {
       CERR << "createInputPort: already have port/parameter with name " << name << std::endl;
       return nullptr;
@@ -461,7 +458,7 @@ Port *Module::createInputPort(const std::string &name, const std::string &descri
 
 Port *Module::createOutputPort(const std::string &name, const std::string &description, const int flags) {
 
-   vassert(!havePort(name));
+   assert(!havePort(name));
    if (havePort(name)) {
       CERR << "createOutputPort: already have port/parameter with name " << name << std::endl;
       return nullptr;
@@ -485,13 +482,13 @@ bool Module::destroyPort(const std::string &portName) {
    if (!p)
       return false;
 
-   vassert(p);
+   assert(p);
    return destroyPort(p);
 }
 
 bool Module::destroyPort(const Port *port) {
 
-   vassert(port);
+   assert(port);
    message::RemovePort message(*port);
    message.setDestId(Id::ForBroadcast);
    if (const Port *p = findInputPort(port->getName())) {
@@ -548,7 +545,7 @@ const Port *Module::findOutputPort(const std::string &name) const {
 
 Parameter *Module::addParameterGeneric(const std::string &name, std::shared_ptr<Parameter> param) {
 
-   vassert(!havePort(name));
+   assert(!havePort(name));
    if (havePort(name)) {
        CERR << "addParameterGeneric: already have port/parameter with name " << name << std::endl;
       return nullptr;
@@ -560,7 +557,7 @@ Parameter *Module::addParameterGeneric(const std::string &name, std::shared_ptr<
 bool Module::removeParameter(Parameter *param) {
 
    std::string name = param->getName();
-   vassert(havePort(name));
+   assert(havePort(name));
    if (!havePort(name)) {
       CERR << "removeParameter: no port with name " << name << std::endl;
       return false;
@@ -767,7 +764,7 @@ bool Module::passThroughObject(Port *port, vistle::Object::const_ptr object) {
    m_withOutput.insert(port);
 
    object->refresh();
-   vassert(object->check());
+   assert(object->check());
 
    message::AddObject message(port->getName(), object);
    sendMessage(message);
@@ -787,7 +784,7 @@ ObjectList Module::getObjects(const std::string &portName) {
    for (ObjectList::const_iterator it = olist.begin(); it != olist.end(); it++) {
        Object::const_ptr object = *it;
        if (object.get()) {
-           vassert(object->check());
+           assert(object->check());
        }
        objects.push_back(object);
    }
@@ -841,7 +838,7 @@ vistle::Object::const_ptr Module::takeFirstObject(Port *port) {
    if (!port->objects().empty()) {
 
       Object::const_ptr obj = port->objects().front();
-      vassert(obj->check());
+      assert(obj->check());
       port->objects().pop_front();
       return obj;
    }
@@ -874,7 +871,7 @@ Object::const_ptr Module::expect<Object>(Port *port) {
       sendError(str.str());
       return obj;
    }
-   vassert(obj->check());
+   assert(obj->check());
    return obj;
 }
 
@@ -887,7 +884,7 @@ bool Module::addInputObject(int sender, const std::string &senderPort, const std
       return false;
    }
 
-   vassert(object->check());
+   assert(object->check());
 
    if (m_executionCount < object->getExecutionCounter()) {
       m_executionCount = object->getExecutionCounter();
@@ -907,7 +904,7 @@ bool Module::addInputObject(int sender, const std::string &senderPort, const std
    }
 
    CERR << "Module::addInputObject: input port " << portName << " not found" << std::endl;
-   vassert(p);
+   assert(p);
 
    return false;
 }
@@ -969,8 +966,8 @@ void Module::setSchedulingPolicy(int schedulingPolicy)
 {
    using namespace message;
 
-   vassert(schedulingPolicy >= SchedulingPolicy::Ignore);
-   vassert(schedulingPolicy <= SchedulingPolicy::LazyGang);
+   assert(schedulingPolicy >= SchedulingPolicy::Ignore);
+   assert(schedulingPolicy <= SchedulingPolicy::LazyGang);
 
    m_schedulingPolicy = schedulingPolicy;
    sendMessage(SchedulingPolicy(SchedulingPolicy::Schedule(schedulingPolicy)));
@@ -983,8 +980,8 @@ int Module::reducePolicy() const
 
 void Module::setReducePolicy(int reducePolicy)
 {
-   vassert(reducePolicy >= message::ReducePolicy::Never);
-   vassert(reducePolicy <= message::ReducePolicy::OverAll);
+   assert(reducePolicy >= message::ReducePolicy::Never);
+   assert(reducePolicy <= message::ReducePolicy::OverAll);
 
    m_reducePolicy = reducePolicy;
    if (m_benchmark) {
@@ -1525,8 +1522,8 @@ bool Module::handleExecute(const vistle::message::Execute *exec) {
             || exec->what() == Execute::ComputeObject) {
 
         if (reducePolicy() != message::ReducePolicy::Never) {
-            vassert(m_prepared);
-            vassert(!m_reduced);
+            assert(m_prepared);
+            assert(!m_reduced);
         }
         m_computed = true;
         const bool gang = schedulingPolicy() == message::SchedulingPolicy::Gang
@@ -2159,9 +2156,9 @@ bool Module::prepareWrapper(const message::Execute *exec) {
 
    bool collective = reducePolicy() != message::ReducePolicy::Never && reducePolicy() != message::ReducePolicy::Locally;
    if (reducePolicy() != message::ReducePolicy::Never) {
-      vassert(!m_prepared);
+      assert(!m_prepared);
    }
-   vassert(!m_computed);
+   assert(!m_computed);
 
    m_reduced = false;
 
@@ -2247,9 +2244,9 @@ bool Module::reduceWrapper(const message::Execute *exec, bool reordered) {
 
    //CERR << "reduceWrapper: prepared=" << m_prepared << ", exec count = " << m_executionCount << std::endl;
 
-   vassert(m_prepared);
+   assert(m_prepared);
    if (reducePolicy() != message::ReducePolicy::Never) {
-      vassert(!m_reduced);
+      assert(!m_reduced);
    }
 
 #ifdef REDUCE_DEBUG
