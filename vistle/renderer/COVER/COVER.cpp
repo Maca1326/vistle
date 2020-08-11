@@ -487,6 +487,13 @@ std::shared_ptr<vistle::RenderObject> COVER::addObject(int senderId, const std::
                vert_array[i] = polygons->getVertex(i/3)[i%3];
            }
 
+           /*int num_uv = numVertices; // uv coor
+           int vert_arr_size = num_vert * 3;
+           float* vert_array = new float[vert_arr_size];
+           for(int i = 0; i < vert_arr_size; i++){
+               vert_array[i] = polygons->getVertex(i/3)[i%3];
+           }*/
+
            // send data
            int bytes_sent = send(sock, &num_el, sizeof(num_el), 0);
            bytes_sent = send(sock, el_array, sizeof(int) * num_el, 0);
@@ -518,7 +525,12 @@ std::shared_ptr<vistle::RenderObject> COVER::addObject(int senderId, const std::
          cover->addPlugin(plugin.c_str());
    }
    if (texture) {
-      plugin = texture->getAttribute("_plugin");
+        auto tex1D = vistle::Texture1D::as(texture);
+        auto x_tex1d = tex1D->x();
+        float x0 = x_tex1d[0];
+
+
+        plugin = texture->getAttribute("_plugin");
       if (!plugin.empty())
          cover->addPlugin(plugin.c_str());
    }
