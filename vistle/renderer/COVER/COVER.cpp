@@ -487,12 +487,20 @@ std::shared_ptr<vistle::RenderObject> COVER::addObject(int senderId, const std::
                vert_array[i] = polygons->getVertex(i/3)[i%3];
            }
 
-           /*int num_uv = numVertices; // uv coor
-           int vert_arr_size = num_vert * 3;
-           float* vert_array = new float[vert_arr_size];
-           for(int i = 0; i < vert_arr_size; i++){
-               vert_array[i] = polygons->getVertex(i/3)[i%3];
-           }*/
+           int num_values; // vert_values
+           float* values_array;
+           if (texture) {
+               auto tex1D = vistle::Texture1D::as(texture);
+               auto x_tex1d = tex1D->x();
+               float x0 = x_tex1d[0];
+
+               num_values = numVertices;
+               values_array = new float[num_values];
+               for(int i = 0; i < num_values; i++) {
+                   values_array[i] = x_tex1d[i];
+               }
+
+           }
 
            // send data
            int bytes_sent = send(sock, &num_el, sizeof(num_el), 0);
@@ -501,11 +509,21 @@ std::shared_ptr<vistle::RenderObject> COVER::addObject(int senderId, const std::
            bytes_sent = send(sock, corn_array, sizeof(int) * num_corn, 0);
            bytes_sent = send(sock, &num_vert, sizeof(num_vert), 0);
            bytes_sent = send(sock, vert_array, sizeof(float) * vert_arr_size, 0);
+           if (texture) {
+               bytes_sent = send(sock, &num_values, sizeof(num_values), 0);
+               bytes_sent = send(sock, values_array, sizeof(float) * num_values, 0);
+           } else {
+               num_values = 0;
+               bytes_sent = send(sock, &num_values, sizeof(num_values), 0);
+               //bytes_sent = send(sock, values_array, sizeof(float) * num_values, 0);
+           }
+
 
            // finalize
            delete[] el_array;
            delete[] corn_array;
            delete[] vert_array;
+           delete[] values_array;
 
            //send(sock , hello , strlen(hello) , 0 );
            //printf("Client message sent\n");
@@ -525,11 +543,6 @@ std::shared_ptr<vistle::RenderObject> COVER::addObject(int senderId, const std::
          cover->addPlugin(plugin.c_str());
    }
    if (texture) {
-        auto tex1D = vistle::Texture1D::as(texture);
-        auto x_tex1d = tex1D->x();
-        float x0 = x_tex1d[0];
-
-
         plugin = texture->getAttribute("_plugin");
       if (!plugin.empty())
          cover->addPlugin(plugin.c_str());
