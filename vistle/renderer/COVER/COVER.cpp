@@ -489,17 +489,18 @@ std::shared_ptr<vistle::RenderObject> COVER::addObject(int senderId, const std::
 
            int num_values; // vert_values
            float* values_array;
+           bool is_valid_tex = false;
            if (texture) {
                auto tex1D = vistle::Texture1D::as(texture);
                auto x_tex1d = tex1D->x();
-               float x0 = x_tex1d[0];
-
-               num_values = numVertices;
-               values_array = new float[num_values];
-               for(int i = 0; i < num_values; i++) {
-                   values_array[i] = x_tex1d[i];
+               if(!isinf(x_tex1d[0])){
+                   num_values = numVertices;
+                   values_array = new float[num_values];
+                   for(int i = 0; i < num_values; i++) {
+                       values_array[i] = x_tex1d[i];
+                   }
+                   is_valid_tex = true;
                }
-
            }
 
            // send data
@@ -509,7 +510,7 @@ std::shared_ptr<vistle::RenderObject> COVER::addObject(int senderId, const std::
            bytes_sent = send(sock, corn_array, sizeof(int) * num_corn, 0);
            bytes_sent = send(sock, &num_vert, sizeof(num_vert), 0);
            bytes_sent = send(sock, vert_array, sizeof(float) * vert_arr_size, 0);
-           if (texture) {
+           if (is_valid_tex) {
                bytes_sent = send(sock, &num_values, sizeof(num_values), 0);
                bytes_sent = send(sock, values_array, sizeof(float) * num_values, 0);
            } else {
@@ -518,12 +519,13 @@ std::shared_ptr<vistle::RenderObject> COVER::addObject(int senderId, const std::
                //bytes_sent = send(sock, values_array, sizeof(float) * num_values, 0);
            }
 
-
            // finalize
            delete[] el_array;
            delete[] corn_array;
            delete[] vert_array;
-           delete[] values_array;
+           if(is_valid_tex){
+               delete[] values_array;
+           }
 
            //send(sock , hello , strlen(hello) , 0 );
            //printf("Client message sent\n");
